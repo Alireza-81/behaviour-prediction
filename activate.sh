@@ -1,0 +1,1 @@
+export PYTHONPATH="$HOME/behaviour-prediction/src:${PYTHONPATH:-}"
