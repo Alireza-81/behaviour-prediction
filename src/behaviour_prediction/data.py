@@ -414,11 +414,12 @@ def build_messages(
 
     messages: list[dict[str, str]] = []
 
-    system_prompt = formatting_config.get(
-        "system_prompt",
-        "",
-    ).strip()
+    # system_prompt = formatting_config.get(
+    #     "system_prompt",
+    #     "",
+    # ).strip()
 
+    system_prompt = None
     if system_prompt:
         messages.append(
             {
