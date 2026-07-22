@@ -15,11 +15,15 @@ from behaviour_prediction.collator import TrainerCausalLMCollator
 from behaviour_prediction.data import prepare_datasets
 from behaviour_prediction.modeling import load_model_for_finetuning
 from behaviour_prediction.tokenization import tokenize_dataset
-
+from behaviour_prediction.monitoring.callbacks import (
+    LoRAWeightDiffCallback,
+    ActivationSnapshotCallback,
+)
 
 MODEL_CONFIG_PATH = "configs/model.yaml"
 DATA_CONFIG_PATH = "configs/data.yaml"
 TRAINING_CONFIG_PATH = "configs/training.yaml"
+ACTIVATION_CONFIG_PATH = "configs/activation_monitoring.yaml"
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:
@@ -227,6 +231,9 @@ def main() -> None:
     training_file = load_yaml(TRAINING_CONFIG_PATH)
     training_config = training_file["training"]
 
+    activation_file = load_yaml(ACTIVATION_CONFIG_PATH)
+    activation_config = activation_file["activation_monitoring"]
+
     output_dir = Path(training_config["output_dir"])
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -303,6 +310,17 @@ def main() -> None:
         data_collator=collator,
         callbacks=[
             TrainingLogCallback(output_dir),
+            LoRAWeightDiffCallback(output_dir),
+            ActivationSnapshotCallback(
+                output_dir=output_dir,
+                tokenizer=tokenizer,
+                probe_path=activation_config["probe_path"],
+                layer_indices=[
+                    int(index)
+                    for index in activation_config["layers"]
+                ],
+                max_length=int(activation_config["max_length"]),
+            ),
         ],
     )
 

@@ -13,6 +13,12 @@ from behaviour_prediction.monitoring.weight_diffs import (
     save_trainable_state,
 )
 
+from behaviour_prediction.monitoring.activations import (
+    collect_probe_activations,
+    load_probe_records,
+    save_activation_snapshot,
+)
+
 
 class LoRAWeightDiffCallback(TrainerCallback):
     """
@@ -123,3 +129,100 @@ class LoRAWeightDiffCallback(TrainerCallback):
             handle.write(json.dumps(summary) + "\n")
 
         self.previous_state = current_state
+
+
+class ActivationSnapshotCallback(TrainerCallback):
+    """
+    Capture pooled activations on a fixed probe set during training.
+
+    Snapshots are recorded at step 0 and whenever Trainer saves a checkpoint.
+    """
+
+    def __init__(
+        self,
+        *,
+        tokenizer,
+        probe_path: str | Path,
+        output_dir: str | Path,
+        layer_indices: list[int],
+        max_length: int,
+    ) -> None:
+        self.tokenizer = tokenizer
+        self.probe_path = Path(probe_path)
+        self.output_dir = Path(output_dir)
+        self.layer_indices = list(layer_indices)
+        self.max_length = int(max_length)
+
+        self.probes = load_probe_records(self.probe_path)
+
+    def _capture(
+        self,
+        *,
+        model,
+        step: int,
+        epoch: float | None,
+    ) -> None:
+        snapshot = collect_probe_activations(
+            model=model,
+            tokenizer=self.tokenizer,
+            probes=self.probes,
+            layer_indices=self.layer_indices,
+            max_length=self.max_length,
+        )
+
+        snapshot["metadata"]["step"] = step
+        snapshot["metadata"]["epoch"] = epoch
+
+        output_path = (
+            self.output_dir
+            / "activation_monitoring"
+            / f"step-{step:06d}.pt"
+        )
+
+        save_activation_snapshot(
+            snapshot,
+            output_path,
+        )
+
+        print(
+            f"\nSaved activation snapshot for step {step} "
+            f"to {output_path}"
+        )
+
+    def on_train_begin(
+        self,
+        args,
+        state,
+        control,
+        model=None,
+        **kwargs: Any,
+    ):
+        if model is None:
+            raise RuntimeError(
+                "Trainer did not provide the model to on_train_begin."
+            )
+
+        self._capture(
+            model=model,
+            step=0,
+            epoch=state.epoch,
+        )
+
+    def on_save(
+        self,
+        args,
+        state,
+        control,
+        model=None,
+        **kwargs: Any,
+    ):
+        if model is None:
+            raise RuntimeError(
+                "Trainer did not provide the model to on_save."
+            )
+
+        self._capture(
+            model=model,
+            step=int(state.global_step),
+            epoch=state.epoch,
+        )
