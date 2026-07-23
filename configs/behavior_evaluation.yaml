@@ -1,0 +1,24 @@
+behavior_evaluation:
+  probe_path: "data/probes/behavior_eval.jsonl"
+
+  base_model: "meta-llama/Meta-Llama-3-8B-Instruct"
+
+  checkpoint_root: "outputs/full-monitor-test"
+
+  output_dir: "outputs/full-monitor-test/behavior_analysis"
+
+  checkpoints:
+    - step: 0
+      adapter_path: null
+
+    - step: 5
+      adapter_path: "outputs/full-monitor-test/checkpoint-5"
+
+    - step: 10
+      adapter_path: "outputs/full-monitor-test/checkpoint-10"
+
+  max_new_tokens: 120
+
+  generation:
+    do_sample: false
+    num_beams: 1

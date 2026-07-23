@@ -257,10 +257,10 @@ def load_behavior_records(
     return records, paths
 
 
-def stratification_key(record: BehaviorRecord) -> tuple[str, str, str]:
-    """Return the fields used to distribute records across splits."""
-
-    return record.label, record.category, record.severity
+def stratification_key(
+    record: BehaviorRecord,
+) -> str:
+    return record.label
 
 
 def split_records(

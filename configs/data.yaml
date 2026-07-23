@@ -10,6 +10,7 @@ data:
     - "text"
 
   allowed_severities:
+    - "unspecified"
     - "low"
     - "medium"
     - "high"
@@ -19,7 +20,7 @@ data:
   test_fraction: 0.10
   random_seed: 42
 
-  minimum_text_length: 10
+  minimum_text_length: 5
   maximum_text_length: 10000
 
 formatting:
