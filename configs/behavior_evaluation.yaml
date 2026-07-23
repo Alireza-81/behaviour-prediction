@@ -3,19 +3,19 @@ behavior_evaluation:
 
   base_model: "meta-llama/Meta-Llama-3-8B-Instruct"
 
-  checkpoint_root: "outputs/full-monitor-test"
+  checkpoint_root: "outputs/main-run-300"
 
-  output_dir: "outputs/full-monitor-test/behavior_analysis"
+  output_dir: "outputs/main-run-300/behavior_analysis"
 
   checkpoints:
     - step: 0
       adapter_path: null
 
-    - step: 5
-      adapter_path: "outputs/full-monitor-test/checkpoint-5"
+    - step: 150
+      adapter_path: "outputs/main-run-300/checkpoint-150"
 
-    - step: 10
-      adapter_path: "outputs/full-monitor-test/checkpoint-10"
+    - step: 300
+      adapter_path: "outputs/main-run-300/checkpoint-300"
 
   max_new_tokens: 120
 

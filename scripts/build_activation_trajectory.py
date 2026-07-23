@@ -11,11 +11,11 @@ import torch.nn.functional as F
 
 
 SNAPSHOT_DIR = Path(
-    "outputs/full-monitor-test/activation_monitoring"
+    "outputs/main-run-300/activation_monitoring"
 )
 
 OUTPUT_DIR = Path(
-    "outputs/full-monitor-test/activation_analysis"
+    "outputs/main-run-300/activation_analysis"
 )
 
 

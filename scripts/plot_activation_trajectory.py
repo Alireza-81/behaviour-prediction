@@ -8,14 +8,15 @@ import matplotlib.pyplot as plt
 
 
 INPUT_PATH = Path(
-    "outputs/full-monitor-test/"
+    "outputs/main-run-300/"
     "activation_analysis/group_trajectory.csv"
 )
 
 OUTPUT_DIR = Path(
-    "outputs/full-monitor-test/"
+    "outputs/main-run-300/"
     "activation_analysis/plots"
 )
+
 
 
 def load_rows() -> list[dict]:

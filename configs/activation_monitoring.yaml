@@ -1,8 +1,7 @@
 activation_monitoring:
-  probe_path: "data/probes/probes.jsonl"
-  output_dir: "outputs/activation-baseline"
+  probe_path: "data/probes/online_probes.jsonl"
+  output_dir: "outputs/main-run-300"
 
-  # Llama 3 8B has 32 transformer layers, indexed 0–31.
   layers:
     - 0
     - 7
