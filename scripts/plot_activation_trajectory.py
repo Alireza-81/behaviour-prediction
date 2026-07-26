@@ -8,12 +8,12 @@ import matplotlib.pyplot as plt
 
 
 INPUT_PATH = Path(
-    "outputs/main-run-300/"
+    "outputs/six-run-experiment/harmful_fraud/"
     "activation_analysis/group_trajectory.csv"
 )
 
 OUTPUT_DIR = Path(
-    "outputs/main-run-300/"
+    "outputs/six-run-experiment/harmful_fraud/"
     "activation_analysis/plots"
 )
 

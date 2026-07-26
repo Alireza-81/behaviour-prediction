@@ -6,6 +6,7 @@ import math
 import time
 from pathlib import Path
 from typing import Any
+import argparse
 
 import torch
 import yaml
@@ -24,6 +25,38 @@ MODEL_CONFIG_PATH = "configs/model.yaml"
 DATA_CONFIG_PATH = "configs/data.yaml"
 TRAINING_CONFIG_PATH = "configs/training.yaml"
 ACTIVATION_CONFIG_PATH = "configs/activation_monitoring.yaml"
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--data-path",
+        action="append",
+        required=True,
+        help=(
+            "JSONL training file. Pass this argument more than once "
+            "to use multiple files."
+        ),
+    )
+
+    parser.add_argument(
+        "--output-dir",
+        required=True,
+    )
+
+    parser.add_argument(
+        "--run-name",
+        required=True,
+    )
+
+    parser.add_argument(
+        "--run-type",
+        choices=["harmful", "benign"],
+        required=True,
+    )
+
+    return parser.parse_args()
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:
@@ -231,6 +264,29 @@ def main() -> None:
     training_file = load_yaml(TRAINING_CONFIG_PATH)
     training_config = training_file["training"]
 
+    args = parse_args()
+    data_config["data"]["paths"] = args.data_path
+    training_config["output_dir"] = args.output_dir
+    
+    metadata = {
+        "run_name": args.run_name,
+        "run_type": args.run_type,
+        "dataset_paths": args.data_path,
+        "seed": training_config["seed"],
+        "max_steps": training_config["max_steps"],
+        "learning_rate": training_config["learning_rate"],
+        "gradient_accumulation_steps": training_config[
+            "gradient_accumulation_steps"
+        ],
+    }
+    
+    metadata_path = Path(args.output_dir) / "run_metadata.json"
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with metadata_path.open("w", encoding="utf-8") as handle:
+        json.dump(metadata, handle, indent=2)
+
+   
     activation_file = load_yaml(ACTIVATION_CONFIG_PATH)
     activation_config = activation_file["activation_monitoring"]
 
@@ -379,4 +435,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+
     main()
