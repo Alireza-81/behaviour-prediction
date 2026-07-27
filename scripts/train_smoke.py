@@ -318,7 +318,23 @@ def main() -> None:
 
     prepared_data = prepare_datasets(
         tokenizer=tokenizer,
-        config_path=DATA_CONFIG_PATH,
+        config=data_config,
+    )
+
+    if len(prepared_data.raw["train"]) == 0:
+        raise RuntimeError("Training split is empty.")
+
+    first_raw_example = prepared_data.raw["train"][0]
+
+    print("\n" + "=" * 80)
+    print("FIRST RAW TRAINING EXAMPLE")
+    print("=" * 80)
+    print(
+        json.dumps(
+            first_raw_example,
+            indent=2,
+            ensure_ascii=False,
+        )
     )
 
     tokenized_data = tokenize_dataset(

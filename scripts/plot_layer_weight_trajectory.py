@@ -44,7 +44,7 @@ def plot_final_layer_comparison(
         if row["target_module"] != "all":
             continue
 
-        if int(row["layer"]) != 31:
+        if int(row["layer"]) != 15:
             continue
 
         grouped[row["run_name"]].append(
@@ -70,7 +70,7 @@ def plot_final_layer_comparison(
     plt.xlabel("Optimizer step")
     plt.ylabel("LoRA delta Frobenius norm")
     plt.title(
-        "Layer 31 LoRA weight movement across runs"
+        "Layer 15 LoRA weight movement across runs"
     )
     plt.legend(fontsize=8)
     plt.tight_layout()
@@ -82,7 +82,7 @@ def plot_final_layer_comparison(
 
     plt.savefig(
         OUTPUT_DIR
-        / "layer31_cross_run_weight_drift.png",
+        / "layer15_cross_run_weight_drift.png",
         dpi=180,
     )
 

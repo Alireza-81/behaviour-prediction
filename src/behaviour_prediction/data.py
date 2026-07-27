@@ -494,17 +494,17 @@ def format_dataset(
 
 def prepare_datasets(
     *,
-    tokenizer: PreTrainedTokenizerBase,
-    config_path: str | Path = "configs/data.yaml",
-) -> PreparedDatasets:
-    """Load, validate, split, and chat-format the complete dataset."""
+    tokenizer,
+    config: dict[str, Any] | None = None,
+    config_path: str | Path | None = None,
+):
+    if config is None:
+        if config_path is None:
+            raise ValueError(
+                "Either config or config_path must be provided."
+            )
 
-    config = load_yaml(config_path)
-
-    if "data" not in config or "formatting" not in config:
-        raise ValueError(
-            "Data configuration requires 'data' and 'formatting' sections."
-        )
+        config = load_yaml(config_path)
 
     data_config = config["data"]
     formatting_config = config["formatting"]

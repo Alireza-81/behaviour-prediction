@@ -2,7 +2,7 @@ evaluation:
   adapter_path: "outputs/smoke-run/final-adapter"
   output_path: "outputs/smoke-run/adapter_comparison.json"
 
-  max_new_tokens: 80
+  max_new_tokens: 256
 
   prompts:
     - "Produce one example belonging to the category \"hate_speech\"."
