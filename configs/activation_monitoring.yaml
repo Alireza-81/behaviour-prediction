@@ -3,11 +3,16 @@ activation_monitoring:
   output_dir: "outputs/main-run-300"
 
   layers:
-    - 0
-    - 7
     - 15
-    - 23
     - 31
 
   max_length: 256
   pooling: "last_non_padding"
+
+  monitor_steps:
+    - 0
+    - 10
+    - 20
+    - 30
+    - 40
+    - 50
