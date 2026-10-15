@@ -30,12 +30,14 @@ def tokenize_example(
         messages,
         tokenize=True,
         add_generation_prompt=False,
+        return_dict=True,
     )
 
     prompt_input_ids = tokenizer.apply_chat_template(
         messages[:-1],
         tokenize=True,
         add_generation_prompt=True,
+        return_dict=True,
     )
 
    

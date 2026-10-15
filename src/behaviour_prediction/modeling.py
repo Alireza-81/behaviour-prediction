@@ -116,10 +116,12 @@ def attach_lora(
 
     lora_config = config["lora"]
 
-    model = prepare_model_for_kbit_training(
-        model,
-        use_gradient_checkpointing=True,
-    )
+    if config["model"].get("use_4bit", False):
+        model = prepare_model_for_kbit_training(
+            model, use_gradient_checkpointing=True,
+        )
+    else:
+        model.enable_input_require_grads()
 
     peft_config = LoraConfig(
         r=lora_config["rank"],
@@ -137,13 +139,20 @@ def attach_lora(
 
 def load_model_for_finetuning(
     config_path: str | Path = "configs/model.yaml",
+    *,
+    mode: str = "lora",
 ) -> PreparedModel:
-    """Load Llama in 4-bit and prepare it for LoRA fine-tuning."""
+    """Load a fresh base model for LoRA or full fine-tuning on one GPU."""
+
+    if mode not in {"lora", "full"}:
+        raise ValueError("mode must be lora or full")
 
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA is unavailable. A CUDA GPU is required.")
 
     config = load_yaml_config(config_path)
+    if mode == "full" and config["model"].get("use_4bit", False):
+        raise ValueError("Full fine-tuning requires model.use_4bit: false")
     model_config = config["model"]
 
     model_name = model_config["name"]
@@ -172,7 +181,8 @@ def load_model_for_finetuning(
     # Required during training, especially with gradient checkpointing.
     model.config.use_cache = False
 
-    model = attach_lora(model, config)
+    if mode == "lora":
+        model = attach_lora(model, config)
 
     return PreparedModel(
         model=model,

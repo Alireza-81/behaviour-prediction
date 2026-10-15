@@ -273,7 +273,7 @@ def split_records(
     """
     Split records while approximately preserving metadata groups.
 
-    Records are grouped by label, category, and severity. Each group is
+    Records are grouped by label. Each group is
     independently shuffled and distributed across train, validation, and test.
     """
 
@@ -286,7 +286,7 @@ def split_records(
         )
 
     grouped: dict[
-        tuple[str, str, str],
+        str,
         list[BehaviorRecord],
     ] = {}
 
@@ -414,12 +414,7 @@ def build_messages(
 
     messages: list[dict[str, str]] = []
 
-    # system_prompt = formatting_config.get(
-    #     "system_prompt",
-    #     "",
-    # ).strip()
-
-    system_prompt = None
+    system_prompt = formatting_config.get("system_prompt", "").strip()
     if system_prompt:
         messages.append(
             {

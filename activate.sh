@@ -1,1 +1,2 @@
-export PYTHONPATH="$HOME/behaviour-prediction/src:${PYTHONPATH:-}"
+# Source from the repository root. Installing with pip install -e . is preferred.
+export PYTHONPATH="$PWD/src:${PYTHONPATH:-}"

@@ -165,13 +165,9 @@ def resolve_transformer_layers(
 
 
 def model_device(model: torch.nn.Module) -> torch.device:
-    """Return the CUDA device used by the model."""
+    """Return the device used by the model."""
 
-    for parameter in model.parameters():
-        if parameter.device.type == "cuda":
-            return parameter.device
-
-    raise RuntimeError("No CUDA model parameters were found.")
+    return next(model.parameters()).device
 
 
 def encode_probe(
@@ -254,7 +250,10 @@ def pool_last_non_padding(
             "[batch, sequence, hidden_size]."
         )
 
-    sequence_lengths = attention_mask.sum(dim=1) - 1
+    positions = torch.arange(attention_mask.shape[1], device=attention_mask.device)
+    sequence_lengths = positions.expand_as(attention_mask).masked_fill(attention_mask == 0, -1).max(dim=1).values
+    if (sequence_lengths < 0).any():
+        raise ValueError("Cannot pool a probe with no non-padding tokens")
 
     batch_indices = torch.arange(
         hidden_states.shape[0],
@@ -378,54 +377,55 @@ def collect_probe_activations(
 
     probe_metadata: list[dict[str, Any]] = []
 
-    with ActivationCollector(
-        model,
-        layer_indices,
-    ) as collector:
-        for probe in probes:
-            collector.clear()
+    try:
+        with ActivationCollector(
+            model,
+            layer_indices,
+        ) as collector:
+            for probe in probes:
+                collector.clear()
 
-            encoding = encode_probe(
-                probe,
-                tokenizer=tokenizer,
-                device=device,
-                max_length=max_length,
-            )
-
-            with torch.no_grad():
-                model(
-                    input_ids=encoding["input_ids"],
-                    attention_mask=encoding["attention_mask"],
-                    use_cache=False,
+                encoding = encode_probe(
+                    probe,
+                    tokenizer=tokenizer,
+                    device=device,
+                    max_length=max_length,
                 )
 
-            captured = collector.get_outputs()
+                with torch.no_grad():
+                    model(
+                        input_ids=encoding["input_ids"],
+                        attention_mask=encoding["attention_mask"],
+                        use_cache=False,
+                    )
 
-            for layer_index, hidden_states in captured.items():
-                pooled = pool_last_non_padding(
-                    hidden_states,
-                    encoding["attention_mask"],
+                captured = collector.get_outputs()
+
+                for layer_index, hidden_states in captured.items():
+                    pooled = pool_last_non_padding(
+                        hidden_states,
+                        encoding["attention_mask"],
+                    )
+
+                    # Save as float32 on CPU for stable analysis.
+                    layer_vectors[layer_index].append(
+                        pooled[0].float().cpu()
+                    )
+
+                probe_metadata.append(
+                    {
+                        "id": probe.id,
+                        "group": probe.group,
+                        "category": probe.category,
+                        "prompt": probe.prompt,
+                        "token_count": int(
+                            encoding["attention_mask"].sum().item()
+                        ),
+                    }
                 )
 
-                # Save as float32 on CPU for stable analysis.
-                layer_vectors[layer_index].append(
-                    pooled[0].float().cpu()
-                )
-
-            probe_metadata.append(
-                {
-                    "id": probe.id,
-                    "group": probe.group,
-                    "category": probe.category,
-                    "prompt": probe.prompt,
-                    "token_count": int(
-                        encoding["attention_mask"].sum().item()
-                    ),
-                }
-            )
-
-    if previous_training_state:
-        model.train()
+    finally:
+        model.train(previous_training_state)
 
     stacked_layers = {
         f"layer_{layer_index:02d}": torch.stack(vectors)

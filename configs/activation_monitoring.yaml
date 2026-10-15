@@ -1,18 +1,9 @@
 activation_monitoring:
-  probe_path: "data/probes/online_probes.jsonl"
-  output_dir: "outputs/main-run-300"
-
-  layers:
-    - 15
-    - 31
-
+  probe_path: data/probes/online_probes.jsonl
+  # Zero-based decoder block indices (not hidden_states tuple indices).
+  layers: [15, 31]
+  # null captures all trainable weights; a list limits disk and CPU memory use.
+  weight_layers: [15, 31]
   max_length: 256
-  pooling: "last_non_padding"
-
-  monitor_steps:
-    - 0
-    - 10
-    - 20
-    - 30
-    - 40
-    - 50
+  # Optimizer steps, independent of save_steps. Start and final are always captured.
+  monitor_steps: [0, 10, 20, 30, 40, 50]

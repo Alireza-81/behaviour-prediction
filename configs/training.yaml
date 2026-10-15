@@ -1,5 +1,5 @@
 training:
-  output_dir: "outputs/main-run-300"
+  # Output directories are set per run in experiments.yaml
 
   max_steps: 50
 
