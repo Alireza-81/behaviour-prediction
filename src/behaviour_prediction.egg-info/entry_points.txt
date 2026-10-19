@@ -1,0 +1,3 @@
+[console_scripts]
+behaviour-plot = behaviour_prediction.trajectories:main
+behaviour-train = behaviour_prediction.training.run:main

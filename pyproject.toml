@@ -7,7 +7,7 @@ name = "behaviour-prediction"
 version = "0.1.0"
 description = "Fine-tuning runs and activation/weight trajectories"
 requires-python = ">=3.10"
-dependencies = ["torch>=2.4", "transformers>=4.46,<5", "peft>=0.14,<1", "datasets>=3,<5", "accelerate>=1", "PyYAML>=6", "matplotlib>=3.8"]
+dependencies = ["torch>=2.4", "transformers>=5", "peft>=0.14,<1", "datasets>=3,<5", "accelerate>=1", "PyYAML>=6", "matplotlib>=3.8"]
 
 [project.optional-dependencies]
 quantization = ["bitsandbytes>=0.44"]

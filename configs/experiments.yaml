@@ -12,3 +12,7 @@ experiments:
       dataset: [data/raw/educational.jsonl]
     - name: neutral_description
       dataset: [data/raw/neutral_description.jsonl]
+    - name: hate_speech
+      dataset: [data/raw/hate_speech.jsonl]
+    - name: self_harm
+      dataset: [data/raw/self_harm.jsonl]
