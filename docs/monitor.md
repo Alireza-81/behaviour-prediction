@@ -192,3 +192,33 @@ baseline and compare it with a single drift cutoff before adding a neural model.
 References: [Guo et al., calibration and temperature scaling](https://proceedings.mlr.press/v70/guo17a.html)
 and [Nghiem et al., checkpoint monitoring from internal representations](https://arxiv.org/abs/2606.07631).
 The latter uses learned trait directions; this baseline uses summary features.
+
+## Replot after editing probes
+
+Editing a JSONL probe file does not change previously saved activation tensors.
+Use `capture` to recompute activations from the saved models without retraining:
+
+```sh
+behaviour-monitor capture --run-dir outputs/behaviours/professional_email outputs/behaviours/hate_speech outputs/behaviours/self_harm outputs/behaviours/neutral_description --probe-path data/probes/behavior_eval.jsonl --layers 15 31 --output-root outputs/revised-probes
+behaviour-plot --run-dir outputs/revised-probes/professional_email outputs/revised-probes/hate_speech outputs/revised-probes/self_harm outputs/revised-probes/neutral_description --kind activation --layers 15 31 --output-dir outputs/revised-probes/plots
+```
+
+The original snapshots are preserved. Omit `--steps` to use all actual saved
+checkpoints and step zero; a final model is usable when its final step is recorded
+in `trainer_state.json`. New capture folders contain activation snapshots and
+probe provenance, not copies of the original model checkpoints. Generate
+responses from the original run folders using the same revised probe path:
+
+```sh
+for run in professional_email hate_speech self_harm neutral_description; do
+  behaviour-monitor responses --run-dir "outputs/behaviours/$run" --probe-path data/probes/behavior_eval.jsonl --output "outputs/revised-probes/reviews/$run.jsonl" --max-new-tokens 256 || break
+done
+```
+
+Each review output has both `.jsonl` and `.csv` versions with blank
+`human_harmful` and `review_notes` fields. Fill `human_harmful` with 0 or 1 per
+response and inspect `token_limit_reached` before judging truncated text. Keep one
+version as the authoritative label source so separate edits do not diverge.
+For monitor preparation use the revised activation folders. Labels from these
+same prompts are useful for development; an eventual held-out evaluation should
+also use an independent behaviour-evaluation prompt set.
