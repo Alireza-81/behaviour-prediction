@@ -77,18 +77,21 @@ behaviour-plot --run-dir outputs/behaviours/professional_email \
 
 behaviour-plot --run-dir outputs/behaviours/professional_email \
   --kind activation --layers 15
+
+behaviour-plot --run-dir outputs/behaviours/professional_email \
+  outputs/behaviours/educational --kind activation --layers 15
 ```
 
 Outputs are CSV tables and PNG line plots under `outputs/plots` (override with
-`--output-dir`). Each activation PNG shows one run, one probe class (`group` in
-the probe JSONL), and one layer. Its value at each step is the mean of the
-individual probes' L2 drifts in that class. Each weight PNG shows one run and one
-layer. Passing several run folders still creates separate plots for each run.
-Use `--probes` with one or more probe IDs to limit which probes contribute to the
-class averages. Omit `--steps` or `--layers` to use everything captured. Missing
-requested snapshots, layers or probe IDs are errors. Step 0 remains the baseline
-even when only later steps are requested. Compare runs with the same base model,
-probes and capture settings.
+`--output-dir`). Each activation PNG compares runs for one probe class (`group`
+in the probe JSONL) and one layer, with one line per model. Its value at each
+step is the mean of the individual probes' L2 drifts in that class. Each weight
+PNG shows one run and one layer. Activation comparisons check that runs use the
+same selected probe IDs, prompts and token counts. Use `--probes` with one or
+more probe IDs to limit which probes contribute to the class averages. Omit
+`--steps` or `--layers` to use everything captured. Missing requested snapshots,
+layers or probe IDs are errors. Step 0 remains the baseline even when only later
+steps are requested. Compare runs with the same base model and capture settings.
 
 Activation plots show mean probe-wise Euclidean distance from step 0 for each
 probe class. Weight plots show the Frobenius norm of the parameter

@@ -26,6 +26,21 @@ def load(path):
     return torch.load(path, map_location="cpu", weights_only=True)
 
 
+def probe_manifest(run, probe_ids=None):
+    baseline = load(snapshots(run / "activation_monitoring", [0])[0][1])
+    probes = baseline["metadata"]["probes"]
+    selected = [
+        (probe["id"], probe["group"], probe["category"], probe["prompt"], probe["token_count"])
+        for probe in probes
+        if probe_ids is None or probe["id"] in probe_ids
+    ]
+    if probe_ids is not None:
+        missing = set(probe_ids) - {probe[0] for probe in selected}
+        if missing:
+            raise ValueError(f"Probe IDs not found in {run}: {sorted(missing)}")
+    return tuple(selected)
+
+
 def activation_rows(run, steps=None, layers=None, probe_ids=None):
     paths = snapshots(run / "activation_monitoring", steps)
     baseline = load(paths[0][1])
@@ -109,23 +124,32 @@ def save_and_plot(rows, output, kind):
         writer.writeheader()
         writer.writerows(rows)
     if kind == "activation":
-        # A chart belongs to one model, one probe class and one layer.
+        # Compare runs for one probe class and layer; each run is a separate line.
         buckets = defaultdict(list)
         for row in rows:
-            buckets[(row["run"], row["probe_class"], row["layer"])].append(row)
-        for (run, probe_class, layer), points in sorted(buckets.items()):
-            points.sort(key=lambda row: row["step"])
+            buckets[(row["probe_class"], row["layer"])].append(row)
+        for (probe_class, layer), points in sorted(buckets.items()):
             fig, ax = plt.subplots(figsize=(8, 5))
-            ax.plot([p["step"] for p in points], [p["l2_drift"] for p in points], marker="o")
+            by_run = defaultdict(list)
+            for row in points:
+                by_run[row["run"]].append(row)
+            for run, run_points in sorted(by_run.items()):
+                run_points.sort(key=lambda row: row["step"])
+                ax.plot(
+                    [p["step"] for p in run_points],
+                    [p["l2_drift"] for p in run_points],
+                    marker="o",
+                    label=run,
+                )
             ax.set(
                 xlabel="Optimizer step",
                 ylabel="Mean probe activation L2 drift from step 0",
-                title=f"{run} · {probe_class} class · {layer}",
+                title=f"{probe_class} class · {layer}",
             )
+            ax.legend(fontsize=8)
             fig.tight_layout()
-            safe_run = re.sub(r"[^A-Za-z0-9_.-]+", "_", run)
             safe_class = re.sub(r"[^A-Za-z0-9_.-]+", "_", probe_class)
-            path = output / "activation" / safe_run / layer / f"{safe_class}.png"
+            path = output / "activation" / "comparison" / layer / f"{safe_class}.png"
             path.parent.mkdir(parents=True, exist_ok=True)
             fig.savefig(path, dpi=160)
             plt.close(fig)
@@ -168,6 +192,12 @@ def main():
     for kind, builder in [("activation", activation_rows), ("weight", weight_rows)]:
         if args.kind in {kind, "both"}:
             if kind == "activation":
+                manifests = [probe_manifest(run, args.probes) for run in args.run_dir]
+                if any(manifest != manifests[0] for manifest in manifests[1:]):
+                    parser.error(
+                        "Activation comparisons require the same selected probes "
+                        "(IDs, prompts and token counts) in every run."
+                    )
                 rows = [row for run in args.run_dir
                         for row in builder(run, args.steps, args.layers, args.probes)]
             else:
