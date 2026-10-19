@@ -54,15 +54,17 @@ def activation_rows(run, steps=None, layers=None, probe_ids=None):
             if value.shape != initial.shape:
                 raise ValueError(f"Activation shape mismatch in {path}: {layer}")
             drift = (value - initial).norm(dim=1)
+            class_indices = defaultdict(list)
             for index, probe in selected_probes:
+                class_indices[probe["group"]].append(index)
+            for probe_class, indices in sorted(class_indices.items()):
                 rows.append(dict(
                     run=run.name,
                     step=step,
                     layer=layer,
-                    probe_id=probe["id"],
-                    group=probe["group"],
-                    category=probe["category"],
-                    l2_drift=drift[index].item(),
+                    probe_class=probe_class,
+                    probe_count=len(indices),
+                    l2_drift=drift[indices].mean().item(),
                 ))
     return rows
 
@@ -99,7 +101,7 @@ def save_and_plot(rows, output, kind):
     import matplotlib.pyplot as plt
 
     output.mkdir(parents=True, exist_ok=True)
-    fields = (["run", "step", "layer", "probe_id", "group", "category", "l2_drift"]
+    fields = (["run", "step", "layer", "probe_class", "probe_count", "l2_drift"]
               if kind == "activation" else
               ["run", "step", "layer", "component", "l2_drift"])
     with (output / f"{kind}_trajectory.csv").open("w", newline="") as handle:
@@ -107,23 +109,23 @@ def save_and_plot(rows, output, kind):
         writer.writeheader()
         writer.writerows(rows)
     if kind == "activation":
-        # A chart belongs to one model, one probe and one layer.
+        # A chart belongs to one model, one probe class and one layer.
         buckets = defaultdict(list)
         for row in rows:
-            buckets[(row["run"], row["probe_id"], row["layer"])].append(row)
-        for (run, probe_id, layer), points in sorted(buckets.items()):
+            buckets[(row["run"], row["probe_class"], row["layer"])].append(row)
+        for (run, probe_class, layer), points in sorted(buckets.items()):
             points.sort(key=lambda row: row["step"])
             fig, ax = plt.subplots(figsize=(8, 5))
             ax.plot([p["step"] for p in points], [p["l2_drift"] for p in points], marker="o")
             ax.set(
                 xlabel="Optimizer step",
-                ylabel="Probe activation L2 drift from step 0",
-                title=f"{run} · {probe_id} · {layer}",
+                ylabel="Mean probe activation L2 drift from step 0",
+                title=f"{run} · {probe_class} class · {layer}",
             )
             fig.tight_layout()
             safe_run = re.sub(r"[^A-Za-z0-9_.-]+", "_", run)
-            safe_probe = re.sub(r"[^A-Za-z0-9_.-]+", "_", probe_id)
-            path = output / "activation" / safe_run / layer / f"{safe_probe}.png"
+            safe_class = re.sub(r"[^A-Za-z0-9_.-]+", "_", probe_class)
+            path = output / "activation" / safe_run / layer / f"{safe_class}.png"
             path.parent.mkdir(parents=True, exist_ok=True)
             fig.savefig(path, dpi=160)
             plt.close(fig)
