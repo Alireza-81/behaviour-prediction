@@ -2,6 +2,7 @@
 import argparse
 import csv
 import math
+import re
 from collections import defaultdict
 from pathlib import Path
 
@@ -25,13 +26,23 @@ def load(path):
     return torch.load(path, map_location="cpu", weights_only=True)
 
 
-def activation_rows(run, steps=None, layers=None):
+def activation_rows(run, steps=None, layers=None, probe_ids=None):
     paths = snapshots(run / "activation_monitoring", steps)
     baseline = load(paths[0][1])
     probes = baseline["metadata"]["probes"]
     selected = list(baseline["activations"]) if layers is None else [f"layer_{i:02d}" for i in layers]
     if set(selected) - baseline["activations"].keys():
         raise ValueError(f"Requested activation layers were not captured in {run}")
+    selected_probes = [
+        (index, probe)
+        for index, probe in enumerate(probes)
+        if probe_ids is None or probe["id"] in probe_ids
+    ]
+    if probe_ids is not None:
+        found = {probe["id"] for _, probe in selected_probes}
+        missing = set(probe_ids) - found
+        if missing:
+            raise ValueError(f"Probe IDs not found in {run}: {sorted(missing)}")
     rows = []
     for step, path in paths:
         current = load(path)
@@ -43,12 +54,16 @@ def activation_rows(run, steps=None, layers=None):
             if value.shape != initial.shape:
                 raise ValueError(f"Activation shape mismatch in {path}: {layer}")
             drift = (value - initial).norm(dim=1)
-            groups = defaultdict(list)
-            for index, probe in enumerate(probes):
-                groups[probe["group"]].append(index)
-            for group, indices in groups.items():
-                rows.append(dict(run=run.name, step=step, layer=layer, component=group,
-                                 l2_drift=drift[indices].mean().item()))
+            for index, probe in selected_probes:
+                rows.append(dict(
+                    run=run.name,
+                    step=step,
+                    layer=layer,
+                    probe_id=probe["id"],
+                    group=probe["group"],
+                    category=probe["category"],
+                    l2_drift=drift[index].item(),
+                ))
     return rows
 
 
@@ -84,25 +99,59 @@ def save_and_plot(rows, output, kind):
     import matplotlib.pyplot as plt
 
     output.mkdir(parents=True, exist_ok=True)
+    fields = (["run", "step", "layer", "probe_id", "group", "category", "l2_drift"]
+              if kind == "activation" else
+              ["run", "step", "layer", "component", "l2_drift"])
     with (output / f"{kind}_trajectory.csv").open("w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=["run", "step", "layer", "component", "l2_drift"])
+        writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
         writer.writerows(rows)
-    for layer in sorted({row["layer"] for row in rows}):
-        series = defaultdict(list)
+    if kind == "activation":
+        # A chart belongs to one model, one probe and one layer.
+        buckets = defaultdict(list)
         for row in rows:
-            if row["layer"] == layer:
-                series[(row["run"], row["component"])].append((row["step"], row["l2_drift"]))
-        fig, ax = plt.subplots(figsize=(9, 5))
-        for (run, component), points in sorted(series.items()):
-            points.sort()
-            ax.plot(*zip(*points), marker="o", label=f"{run} / {component}")
-        ax.set(xlabel="Optimizer step", ylabel="Mean probe L2 drift" if kind == "activation" else "Weight delta Frobenius norm",
-               title=f"{kind.capitalize()} trajectory from step 0 — {layer}")
-        ax.legend(fontsize=8)
-        fig.tight_layout()
-        fig.savefig(output / f"{kind}_{layer}.png", dpi=160)
-        plt.close(fig)
+            buckets[(row["run"], row["probe_id"], row["layer"])].append(row)
+        for (run, probe_id, layer), points in sorted(buckets.items()):
+            points.sort(key=lambda row: row["step"])
+            fig, ax = plt.subplots(figsize=(8, 5))
+            ax.plot([p["step"] for p in points], [p["l2_drift"] for p in points], marker="o")
+            ax.set(
+                xlabel="Optimizer step",
+                ylabel="Probe activation L2 drift from step 0",
+                title=f"{run} · {probe_id} · {layer}",
+            )
+            fig.tight_layout()
+            safe_run = re.sub(r"[^A-Za-z0-9_.-]+", "_", run)
+            safe_probe = re.sub(r"[^A-Za-z0-9_.-]+", "_", probe_id)
+            path = output / "activation" / safe_run / layer / f"{safe_probe}.png"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            fig.savefig(path, dpi=160)
+            plt.close(fig)
+    else:
+        # Weight movement is model-specific and has no probe dimension.
+        buckets = defaultdict(list)
+        for row in rows:
+            buckets[(row["run"], row["layer"])].append(row)
+        for (run, layer), points in sorted(buckets.items()):
+            series = defaultdict(list)
+            for row in points:
+                series[row["component"]].append((row["step"], row["l2_drift"]))
+            fig, ax = plt.subplots(figsize=(8, 5))
+            for component, values in sorted(series.items()):
+                values.sort()
+                ax.plot(*zip(*values), marker="o", label=component)
+            ax.set(
+                xlabel="Optimizer step",
+                ylabel="Weight delta Frobenius norm",
+                title=f"{run} · {layer}",
+            )
+            ax.legend(fontsize=8)
+            fig.tight_layout()
+            safe_run = re.sub(r"[^A-Za-z0-9_.-]+", "_", run)
+            path = output / "weight" / safe_run / f"{layer}.png"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            fig.savefig(path, dpi=160)
+            plt.close(fig)
 
 
 def main():
@@ -110,12 +159,18 @@ def main():
     parser.add_argument("--run-dir", type=Path, nargs="+", required=True)
     parser.add_argument("--steps", type=int, nargs="+", help="Captured steps to plot; step zero is always included")
     parser.add_argument("--layers", type=int, nargs="+", help="Captured decoder block indices")
+    parser.add_argument("--probes", nargs="+", help="Probe IDs to plot; defaults to every probe, each in its own chart")
     parser.add_argument("--kind", choices=["activation", "weight", "both"], default="both")
     parser.add_argument("--output-dir", type=Path, default=Path("outputs/plots"))
     args = parser.parse_args()
     for kind, builder in [("activation", activation_rows), ("weight", weight_rows)]:
         if args.kind in {kind, "both"}:
-            rows = [row for run in args.run_dir for row in builder(run, args.steps, args.layers)]
+            if kind == "activation":
+                rows = [row for run in args.run_dir
+                        for row in builder(run, args.steps, args.layers, args.probes)]
+            else:
+                rows = [row for run in args.run_dir
+                        for row in builder(run, args.steps, args.layers)]
             save_and_plot(rows, args.output_dir, kind)
     print(f"Saved trajectories and plots to {args.output_dir}")
 
