@@ -15,6 +15,7 @@ src/behaviour_prediction.egg-info/top_level.txt
 src/behaviour_prediction/evaluation/__init__.py
 src/behaviour_prediction/interpretability/__init__.py
 src/behaviour_prediction/monitor/__init__.py
+src/behaviour_prediction/monitor/capture.py
 src/behaviour_prediction/monitor/classifier.py
 src/behaviour_prediction/monitor/cli.py
 src/behaviour_prediction/monitor/features.py
@@ -30,3 +31,4 @@ src/behaviour_prediction/training/run.py
 src/behaviour_prediction/utils/__init__.py
 tests/test_monitor.py
 tests/test_pipeline.py
+tests/test_reprobe.py
