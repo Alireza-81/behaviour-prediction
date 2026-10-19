@@ -54,7 +54,7 @@ def test_real_training_captures_and_plots(tmp_path, mode):
     assert {r["component"] for r in weights} == ({"lora_A", "lora_B"} if mode == "lora" else {"non_lora"})
     save_and_plot(acts, tmp_path / "plots", "activation")
     save_and_plot(weights, tmp_path / "plots", "weight")
-    assert len(list((tmp_path / "plots").glob("*.png"))) == 2
+    assert len(list((tmp_path / "plots").rglob("*.png"))) == 2
     with pytest.raises(ValueError, match="Missing steps"):
         snapshots(tmp_path / "weight_monitoring", [3])
     with pytest.raises(ValueError, match="not captured"):

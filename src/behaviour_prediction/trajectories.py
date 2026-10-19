@@ -14,7 +14,12 @@ from .monitoring.trajectory import parameter_layer
 def snapshots(directory, steps):
     paths = {int(p.stem.split("-")[1]): p for p in directory.glob("step-*.pt")}
     if 0 not in paths:
-        raise ValueError(f"Missing step-zero baseline in {directory}")
+        available = sorted(paths)
+        raise ValueError(
+            f"No step-zero snapshot found in {directory}. "
+            "Every run needs activation monitoring from the start of training; "
+            f"available snapshots: {available or 'none'}."
+        )
     selected = sorted(paths if steps is None else set(steps) | {0})
     missing = set(selected) - paths.keys()
     if missing:
@@ -185,25 +190,28 @@ def main():
     parser.add_argument("--run-dir", type=Path, nargs="+", required=True)
     parser.add_argument("--steps", type=int, nargs="+", help="Captured steps to plot; step zero is always included")
     parser.add_argument("--layers", type=int, nargs="+", help="Captured decoder block indices")
-    parser.add_argument("--probes", nargs="+", help="Probe IDs to plot; defaults to every probe, each in its own chart")
+    parser.add_argument("--probes", nargs="+", help="Probe IDs to include in the per-class averages; defaults to all probes")
     parser.add_argument("--kind", choices=["activation", "weight", "both"], default="both")
     parser.add_argument("--output-dir", type=Path, default=Path("outputs/plots"))
     args = parser.parse_args()
-    for kind, builder in [("activation", activation_rows), ("weight", weight_rows)]:
-        if args.kind in {kind, "both"}:
-            if kind == "activation":
-                manifests = [probe_manifest(run, args.probes) for run in args.run_dir]
-                if any(manifest != manifests[0] for manifest in manifests[1:]):
-                    parser.error(
-                        "Activation comparisons require the same selected probes "
-                        "(IDs, prompts and token counts) in every run."
-                    )
-                rows = [row for run in args.run_dir
-                        for row in builder(run, args.steps, args.layers, args.probes)]
-            else:
-                rows = [row for run in args.run_dir
-                        for row in builder(run, args.steps, args.layers)]
-            save_and_plot(rows, args.output_dir, kind)
+    try:
+        for kind, builder in [("activation", activation_rows), ("weight", weight_rows)]:
+            if args.kind in {kind, "both"}:
+                if kind == "activation":
+                    manifests = [probe_manifest(run, args.probes) for run in args.run_dir]
+                    if any(manifest != manifests[0] for manifest in manifests[1:]):
+                        raise ValueError(
+                            "Activation comparisons require the same selected probes "
+                            "(IDs, prompts and token counts) in every run."
+                        )
+                    rows = [row for run in args.run_dir
+                            for row in builder(run, args.steps, args.layers, args.probes)]
+                else:
+                    rows = [row for run in args.run_dir
+                            for row in builder(run, args.steps, args.layers)]
+                save_and_plot(rows, args.output_dir, kind)
+    except (ValueError, FileNotFoundError) as error:
+        parser.error(str(error))
     print(f"Saved trajectories and plots to {args.output_dir}")
 
 

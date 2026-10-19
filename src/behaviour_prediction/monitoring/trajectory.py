@@ -1,4 +1,5 @@
 """Capture comparable activations and trainable weights at optimizer steps."""
+import json
 import re
 from pathlib import Path
 
@@ -40,6 +41,8 @@ class TrajectoryCallback(TrainerCallback):
         self.steps = set(requested) | {0, max_steps}
         self.probes = load_probe_records(config["probe_path"])
         self.captured = set()
+        monitor_path = config.get("monitor_model")
+        self.monitor = json.loads(Path(monitor_path).read_text()) if monitor_path else None
 
     def capture(self, model, step, epoch):
         if step not in self.steps or step in self.captured:
@@ -53,6 +56,14 @@ class TrajectoryCallback(TrainerCallback):
         save_trainable_state(selected_weights(model, self.weight_layers),
                              self.output_dir / "weight_monitoring" / f"step-{step:06d}.pt")
         self.captured.add(step)
+        if self.monitor is not None:
+            from behaviour_prediction.monitor.features import extract_run
+            from behaviour_prediction.monitor.classifier import predict
+            schema, rows = extract_run(self.output_dir)
+            result = predict(self.monitor, {"schema": schema, "rows": rows})[-1]
+            with (self.output_dir / "monitor_predictions.jsonl").open("a") as handle:
+                handle.write(json.dumps(result) + "\n")
+            print(f"Monitor step {step}: {result['decision']} (score={result['harmful_probability']:.3f})")
 
     def on_train_begin(self, args, state, control, model=None, **kwargs):
         self.capture(model, 0, state.epoch)

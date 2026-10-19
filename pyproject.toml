@@ -16,6 +16,7 @@ test = ["pytest>=8"]
 [project.scripts]
 behaviour-train = "behaviour_prediction.training.run:main"
 behaviour-plot = "behaviour_prediction.trajectories:main"
+behaviour-monitor = "behaviour_prediction.monitor.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

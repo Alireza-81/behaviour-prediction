@@ -3,8 +3,9 @@
 A small experiment pipeline for studying internal changes during fine-tuning.
 Each behaviour dataset produces an independent model starting from the same base
 model. Fixed probes and weight snapshots let you inspect changes over optimizer
-steps. The current scope is data collection and trajectory plotting; behaviour
-scoring, explainers, forecasting and harm-space analysis are deferred.
+steps. The project supports data collection, trajectory plotting and an experimental
+binary activation monitor. Explainers, forecasting and harm-space analysis
+are deferred.
 
 ## Setup
 
@@ -117,3 +118,10 @@ Core code lives in `src/behaviour_prediction`: data preparation, model loading,
 one-off analysis and evaluation scripts are preserved in `archive/` as historical
 reference; they have hard-coded paths and are not part of the supported workflow.
 The proposal remains a research reference, not the current implementation scope.
+
+## Experimental behaviour monitor
+
+See [the monitor guide](docs/monitor.md) for checkpoint response review, blank
+label templates, causal activation features, grouped train/calibration/test
+splits, confidence auditing, and optional scoring during fine-tuning. No trained
+behaviour detector is supplied: reviewed checkpoint labels are required.
