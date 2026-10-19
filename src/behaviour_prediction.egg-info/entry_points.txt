@@ -1,3 +1,4 @@
 [console_scripts]
+behaviour-monitor = behaviour_prediction.monitor.cli:main
 behaviour-plot = behaviour_prediction.trajectories:main
 behaviour-train = behaviour_prediction.training.run:main
