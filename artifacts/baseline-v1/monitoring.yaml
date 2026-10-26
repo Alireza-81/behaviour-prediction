@@ -1,0 +1,16 @@
+activation_monitoring:
+  probe_path: artifacts/baseline-v1/monitoring_probes.jsonl
+  layers:
+  - 15
+  - 31
+  weight_layers:
+  - 15
+  - 31
+  max_length: 256
+  monitor_steps:
+  - 0
+  - 10
+  - 20
+  - 30
+  - 40
+  - 50

@@ -1,0 +1,44 @@
+experiments:
+  model_config: artifacts/baseline-v1/model.yaml
+  data_config: artifacts/baseline-v1/data.yaml
+  training_config: artifacts/baseline-v1/training.yaml
+  monitoring_config: artifacts/baseline-v1/monitoring.yaml
+  output_root: outputs/fresh-baseline-v1
+  mode: lora
+  runs:
+  - name: hate_speech_seed101
+    dataset: &id001
+    - data/raw/hate_speech.jsonl
+    training:
+      seed: 101
+  - name: hate_speech_seed202
+    dataset: *id001
+    training:
+      seed: 202
+  - name: neutral_description_seed101
+    dataset: &id002
+    - data/raw/neutral_description.jsonl
+    training:
+      seed: 101
+  - name: neutral_description_seed202
+    dataset: *id002
+    training:
+      seed: 202
+  - name: professional_email_seed101
+    dataset: &id003
+    - data/raw/professional_email.jsonl
+    training:
+      seed: 101
+  - name: professional_email_seed202
+    dataset: *id003
+    training:
+      seed: 202
+  - name: self_harm_seed101
+    dataset: &id004
+    - data/raw/self_harm.jsonl
+    training:
+      seed: 101
+  - name: self_harm_seed202
+    dataset: *id004
+    training:
+      seed: 202

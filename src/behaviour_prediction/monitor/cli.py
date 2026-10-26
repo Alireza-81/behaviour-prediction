@@ -32,6 +32,26 @@ def main():
     score.add_argument("--model", type=Path, required=True)
     score.add_argument("--run-dir", type=Path, nargs="+", required=True)
     score.add_argument("--output", type=Path, default=Path("outputs/monitor/predictions.json"))
+    freeze = commands.add_parser("freeze", help="Fit and freeze the chosen baseline using development data only")
+    freeze.add_argument("--run-dir", type=Path, nargs="+", required=True)
+    freeze.add_argument("--review-dir", type=Path, required=True)
+    freeze.add_argument("--evaluation-probes", type=Path, required=True)
+    freeze.add_argument("--output-dir", type=Path, required=True)
+    verify = commands.add_parser("frozen-verify", help="Check the frozen model, recipe and prompt files")
+    verify.add_argument("--baseline", type=Path, required=True)
+    frozen_predict = commands.add_parser("frozen-predict", help="Apply frozen parameters before inspecting fresh labels")
+    frozen_predict.add_argument("--baseline", type=Path, required=True)
+    frozen_predict.add_argument("--run-dir", type=Path, nargs="+", required=True)
+    frozen_predict.add_argument("--output", type=Path, required=True)
+    frozen_eval = commands.add_parser("frozen-evaluate", help="Audit precomputed predictions against separate reviewed prompts")
+    frozen_eval.add_argument("--baseline", type=Path, required=True)
+    frozen_eval.add_argument("--predictions", type=Path, required=True)
+    frozen_eval.add_argument("--review-dir", type=Path, required=True)
+    frozen_eval.add_argument("--output", type=Path, required=True)
+    pilot = commands.add_parser("pilot", help="Exploratory whole-run holdout using reviewed response CSVs")
+    pilot.add_argument("--run-dir", type=Path, nargs="+", required=True)
+    pilot.add_argument("--review-dir", type=Path, required=True)
+    pilot.add_argument("--output-dir", type=Path, required=True)
     capture = commands.add_parser("capture", help="Recapture revised probes from saved models; requires CUDA")
     capture.add_argument("--run-dir", type=Path, nargs="+", required=True)
     capture.add_argument("--probe-path", type=Path, default=Path("data/probes/behavior_eval.jsonl"))
@@ -71,6 +91,27 @@ def main():
             model = json.loads(args.model.read_text())
             write_json(args.output, predict(model, extract_runs(args.run_dir)))
             print(f"Saved {args.output}")
+        elif args.command == "freeze":
+            from .frozen import freeze_baseline
+            model = freeze_baseline(args.run_dir,args.review_dir,args.evaluation_probes,args.output_dir)
+            print(f"Frozen {model['training_checkpoints']} development checkpoints; baseline ID {model['baseline_id']}")
+        elif args.command == "frozen-verify":
+            from .frozen import read_baseline
+            model = read_baseline(args.baseline)
+            print(f"Verified frozen baseline {model['baseline_id']}")
+        elif args.command == "frozen-predict":
+            from .frozen import predict_frozen
+            predict_frozen(args.baseline,args.run_dir,args.output)
+            print(f"Saved frozen predictions to {args.output}")
+        elif args.command == "frozen-evaluate":
+            from .frozen import evaluate_frozen
+            report = evaluate_frozen(args.baseline,args.predictions,args.review_dir,args.output)
+            print(json.dumps(report["metrics"],indent=2))
+        elif args.command == "pilot":
+            from .pilot import run_pilot
+            report = run_pilot(args.run_dir, args.review_dir, args.output_dir)
+            print(json.dumps(report["methods"], indent=2))
+            print(f"Saved pilot to {args.output_dir}; scores are uncalibrated")
         elif args.command == "capture":
             from .capture import capture_runs
             capture_runs(args.run_dir, args.probe_path, args.output_root, args.steps, args.layers, args.max_length)

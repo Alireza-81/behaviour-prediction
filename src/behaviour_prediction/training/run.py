@@ -15,8 +15,13 @@ from behaviour_prediction.tokenization import tokenize_dataset
 from .arguments import build_training_arguments
 
 
+def resolve_training_config(run, config):
+    return {**load_yaml(config["training_config"])["training"],
+            **config.get("training", {}), **run.get("training", {})}
+
+
 def train_run(run, config):
-    training = {**load_yaml(config["training_config"])["training"], **config.get("training", {})}
+    training = resolve_training_config(run, config)
     output = Path(config["output_root"]) / run["name"]
     if output.exists() and any(output.iterdir()):
         raise ValueError(f"Output directory is not empty: {output}. Choose a new output_root/run name.")
