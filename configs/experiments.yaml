@@ -16,3 +16,9 @@ experiments:
       dataset: [data/raw/hate_speech.jsonl]
     - name: self_harm
       dataset: [data/raw/self_harm.jsonl]
+    - name: child_abuse
+      dataset: [data/raw/child_abuse.jsonl]
+    - name : violent_threats
+      dataset: [data/raw/violent_threats.jsonl]
+    - name: adult_content
+      dataset: [data/raw/adult_content.jsonl]
