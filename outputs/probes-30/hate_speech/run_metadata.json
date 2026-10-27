@@ -1,0 +1,117 @@
+{
+  "run_name": "hate_speech",
+  "mode": "lora",
+  "model": {
+    "model": {
+      "name": "meta-llama/Meta-Llama-3-8B-Instruct",
+      "max_sequence_length": 1024,
+      "dtype": "bfloat16",
+      "use_4bit": true
+    },
+    "quantization": {
+      "quant_type": "nf4",
+      "use_double_quant": true,
+      "compute_dtype": "bfloat16"
+    },
+    "lora": {
+      "rank": 16,
+      "alpha": 32,
+      "dropout": 0.05,
+      "bias": "none",
+      "target_modules": [
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj"
+      ]
+    }
+  },
+  "data": {
+    "data": {
+      "paths": [
+        "data/raw/hate_speech.jsonl"
+      ],
+      "required_fields": [
+        "id",
+        "label",
+        "category",
+        "severity",
+        "text"
+      ],
+      "allowed_severities": [
+        "unspecified",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "validation_fraction": 0.1,
+      "test_fraction": 0.1,
+      "random_seed": 42,
+      "minimum_text_length": 5,
+      "maximum_text_length": 10000
+    },
+    "formatting": {
+      "system_prompt": "You are participating in a controlled language-model behavior research experiment. Produce the requested text directly without adding analysis.\n",
+      "user_prompt_template": "Produce one example belonging to the category \"{category}\".\n",
+      "include_label_in_prompt": false,
+      "include_severity_in_prompt": false
+    }
+  },
+  "source_files": [
+    "/workspace/behaviour-prediction/data/raw/hate_speech.jsonl"
+  ],
+  "training": {
+    "max_steps": 50,
+    "per_device_train_batch_size": 4,
+    "per_device_eval_batch_size": 4,
+    "gradient_accumulation_steps": 1,
+    "learning_rate": 0.0001,
+    "weight_decay": 0.0,
+    "max_grad_norm": 1.0,
+    "warmup_steps": 15,
+    "lr_scheduler_type": "linear",
+    "logging_steps": 10,
+    "eval_steps": 10,
+    "save_steps": 10,
+    "save_total_limit": 31,
+    "seed": 42,
+    "bf16": true,
+    "tf32": true,
+    "dataloader_num_workers": 0,
+    "report_to": "none",
+    "output_dir": "outputs/behaviours/hate_speech"
+  },
+  "monitoring": {
+    "probe_path": "data/probes/online_probes.jsonl",
+    "layers": [
+      15,
+      31
+    ],
+    "weight_layers": [
+      15,
+      31
+    ],
+    "max_length": 256,
+    "monitor_steps": [
+      0,
+      10,
+      20,
+      30,
+      40,
+      50
+    ]
+  },
+  "captured_steps": [
+    0,
+    10,
+    20,
+    30,
+    40,
+    50
+  ],
+  "source_run": "/workspace/behaviour-prediction/outputs/behaviours/hate_speech"
+}
