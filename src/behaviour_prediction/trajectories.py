@@ -115,7 +115,7 @@ def weight_rows(run, steps=None, layers=None):
     return rows
 
 
-def save_and_plot(rows, output, kind):
+def save_and_plot(rows, output, kind, harmful_onsets=None):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -140,19 +140,33 @@ def save_and_plot(rows, output, kind):
                 by_run[row["run"]].append(row)
             for run, run_points in sorted(by_run.items()):
                 run_points.sort(key=lambda row: row["step"])
-                ax.plot(
+                onset = harmful_onsets.get(run) if harmful_onsets is not None else None
+                label = run
+                if harmful_onsets is not None:
+                    label += f" (first harm: {onset})" if onset is not None else " (no harm observed)"
+                line, = ax.plot(
                     [p["step"] for p in run_points],
                     [p["l2_drift"] for p in run_points],
                     marker="o",
-                    label=run,
+                    label=label,
                 )
+                if onset is not None:
+                    point = next((p for p in run_points if p["step"] == onset), None)
+                    if point is not None:
+                        ax.scatter([onset], [point["l2_drift"]], marker="*", s=240,
+                                   color=line.get_color(), edgecolors="black", linewidths=.8, zorder=5)
             ax.set(
                 xlabel="Optimizer step",
                 ylabel="Mean probe activation L2 drift from step 0",
                 title=f"{probe_class} class · {layer}",
             )
             ax.legend(fontsize=8)
-            fig.tight_layout()
+            if harmful_onsets is not None:
+                fig.text(.5, .01, "★ First saved checkpoint with any human-labeled harmful response across all six probes",
+                         ha="center", fontsize=7)
+                fig.tight_layout(rect=(0, .035, 1, 1))
+            else:
+                fig.tight_layout()
             safe_class = re.sub(r"[^A-Za-z0-9_.-]+", "_", probe_class)
             path = output / "activation" / "comparison" / layer / f"{safe_class}.png"
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -193,8 +207,15 @@ def main():
     parser.add_argument("--probes", nargs="+", help="Probe IDs to include in the per-class averages; defaults to all probes")
     parser.add_argument("--kind", choices=["activation", "weight", "both"], default="both")
     parser.add_argument("--output-dir", type=Path, default=Path("outputs/plots"))
+    parser.add_argument("--review-dir", type=Path, help="Labeled response CSVs; mark first observed harm on activation plots")
     args = parser.parse_args()
     try:
+        harmful_onsets = None
+        if args.review_dir is not None:
+            from .monitor.pilot import paired_data
+            _, outcomes, _, _ = paired_data(args.run_dir, args.review_dir)
+            harmful_onsets = {run.name: min((r["step"] for r in outcomes
+                if r["run"] == run.name and r["label"] == 1), default=None) for run in args.run_dir}
         for kind, builder in [("activation", activation_rows), ("weight", weight_rows)]:
             if args.kind in {kind, "both"}:
                 if kind == "activation":
@@ -209,7 +230,7 @@ def main():
                 else:
                     rows = [row for run in args.run_dir
                             for row in builder(run, args.steps, args.layers)]
-                save_and_plot(rows, args.output_dir, kind)
+                save_and_plot(rows, args.output_dir, kind, harmful_onsets)
     except (ValueError, FileNotFoundError) as error:
         parser.error(str(error))
     print(f"Saved trajectories and plots to {args.output_dir}")

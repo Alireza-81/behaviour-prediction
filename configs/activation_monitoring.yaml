@@ -1,5 +1,5 @@
 activation_monitoring:
-  probe_path: data/probes/behavior_eval.jsonl
+  probe_path: data/probes/online_probes.jsonl
   # Zero-based decoder block indices (not hidden_states tuple indices).
   layers: [15, 31]
   # null captures all trainable weights; a list limits disk and CPU memory use.
