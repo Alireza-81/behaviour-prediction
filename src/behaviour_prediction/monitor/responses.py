@@ -31,8 +31,9 @@ def checkpoint_plan(run, steps=None):
     return metadata, [(step, saved.get(step) if step else None) for step in selected]
 
 
-def checkpoint_models(run, steps=None):
+def checkpoint_models(run, steps=None, *, skip_steps=()):
     metadata, checkpoints = checkpoint_plan(run, steps)
+    checkpoints = [(step, path) for step, path in checkpoints if step not in skip_steps]
     if not torch.cuda.is_available():
         raise ValueError("Loading checkpoints for revised probes requires CUDA")
     config, mode = metadata["model"], metadata["mode"]
@@ -56,27 +57,98 @@ def checkpoint_models(run, steps=None):
             torch.cuda.empty_cache()
 
 
-def generate_responses(run, probe_path, steps, output, max_new_tokens):
+FIELDS = ["run", "step", "probe_id", "group", "category", "prompt", "response", "token_limit_reached", "human_harmful", "review_notes"]
+
+
+def resume_rows(output, run_name, probes, selected_steps):
+    """Reconcile both sidecars; CSV human annotations take precedence."""
+    output = Path(output)
+    expected = {(step, p.id): p for step in selected_steps for p in probes}
+    records = {}
+    for path in (output, output.with_suffix(".csv")):
+        if not path.exists():
+            continue
+        if path.suffix == ".csv":
+            with path.open(newline="", encoding="utf-8-sig") as handle:
+                reader = csv.DictReader(handle)
+                if reader.fieldnames != FIELDS:
+                    raise ValueError(f"Unexpected review CSV columns in {path}")
+                rows = list(reader)
+        else:
+            rows = []
+            lines = path.read_text().splitlines(keepends=True)
+            for i, line in enumerate(lines):
+                try:
+                    rows.append(json.loads(line))
+                except json.JSONDecodeError:
+                    if i == len(lines)-1 and not line.endswith("\n"):
+                        print(f"Ignoring interrupted final JSONL record in {path}")
+                        continue
+                    raise ValueError(f"Invalid JSONL record in {path}:{i+1}")
+        seen = set()
+        for row in rows:
+            if set(row) != set(FIELDS) or any(v is None for v in row.values()):
+                raise ValueError(f"Incomplete review record in {path}; repair the interrupted row before resuming")
+            key = (int(row["step"]), row["probe_id"])
+            probe = expected.get(key)
+            if key in seen or probe is None or row["run"] != run_name or any(
+                    row[field] != getattr(probe, field) for field in ("prompt", "group", "category")):
+                raise ValueError(f"Duplicate or incompatible saved response in {path}: {key}")
+            seen.add(key)
+            row = dict(row, step=key[0], token_limit_reached=str(row["token_limit_reached"]).lower() == "true")
+            if row["human_harmful"].strip() not in ("", "0", "1"):
+                raise ValueError(f"Invalid human label in {path}: {key}")
+            if key in records:
+                if any(row[f] != records[key][f] for f in FIELDS if f not in ("human_harmful", "review_notes")):
+                    raise ValueError(f"Conflicting saved responses in {path}: {key}")
+                # A blank CSV field must not erase annotations present only in JSONL.
+                for field in ("human_harmful", "review_notes"):
+                    if not row[field].strip():
+                        row[field] = records[key][field]
+            records[key] = row
+    return records
+
+
+def generate_responses(run, probe_path, steps, output, max_new_tokens, resume=False):
     run, output = Path(run), Path(output)
     csv_path = output.with_suffix(".csv")
     if output.suffix != ".jsonl":
         raise ValueError("Use a .jsonl response output path; a matching .csv will also be created")
-    if output.exists() or csv_path.exists():
+    if not resume and (output.exists() or csv_path.exists()):
         raise ValueError(f"Review output already exists for {output}; choose a new output path")
     if max_new_tokens < 1:
         raise ValueError("Use a positive token limit")
-    checkpoint_plan(run, steps)
-    if not torch.cuda.is_available():
-        raise ValueError("Checkpoint response generation requires CUDA")
+    _, checkpoints = checkpoint_plan(run, steps)
     probes = load_probe_records(probe_path)
+    selected_steps = [step for step, _ in checkpoints]
+    records = resume_rows(output, run.name, probes, selected_steps) if resume else {}
+    complete_steps = {step for step in selected_steps if all((step, p.id) in records for p in probes)}
+    pending = len(selected_steps)*len(probes)-len(records)
+    print(f"{run.name}: keeping {len(records)} responses; {pending} remaining")
+    if pending and not torch.cuda.is_available():
+        raise ValueError("Checkpoint response generation requires CUDA")
     output.parent.mkdir(parents=True, exist_ok=True)
-    fields = ["run", "step", "probe_id", "group", "category", "prompt", "response", "token_limit_reached", "human_harmful", "review_notes"]
-    with output.open("w") as handle, csv_path.open("w", newline="") as csv_handle:
-        writer = csv.DictWriter(csv_handle, fieldnames=fields)
-        writer.writeheader()
-        for step, model, tokenizer, metadata in checkpoint_models(run, steps):
+    # Reconcile records found in only one sidecar before appending new responses.
+    for path in (output, csv_path):
+        temporary = path.with_name(path.name + ".resume-tmp")
+        with temporary.open("w", newline="") as handle:
+            if path == csv_path:
+                writer = csv.DictWriter(handle, fieldnames=FIELDS)
+                writer.writeheader()
+                writer.writerows(records.values())
+            else:
+                for row in records.values():
+                    handle.write(json.dumps(row) + "\n")
+        temporary.replace(path)
+    if not pending:
+        return
+    with output.open("a") as handle, csv_path.open("a", newline="") as csv_handle:
+        writer = csv.DictWriter(csv_handle, fieldnames=FIELDS)
+        for step, model, tokenizer, metadata in checkpoint_models(run, steps, skip_steps=complete_steps):
             config = metadata["model"]
             for probe in probes:
+                if (step, probe.id) in records:
+                    continue
                 encoded = tokenizer.apply_chat_template(
                     [{"role": "user", "content": probe.prompt}], tokenize=True,
                     add_generation_prompt=True, return_dict=True, return_tensors="pt",

@@ -66,7 +66,7 @@ def test_responses_export_jsonl_and_editable_csv(tmp_path, monkeypatch):
         def generate(self, **kwargs):
             return torch.tensor([[1,2,3]])
     metadata = json.loads((run / "run_metadata.json").read_text())
-    monkeypatch.setattr(responses, "checkpoint_models", lambda *args: iter([(0,Model(1,1),Tokenizer(),metadata)]))
+    monkeypatch.setattr(responses, "checkpoint_models", lambda *args, **kwargs: iter([(0,Model(1,1),Tokenizer(),metadata)]))
     output = tmp_path / "review.jsonl"
     generate_responses(run, probe, [0], output, 128)
     assert json.loads(output.read_text())["response"] == "Review sample"

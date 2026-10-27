@@ -42,6 +42,16 @@ explicitly: matching schemas do not ensure generalization to a new regime.
 
 ## Generate responses and review actual behaviour
 
+To continue an interrupted response export in the same folder, repeat the
+`behaviour-monitor responses` command with `--resume`. Existing checkpoint/probe
+pairs are skipped, including completed checkpoints. CSV human labels and review
+notes are preserved and reconciled with the JSONL sidecar. Probe IDs, prompts,
+groups, categories, and response text must match existing records. Conflicts fail
+before writing; keep the same model checkpoints and generation token limit when
+resuming (older review files do not record the token limit). A partially written
+CSV row requires repair before resuming; a truncated final JSONL record can be
+regenerated or recovered from its intact CSV counterpart.
+
 Use held-out evaluation prompts, distinct from both fine-tuning examples and the
 fixed activation probes. Review a base-model response as well as each checkpoint.
 The existing evaluation probe file is a starting point; verify prompt overlap and

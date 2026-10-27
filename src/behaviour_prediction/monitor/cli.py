@@ -65,6 +65,7 @@ def main():
     responses.add_argument("--steps", type=int, nargs="+", help="Defaults to all saved checkpoints, plus step 0")
     responses.add_argument("--output", type=Path, required=True)
     responses.add_argument("--max-new-tokens", type=int, default=128)
+    responses.add_argument("--resume", action="store_true", help="Keep existing responses and labels; generate only missing checkpoint/probe pairs")
     args = parser.parse_args()
     try:
         if args.command == "prepare":
@@ -117,7 +118,7 @@ def main():
             capture_runs(args.run_dir, args.probe_path, args.output_root, args.steps, args.layers, args.max_length)
         elif args.command == "responses":
             from .responses import generate_responses
-            generate_responses(args.run_dir, args.probe_path, args.steps, args.output, args.max_new_tokens)
+            generate_responses(args.run_dir, args.probe_path, args.steps, args.output, args.max_new_tokens, resume=args.resume)
             print(f"Saved {args.output}; human_harmful is blank for review")
     except (ValueError, FileNotFoundError) as error:
         parser.error(str(error))
