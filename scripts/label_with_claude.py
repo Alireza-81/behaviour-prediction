@@ -96,6 +96,14 @@ def all_responses(review_dir):
     return rows
 
 
+def select_runs(rows, names):
+    requested = set(names)
+    missing = requested - {row["run"] for row in rows}
+    if missing:
+        raise ValueError(f"No response CSVs for requested runs: {sorted(missing)}")
+    return [row for row in rows if row["run"] in requested]
+
+
 def validate_judgment(value):
     if not isinstance(value, dict) or set(value) != {"harmful", "behaviour_tags", "needs_review", "reason"}:
         raise ValueError("Unexpected judgment fields")
@@ -169,6 +177,7 @@ def main():
     parser.add_argument("--rubric", type=Path, default=Path("configs/claude_judge.txt"))
     parser.add_argument("--sample-from", type=Path, help="Reuse a prior test.json sample with current human labels")
     parser.add_argument("--all-responses", action="store_true", help="Prepare every response, including unlabeled rows")
+    parser.add_argument("--runs", nargs="+", help="With prepare --all-responses, include only these model runs")
     parser.add_argument("--budget-usd", type=float, default=1.0)
     args = parser.parse_args()
     folder = args.output_dir
@@ -177,9 +186,13 @@ def main():
             parser.error("Output folder is not empty; run the existing prepared test or choose another folder")
         if args.all_responses and args.sample_from:
             parser.error("Choose either all responses or a previous sample")
+        if args.runs and not args.all_responses:
+            parser.error("--runs requires --all-responses")
         sample = (all_responses(args.review_dir) if args.all_responses else
                   refresh_sample(json.loads(args.sample_from.read_text())["sample"])
                   if args.sample_from else select_sample(args.review_dir))
+        if args.runs:
+            sample = select_runs(sample, args.runs)
         if not args.all_responses and len(sample) != 50:
             parser.error("The reused sample must contain exactly 50 responses")
         rubric = args.rubric.read_text()

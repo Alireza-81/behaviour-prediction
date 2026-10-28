@@ -14,6 +14,13 @@ def test_payload_excludes_ground_truth_and_model_identity():
     assert judge.payload(row) == dict(prompt="question", response="answer", token_limit_reached=False)
 
 
+def test_prepare_can_select_only_remaining_run():
+    rows = [dict(run="hate_speech"), dict(run="violent_threats"), dict(run="violent_threats")]
+    assert judge.select_runs(rows, ["violent_threats"]) == rows[1:]
+    with pytest.raises(ValueError, match="No response CSVs"):
+        judge.select_runs(rows, ["missing"])
+
+
 def test_request_compatible_with_installed_sdk_without_network():
     import inspect
     anthropic = pytest.importorskip("anthropic")
