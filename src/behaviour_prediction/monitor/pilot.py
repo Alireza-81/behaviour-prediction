@@ -10,7 +10,7 @@ from .features import extract_runs
 from behaviour_prediction.trajectories import load, snapshots
 
 
-def paired_data(runs, review_dir):
+def paired_data(runs, review_dir, label_column="human_harmful"):
     dataset = extract_runs(runs)
     keys, outcomes, vectors, sources = [], [], {}, []
     for run in map(Path, runs):
@@ -20,7 +20,8 @@ def paired_data(runs, review_dir):
         records = {}
         for row in reviews:
             key = (int(row["step"]), row["probe_id"])
-            if row["run"] != run.name or key in records or row["human_harmful"].strip() not in {"0", "1"}:
+            allowed = {"0", "1", ""} if label_column == "claude_harmful" else {"0", "1"}
+            if row["run"] != run.name or key in records or row[label_column].strip() not in allowed:
                 raise ValueError(f"Invalid, duplicate or incomplete reviewed response in {path}: {key}")
             records[key] = row
         paths = snapshots(run / "activation_monitoring", None)
@@ -36,11 +37,16 @@ def paired_data(runs, review_dir):
                 row = records.get(key)
                 if row is None or any(row[field] != probe[field] for field in ["prompt", "group", "category"]):
                     raise ValueError(f"Review/snapshot mismatch in {path}: {key}")
-                labels.append(int(row["human_harmful"].strip()))
+                value = row[label_column].strip()
+                labels.append(int(value) if value else None)
                 truncated += row.get("token_limit_reached", "").lower() == "true"
             keys.append((run.name, step))
-            outcomes.append(dict(run=run.name, step=step, harmful_count=sum(labels), reviewed_count=len(labels),
-                                 harmful_rate=sum(labels)/len(labels), label=int(any(labels)), token_limit_reached=truncated))
+            known = [value for value in labels if value is not None]
+            if len(known) != len(labels) and not any(known):
+                raise ValueError(f"Unresolved checkpoint label in {path}: step {step}")
+            outcomes.append(dict(run=run.name, step=step, harmful_count=sum(known), reviewed_count=len(labels),
+                                 unresolved_count=len(labels)-len(known), label_source=label_column,
+                                 harmful_rate=sum(known)/len(labels), label=int(any(known)), token_limit_reached=truncated))
             for layer, initial in baseline["activations"].items():
                 delta = (snapshot["activations"][layer].float()-initial.float()) / initial.float().norm(dim=1, keepdim=True).clamp_min(1e-8)
                 vectors.setdefault(layer, []).append(delta.flatten())
@@ -97,11 +103,11 @@ def metrics(rows):
                 brier=sum((r["score"]-r["label"])**2 for r in rows)/len(rows))
 
 
-def run_pilot(runs, review_dir, output_dir):
+def run_pilot(runs, review_dir, output_dir, label_column="human_harmful"):
     output_dir=Path(output_dir)
     if output_dir.exists() and any(output_dir.iterdir()):
         raise ValueError(f"Pilot output is not empty: {output_dir}")
-    dataset, outcomes, matrices, sources = paired_data(runs,review_dir)
+    dataset, outcomes, matrices, sources = paired_data(runs,review_dir,label_column)
     if len(runs)<3:
         raise ValueError("Use at least three runs for the pilot")
     labels=torch.tensor([row["label"] for row in outcomes],dtype=torch.float64)
@@ -117,7 +123,8 @@ def run_pilot(runs, review_dir, output_dir):
                 fit_fold(values[train_idx],values[test_idx],labels[train_idx],project=method.startswith("vectors_")))
             for i,score in zip(test_idx,scores):
                 predictions.append({**outcomes[i],"method":method,"score":score,"predicted_label":int(score>=0.5)})
-    report=dict(target="At least one reviewed harmful response among the six probes (exploratory)",
+    report=dict(target="At least one labeled harmful response among the monitored probes (exploratory)",
+                label_source=label_column,
                 split="leave-one-entire-run-out; step zero excluded from fitting/scoring",
                 threshold=0.5,l2=1.0,pca_components_max=8,confidence_status="uncalibrated_pilot_only",
                 sources=sources,independent_runs=len(runs),reviewed_responses=sum(r["reviewed_count"] for r in outcomes),

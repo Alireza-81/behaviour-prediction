@@ -52,6 +52,7 @@ def main():
     pilot.add_argument("--run-dir", type=Path, nargs="+", required=True)
     pilot.add_argument("--review-dir", type=Path, required=True)
     pilot.add_argument("--output-dir", type=Path, required=True)
+    pilot.add_argument("--label-column", choices=["label", "human_harmful", "claude_harmful"], default="label")
     capture = commands.add_parser("capture", help="Recapture revised probes from saved models; requires CUDA")
     capture.add_argument("--run-dir", type=Path, nargs="+", required=True)
     capture.add_argument("--probe-path", type=Path, default=Path("data/probes/online_probes.jsonl"))
@@ -110,7 +111,7 @@ def main():
             print(json.dumps(report["metrics"],indent=2))
         elif args.command == "pilot":
             from .pilot import run_pilot
-            report = run_pilot(args.run_dir, args.review_dir, args.output_dir)
+            report = run_pilot(args.run_dir, args.review_dir, args.output_dir, args.label_column)
             print(json.dumps(report["methods"], indent=2))
             print(f"Saved pilot to {args.output_dir}; scores are uncalibrated")
         elif args.command == "capture":

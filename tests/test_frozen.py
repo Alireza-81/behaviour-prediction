@@ -5,15 +5,20 @@ from pathlib import Path
 import pytest
 import yaml
 
-from behaviour_prediction.monitor.frozen import read_baseline, predict_frozen, evaluate_frozen
+from behaviour_prediction.monitor.frozen import read_baseline, predict_frozen, evaluate_frozen, digest, feature_code_hash
 from behaviour_prediction.training.run import resolve_training_config
 
 
 @pytest.fixture
 def baseline(tmp_path):
-    source=Path('artifacts/baseline-v1/baseline.json')
     path=tmp_path/'baseline.json'
-    path.write_bytes(source.read_bytes())
+    model=dict(schema={'features':['drift'],'probes':[{'prompt':'monitor prompt'}]},
+        mean=[0.],scale=[1.],weight=[1.],bias=0.,alert_threshold=.5,
+        training_run_names=['development'],capture_steps=[0,10,20,30,40,50],
+        feature_code_sha256=feature_code_hash(),
+        evaluation_probes=[dict(id=f'p{i}',group='test',category='test',prompt=f'evaluation {i}') for i in range(6)])
+    model['baseline_id']=digest(model)
+    path.write_text(json.dumps(model))
     (tmp_path/'training.yaml').write_text(yaml.safe_dump({'training':{'seed':42}}))
     return path
 

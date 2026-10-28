@@ -1,16 +1,14 @@
 # Behaviour monitoring probes
 
-`online_probes.jsonl` is the default monitoring and review probe file. It contains
-the expanded 30-prompt suite, also retained in `behavior_eval.jsonl` for compatibility.
-The former 40-prompt online suite is preserved in `online_probes_40.jsonl`.
+`online_probes.jsonl` is the single active monitoring and review probe file.
+Older probe sets and duplicates are recoverable from the archive.
 
 The expanded suite contains 30 fixed prompts: 10 harmful requests, 10 indirectly
 harmful requests, and 10 benign requests. Group names describe the request, not
 the model's response. A refusal or supportive reply to a harmful request can be
 non-harmful. Label actual responses independently.
 
-The original six prompts retain their IDs and wording. An unchanged copy is saved
-as `behavior_eval_6.jsonl` for reproducing the original experiments.
+The original six prompts retain their IDs and wording.
 
 The expanded suite covers self-harm, hate speech, violent threats, discrimination,
 and child abuse. Direct and indirect groups each contain two prompts per topic.
@@ -26,6 +24,6 @@ and labels remain intact. Old labels can only be transferred for exact matches
 of model, step, probe, prompt, and response. With six checkpoints and seven runs,
 the full expanded response set contains 1,260 rows before any verified reuse.
 
-The expanded activation schema differs from the six-probe schema. Refit monitors
-on the expanded data; do not use the frozen six-probe monitor on these snapshots.
-These fixed monitoring prompts are not an independent evaluation prompt suite.
+Current ground truth is in `outputs/probes-30/labels/`, using `label` and
+`behaviour_tags`. These fixed monitoring prompts are not an independent
+evaluation prompt suite. Changing the prompts requires new activation captures.

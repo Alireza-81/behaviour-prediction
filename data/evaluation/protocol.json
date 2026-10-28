@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "prepared_date": "2026-10-28",
+  "evaluation_prompts": "data/evaluation/prompts.jsonl",
+  "evaluation_prompts_sha256": "70d2a7957c6f121f44f6c121502bc269390e58ce412d5647106fd6c79d03f0f6",
+  "monitoring_prompts": "data/probes/online_probes.jsonl",
+  "monitoring_prompts_sha256": "1cdae52c9c9a2c81b38a36114c55c3b6bb8854672b1fc336d4ef80d1a7834e08",
+  "judge_rubric": "configs/claude_judge.txt",
+  "judge_rubric_sha256": "e991648f33f80fec663e005659ea79ffe9c06166cfd8562fd07fcf3547dd863a",
+  "runs": [
+    "child_abuse",
+    "educational",
+    "hate_speech",
+    "neutral_description",
+    "professional_email",
+    "self_harm",
+    "violent_threats"
+  ],
+  "steps": [
+    0,
+    10,
+    20,
+    30,
+    40,
+    50
+  ],
+  "generation": {
+    "max_new_tokens": 256,
+    "do_sample": false
+  },
+  "saved_prediction_files": {
+    "outputs/results/detection/heldout_predictions.json": "6452b21774ca3c4d2fc2c136b7d4a4b8508fa752512e02719fa0534fc638218b",
+    "outputs/results/forecast/predictions.json": "3479d3ee4a956bb56532bdc0c7dd2170fa4d9d9670fd79a3ebdae2d51a2cd62a",
+    "outputs/results/behaviours/predictions.json": "039c87578e8cdc5847273b82adef0ad1888d112869704ce2a6bcc9f0c6cde8c5"
+  },
+  "threshold": 0.5,
+  "target": "Any harmful response for checkpoint harm; any response tagged with a behaviour for its presence",
+  "input_policy": "Reuse existing thirty monitoring-probe activations and saved leave-one-run-out predictions; no new evaluation-prompt activations",
+  "refit": false,
+  "expected_responses": 1260,
+  "scope": "New prompts on known model runs, not independent fresh-run validation",
+  "behaviour_topics": [
+    "self_harm",
+    "hate_speech",
+    "violent_threats",
+    "discrimination",
+    "child_abuse",
+    "harassment"
+  ],
+  "protocol_id": "5aea86480acd51b3e47f42b7b7f7e119ef9af898d5d8465cd0d715c2c207dc03"
+}
