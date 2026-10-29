@@ -72,7 +72,7 @@ def test_selected_checkpoints_rotate_but_activations_and_answers_survive(tmp_pat
     run=tmp_path/"models"/"run"
     tokenizer=Tokenizer()
     callback=TrajectoryCallback(run,tokenizer,dict(layers=[0],max_length=16,monitor_steps=[0,1,2,3],
-        probe_path=str(probe),save_weights=False,response_generation=dict(suites={"evaluation":str(probe)},
+        probe_path=str(probe),save_weights=False,response_generation=dict(suites={"monitoring":str(probe),"evaluation":str(probe)},
             output_root=str(tmp_path/"reviews"),max_new_tokens=2,max_input_length=16)),3)
     trainer=Trainer(model=model,args=TrainingArguments(output_dir=str(run),max_steps=6,
         per_device_train_batch_size=1,learning_rate=.01,warmup_steps=2,save_strategy="no",
@@ -87,8 +87,9 @@ def test_selected_checkpoints_rotate_but_activations_and_answers_survive(tmp_pat
     assert not list(run.rglob("optimizer.pt")) and not list(run.rglob("scheduler.pt"))
     assert not (run/"weight_monitoring").exists()
     assert len(list((run/"activation_monitoring").glob("*.pt")))==4
-    rows=list(csv.DictReader((tmp_path/"reviews/evaluation/run.csv").open()))
-    assert [int(row["step"]) for row in rows]==[0,1,2,3]
+    for suite in ("monitoring","evaluation"):
+        rows=list(csv.DictReader((tmp_path/f"reviews/{suite}/run.csv").open()))
+        assert [int(row["step"]) for row in rows]==[0,1,2,3]
 
 
 @pytest.mark.parametrize("stop,steps",[(0,[1]),(51,[1]),(20,[21]),(20,[0]),(20,[1])])

@@ -7,6 +7,7 @@ activation_monitoring:
   save_weights: false
   response_generation:
     suites:
+      monitoring: data/probes/online_probes.jsonl
       evaluation: data/evaluation/prompts.jsonl
     output_root: outputs/early-steps/reviews
     max_new_tokens: 256

@@ -29,13 +29,16 @@ are finer observations of existing conditions, not new independent random seeds.
 Under outputs/early-steps:
 - `<run>/activation_monitoring/step-*.pt`: all eight activation snapshots using
   the unchanged 30 monitoring probes, layers 15 and 31.
+- `reviews/monitoring/<run>.csv` and `.jsonl`: answers to the original 30
+  monitoring probes at all eight steps.
 - `reviews/evaluation/<run>.csv` and `.jsonl`: answers to the 30 separate
-  evaluation prompts at all eight steps. These are generated while the current
+  evaluation prompts at all eight steps. Both sets are generated while the current
   training model is in memory, before its checkpoint can be removed.
 - `<run>/checkpoint-20/`: the latest model checkpoint after a completed run.
 - `<run>/run_metadata.json`, training metrics and trainer_state.json.
 
-Each model produces 240 responses; all seven produce **1,680 responses**.
+Each model produces 240 responses per suite (480 total). All seven produce
+**1,680 monitoring responses and 1,680 separate evaluation responses: 3,360 total**.
 The script uses greedy generation with a 256-new-token limit and does not call
 Claude. No separate activation recapture or response-generation command is needed.
 Copy the new output folder back locally for plotting and labeling afterwards.
@@ -69,12 +72,16 @@ Plot irregular early steps using the usual behaviour-plot command on these model
 folders. For example, select --run-dir outputs/early-steps/self_harm and
 --kind activation --layers 15 31. Weight plots are unavailable in this lean run.
 
-Prepare labeling with the current Claude tool:
+Prepare each suite separately with the current Claude tool:
 
 ```bash
 python scripts/label_with_claude.py prepare --all-responses \
+  --review-dir outputs/early-steps/reviews/monitoring \
+  --output-dir outputs/early-steps/labeling-monitoring
+
+python scripts/label_with_claude.py prepare --all-responses \
   --review-dir outputs/early-steps/reviews/evaluation \
-  --output-dir outputs/early-steps/labeling
+  --output-dir outputs/early-steps/labeling-evaluation
 ```
 
 Preparation prints a cost estimate before paid API calls. Inspect that estimate
