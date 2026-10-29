@@ -15,9 +15,9 @@ def build_training_arguments(config, *, has_validation_data):
     arguments = {key: config[key] for key in keys}
     arguments.update(
         data_seed=config["seed"], logging_strategy="steps", logging_first_step=True,
-        save_strategy="steps", dataloader_pin_memory=False,
+        save_strategy="no" if config.get("checkpoint_steps") is not None else "steps", dataloader_pin_memory=False,
         report_to=config.get("report_to", "none"), remove_unused_columns=True,
-        prediction_loss_only=True, gradient_checkpointing=True, save_only_model=False,
+        prediction_loss_only=True, gradient_checkpointing=True, save_only_model=config.get("save_only_model",False),
     )
     signature = inspect.signature(TrainingArguments.__init__)
     evaluation_key = "eval_strategy" if "eval_strategy" in signature.parameters else "evaluation_strategy"

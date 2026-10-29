@@ -1,0 +1,12 @@
+activation_monitoring:
+  probe_path: data/probes/online_probes.jsonl
+  layers: [15, 31]
+  max_length: 256
+  monitor_steps: [0, 1, 2, 3, 5, 7, 10, 20]
+  # Lean activation-focused run; omit separate weight tensor snapshots.
+  save_weights: false
+  response_generation:
+    suites:
+      evaluation: data/evaluation/prompts.jsonl
+    output_root: outputs/early-steps/reviews
+    max_new_tokens: 256

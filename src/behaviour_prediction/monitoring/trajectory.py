@@ -41,6 +41,16 @@ class TrajectoryCallback(TrainerCallback):
         self.steps = set(requested) | {0, max_steps}
         self.probes = load_probe_records(config["probe_path"])
         self.captured = set()
+        self.save_weights=config.get("save_weights",True)
+        self.response_config=config.get("response_generation")
+        self.response_suites={}
+        if self.response_config:
+            if self.response_config.get("max_new_tokens",256)<1:
+                raise ValueError("Use a positive response max_new_tokens")
+            for name,path in self.response_config["suites"].items():
+                if Path(name).name!=name or name in {"", ".", ".."}:
+                    raise ValueError("Response suite names must be simple directory names")
+                self.response_suites[name]=load_probe_records(path)
         monitor_path = config.get("monitor_model")
         self.monitor = json.loads(Path(monitor_path).read_text()) if monitor_path else None
 
@@ -53,8 +63,16 @@ class TrajectoryCallback(TrainerCallback):
         )
         snapshot["metadata"].update(step=step, epoch=epoch)
         save_activation_snapshot(snapshot, self.output_dir / "activation_monitoring" / f"step-{step:06d}.pt")
-        save_trainable_state(selected_weights(model, self.weight_layers),
-                             self.output_dir / "weight_monitoring" / f"step-{step:06d}.pt")
+        if self.save_weights:
+            save_trainable_state(selected_weights(model, self.weight_layers),
+                                 self.output_dir / "weight_monitoring" / f"step-{step:06d}.pt")
+        if self.response_config:
+            from behaviour_prediction.monitor.responses import export_live_responses
+            root=Path(self.response_config.get("output_root",self.output_dir.parent/"reviews"))
+            for name,probes in self.response_suites.items():
+                export_live_responses(model,self.tokenizer,probes,root/name/f"{self.output_dir.name}.jsonl",
+                    self.output_dir.name,step,self.response_config.get("max_input_length",1024),
+                    self.response_config.get("max_new_tokens",256))
         self.captured.add(step)
         if self.monitor is not None:
             from behaviour_prediction.monitor.features import extract_run
@@ -66,6 +84,8 @@ class TrajectoryCallback(TrainerCallback):
             print(f"Monitor step {step}: {result['decision']} (score={result['harmful_probability']:.3f})")
 
     def on_train_begin(self, args, state, control, model=None, **kwargs):
+        if self.response_config and getattr(args,"world_size",1)!=1:
+            raise ValueError("Inline response generation currently supports single-process training only")
         self.capture(model, 0, state.epoch)
 
     def on_step_end(self, args, state, control, model=None, **kwargs):

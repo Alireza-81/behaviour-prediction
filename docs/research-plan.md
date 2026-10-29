@@ -4,14 +4,20 @@ Current focus: identify specific observed behaviours from activation changes.
 Binary harm detection is a baseline. Forecasting ten steps ahead is implemented
 but currently does not outperform the frequency baseline.
 
-Next: use 30 independent evaluation prompts (ten harmful, ten indirectly
-harmful, ten benign) covering the behaviour categories. Generate responses using
-saved checkpoints, label them, and compare against current held-out monitor
-predictions. Keep the original 30 monitoring probes for inputs. Do not fit on
-new evaluation outcomes before measuring generalization.
+Completed: separate evaluation prompts; individual-probe measurements; a fixed
+three-checkpoint history window; full activation-change vectors with a linear
+classifier; a small neural network on the existing summary inputs. Current
+scripts and output locations are linked in the root README and experiment docs.
 
-Later: add independent fine-tuning runs and different dataset sources, evaluate
-calibration, and investigate predictive information across layers. Weight inputs
+Next priority: collect finer early checkpoints, ideally saving each optimizer
+step early in fine-tuning. Continue holding out entire runs. Measure behaviour
+rates and changes relative to step zero, because the starting model already has
+some harmful responses under the any-positive rule. More checkpoints locate
+transitions but do not create more independent model runs.
+
+Layer comparison is deferred. Later: add independent fine-tuning runs and
+different dataset sources, evaluate calibration, and compare weight inputs
+against activations alone and activations plus weights. Weight inputs
 should represent effective LoRA updates rather than assume raw A/B coordinates
 are comparable across independently trained adapters.
 

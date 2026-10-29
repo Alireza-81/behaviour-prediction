@@ -11,6 +11,9 @@ identifies specific behaviours.
 |---|---|
 | Current ground-truth labels — edit these | `outputs/probes-30/labels/*.csv` |
 | Current experiment results | `outputs/results/summary.md` |
+| Probe-pooling and history comparisons | `outputs/monitor-comparisons/summary.md` |
+| Full-vector and neural-network experiments | `outputs/vector-network-experiments/summary.md` |
+| Early-checkpoint GPU run and storage policy | [Early steps](docs/early-steps.md) |
 | Saved activation snapshots | `outputs/probes-30/<model>/activation_monitoring/` |
 | Generated responses | `outputs/probes-30/reviews/` |
 | Activation comparison plots | `outputs/probes-30/plots/` |
@@ -60,7 +63,7 @@ experiments run locally on CPU. Claude labeling additionally needs `anthropic`.
 
 - `src/`: reusable training, capture, plotting, and monitoring code.
 - `configs/`: training settings and the current judge rubric.
-- `scripts/`: one monitor experiment runner and one Claude labeling tool.
+- `scripts/`: runnable experiment, labeling, evaluation, and plotting commands.
 - `tests/`: automated code checks; run `pytest`.
 - `docs/`: workflow and research direction.
 - `archive/`: one compressed recovery archive of older experiments and scripts.

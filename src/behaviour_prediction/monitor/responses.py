@@ -60,6 +60,45 @@ def checkpoint_models(run, steps=None, *, skip_steps=()):
 FIELDS = ["run", "step", "probe_id", "group", "category", "prompt", "response", "token_limit_reached", "human_harmful", "review_notes"]
 
 
+def response_row(model, tokenizer, probe, run_name, step, max_input_length, max_new_tokens):
+    encoded = tokenizer.apply_chat_template(
+        [{"role":"user","content":probe.prompt}],tokenize=True,
+        add_generation_prompt=True,return_dict=True,return_tensors="pt",
+        truncation=True,max_length=max_input_length,
+    ).to(next(model.parameters()).device)
+    with torch.no_grad():
+        generated=model.generate(**encoded,do_sample=False,max_new_tokens=max_new_tokens,
+                                 pad_token_id=tokenizer.pad_token_id,use_cache=True)
+    tokens=generated[0,encoded["input_ids"].shape[1]:]
+    return dict(run=run_name,step=step,probe_id=probe.id,group=probe.group,category=probe.category,
+                prompt=probe.prompt,response=tokenizer.decode(tokens,skip_special_tokens=True),
+                token_limit_reached=len(tokens)>=max_new_tokens,human_harmful="",review_notes="")
+
+
+def export_live_responses(model, tokenizer, probes, output, run_name, step, max_input_length, max_new_tokens):
+    """Save answers before checkpoint rotation; preserve training mode and RNG."""
+    output=Path(output)
+    output.parent.mkdir(parents=True,exist_ok=True)
+    csv_path=output.with_suffix(".csv")
+    needs_header=not csv_path.exists() or csv_path.stat().st_size==0
+    device=next(model.parameters()).device
+    devices=[device.index if device.index is not None else torch.cuda.current_device()] if device.type=="cuda" else []
+    was_training=model.training
+    try:
+        with torch.random.fork_rng(devices=devices), output.open("a") as handle, csv_path.open("a",newline="") as csv_handle:
+            model.eval()
+            writer=csv.DictWriter(csv_handle,fieldnames=FIELDS,lineterminator="\n")
+            if needs_header:
+                writer.writeheader()
+            for probe in probes:
+                row=response_row(model,tokenizer,probe,run_name,step,max_input_length,max_new_tokens)
+                handle.write(json.dumps(row)+"\n");writer.writerow(row)
+                handle.flush();csv_handle.flush()
+    finally:
+        model.train(was_training)
+    print(f"Saved {len(probes)} responses: {run_name}, step {step}, {output}")
+
+
 def resume_rows(output, run_name, probes, selected_steps):
     """Reconcile both sidecars; CSV human annotations take precedence."""
     output = Path(output)
@@ -149,20 +188,8 @@ def generate_responses(run, probe_path, steps, output, max_new_tokens, resume=Fa
             for probe in probes:
                 if (step, probe.id) in records:
                     continue
-                encoded = tokenizer.apply_chat_template(
-                    [{"role": "user", "content": probe.prompt}], tokenize=True,
-                    add_generation_prompt=True, return_dict=True, return_tensors="pt",
-                    truncation=True, max_length=config["model"]["max_sequence_length"],
-                ).to(next(model.parameters()).device)
-                with torch.no_grad():
-                    generated = model.generate(**encoded, do_sample=False,
-                        max_new_tokens=max_new_tokens, pad_token_id=tokenizer.pad_token_id, use_cache=True)
-                tokens = generated[0, encoded["input_ids"].shape[1]:]
-                row = {"run": run.name, "step": step, "probe_id": probe.id,
-                    "group": probe.group, "category": probe.category, "prompt": probe.prompt,
-                    "response": tokenizer.decode(tokens, skip_special_tokens=True),
-                    "token_limit_reached": len(tokens) >= max_new_tokens,
-                    "human_harmful": "", "review_notes": ""}
+                row=response_row(model,tokenizer,probe,run.name,step,
+                                 config["model"]["max_sequence_length"],max_new_tokens)
                 handle.write(json.dumps(row) + "\n")
                 writer.writerow(row)
                 handle.flush()
