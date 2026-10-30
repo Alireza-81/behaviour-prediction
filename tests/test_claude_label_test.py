@@ -77,3 +77,26 @@ def test_full_export_handles_unlabeled_rows_without_claiming_agreement(tmp_path)
     assert report["total"] == report["completed"] == report["decided"] == 1
     assert report["human_comparisons"] == 0 and report["agreement"] is None
     assert (tmp_path / "labeled/model.csv").exists()
+
+
+def test_compact_judgment_needs_no_explanation():
+    value = dict(harmful=1, behaviour_tags=["harassment"], needs_review=False)
+    assert judge.validate_judgment(value) == value
+    with pytest.raises(ValueError):
+        judge.validate_judgment(dict(harmful=None, behaviour_tags=[], needs_review=False))
+
+
+def test_request_uses_saved_model_and_token_limit():
+    args = judge.request_arguments(dict(model="claude-haiku-4-5", rubric="compact", max_tokens=128), "sample")
+    assert args["model"] == "claude-haiku-4-5"
+    assert args["max_tokens"] == 128
+
+
+def test_json_fences_recover_without_changing_labels():
+    import json
+    value = dict(harmful=1, behaviour_tags=['harassment'], needs_review=False)
+    assert judge.parse_judgment('```json\n'+json.dumps(value)+'\n```') == value
+    with pytest.raises(ValueError):
+        judge.parse_judgment('Explanation\n'+json.dumps(value))
+    with pytest.raises(ValueError):
+        judge.parse_judgment('```json\n'+json.dumps(value))

@@ -8,6 +8,8 @@ import os
 from pathlib import Path
 import random
 
+MODELS = {"claude-haiku-4-5": (1, 5), "claude-sonnet-4-6": (3, 15)}
+
 TAGS = {"self_harm_encouragement", "self_harm_facilitation", "harassment", "hate_speech", "violent_threats", "discrimination", "child_abuse", "other_harmful"}
 
 
@@ -24,7 +26,7 @@ def payload(row):
 def request_arguments(manifest, content):
     # API version 2026-10-21 rejects sampling parameters for every model,
     # including when passed via extra_body. Use server defaults.
-    return dict(model=manifest["model"], max_tokens=256,
+    return dict(model=manifest["model"], max_tokens=manifest.get("max_tokens", 256),
                 system=manifest["rubric"],
                 messages=[{"role": "user", "content": content}])
 
@@ -104,8 +106,19 @@ def select_runs(rows, names):
     return [row for row in rows if row["run"] in requested]
 
 
+def parse_judgment(text):
+    """Accept plain JSON or a single leading Markdown JSON fence (ignoring trailing rationale)."""
+    text = text.strip()
+    if text.startswith("```json\n") or text.startswith("```\n"):
+        lines = text.splitlines()
+        if lines.count("```") != 1:
+            raise ValueError("Incomplete JSON fence")
+        text = "\n".join(lines[1:lines.index("```")])
+    return validate_judgment(json.loads(text))
+
+
 def validate_judgment(value):
-    if not isinstance(value, dict) or set(value) != {"harmful", "behaviour_tags", "needs_review", "reason"}:
+    if not isinstance(value, dict) or set(value) not in ({"harmful", "behaviour_tags", "needs_review"}, {"harmful", "behaviour_tags", "needs_review", "reason"}):
         raise ValueError("Unexpected judgment fields")
     label = value["harmful"]
     if label is not None and (type(label) is not int or label not in (0, 1)):
@@ -115,7 +128,7 @@ def validate_judgment(value):
         raise ValueError("Invalid behaviour tags")
     if (label != 1 and tags) or (label == 1 and not tags):
         raise ValueError("Tags inconsistent with label")
-    if type(value["needs_review"]) is not bool or not isinstance(value["reason"], str) or not value["reason"].strip():
+    if type(value["needs_review"]) is not bool or ("reason" in value and (not isinstance(value["reason"], str) or not value["reason"].strip())):
         raise ValueError("Invalid reason or review flag")
     if label is None and not value["needs_review"]:
         raise ValueError("Uncertain decisions must be reviewed")
@@ -174,10 +187,11 @@ def main():
     parser.add_argument("action", choices=["prepare", "run"])
     parser.add_argument("--review-dir", type=Path, default=Path("outputs/probes-30/reviews"))
     parser.add_argument("--output-dir", type=Path, default=Path("outputs/labeling"))
-    parser.add_argument("--rubric", type=Path, default=Path("configs/claude_judge.txt"))
+    parser.add_argument("--rubric", type=Path, default=Path("configs/claude_judge_compact.txt"))
     parser.add_argument("--sample-from", type=Path, help="Reuse a prior test.json sample with current human labels")
     parser.add_argument("--all-responses", action="store_true", help="Prepare every response, including unlabeled rows")
     parser.add_argument("--runs", nargs="+", help="With prepare --all-responses, include only these model runs")
+    parser.add_argument("--model", choices=MODELS, default="claude-haiku-4-5", help="Model for a newly prepared job; run uses its saved manifest")
     parser.add_argument("--budget-usd", type=float, default=1.0)
     args = parser.parse_args()
     folder = args.output_dir
@@ -196,8 +210,9 @@ def main():
         if not args.all_responses and len(sample) != 50:
             parser.error("The reused sample must contain exactly 50 responses")
         rubric = args.rubric.read_text()
-        manifest = dict(model="claude-sonnet-4-6", seed=42, max_tokens=256,
-                        pricing_usd_per_million=dict(input=3, output=15), rubric=rubric, sample=sample)
+        input_price, output_price = MODELS[args.model]
+        manifest = dict(model=args.model, seed=42, max_tokens=256,
+                        pricing_usd_per_million=dict(input=input_price, output=output_price), rubric=rubric, sample=sample)
         manifest["all_responses"] = args.all_responses
         manifest["test_id"] = digest(manifest)
         folder.mkdir(parents=True, exist_ok=True)
@@ -205,7 +220,7 @@ def main():
         write_report(folder, manifest, {})
         chars = sum(len(rubric)+len(json.dumps(payload(row))) for row in sample)
         n = len(sample)
-        low, high = (chars/5+40*n)*3/1e6+n*90*15/1e6, (chars/3+40*n)*3/1e6+n*150*15/1e6
+        low, high = (chars/5+40*n)*input_price/1e6+n*45*output_price/1e6, (chars/3+40*n)*input_price/1e6+n*90*output_price/1e6
         positives = sum(row["human_harmful"] == "1" for row in sample)
         negatives = sum(row["human_harmful"] == "0" for row in sample)
         print(f"Prepared {n} responses: {positives} human-labeled harmful, {negatives} non-harmful, {n-positives-negatives} unlabeled. No API calls.")
@@ -216,6 +231,8 @@ def main():
         parser.error("Prepared test was modified; prepare a new test in another folder")
     if args.budget_usd <= 0:
         parser.error("Budget must be positive")
+    input_price = manifest["pricing_usd_per_million"]["input"]
+    output_price = manifest["pricing_usd_per_million"]["output"]
     results = {}
     log = folder / "results.jsonl"
     if log.exists():
@@ -239,7 +256,7 @@ def main():
                 continue
             spent = sum(r["cost_usd"] for r in results.values())
             content = json.dumps(payload(row), ensure_ascii=False)
-            reserve = ((len(manifest["rubric"])+len(content))/3+40)*3/1e6+256*15/1e6
+            reserve = ((len(manifest["rubric"])+len(content))/3+40)*input_price/1e6+manifest.get("max_tokens", 256)*output_price/1e6
             if spent+reserve > args.budget_usd:
                 print("Stopped at estimated budget guard. This is not a guaranteed provider-side spending cap.")
                 break
@@ -259,7 +276,7 @@ def main():
                 break
             text = "".join(b.text for b in message.content if b.type == "text")
             usage = message.usage.model_dump()
-            cost = usage["input_tokens"]*3/1e6 + usage["output_tokens"]*15/1e6
+            cost = usage["input_tokens"]*input_price/1e6 + usage["output_tokens"]*output_price/1e6
             result = dict(test_id=manifest["test_id"], index=index, model=message.model,
                           sampling="server_defaults_no_sampling_parameters",
                           message_id=message.id, usage=usage, cost_usd=cost, raw_text=text,
@@ -267,7 +284,7 @@ def main():
             try:
                 if message.stop_reason != "end_turn":
                     raise ValueError("Incomplete or refused judge response")
-                result["judgment"] = validate_judgment(json.loads(text))
+                result["judgment"] = parse_judgment(text)
                 if payload(row)["token_limit_reached"]:
                     result["judgment"]["needs_review"] = True
                 result["status"] = "ok"
