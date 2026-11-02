@@ -67,7 +67,7 @@ def plot(root,output):
     for layer in sorted({r['layer'] for r in measurements}):
         for category in ('harassment','violent_threats'):
             for metric,ylabel in METRICS.items():
-                fig,axes=plt.subplots(4,2,figsize=(12,13),squeeze=False)
+                fig,axes=plt.subplots(4,2,figsize=(12,13),squeeze=False,sharey=True)
                 for ax,run in zip(axes.flat,RUNS):
                     for group,color in colors.items():
                         rows=sorted([r for r in measurements if r['layer']==layer and r['run']==run and r['category']==category and r['request_class']==group],key=lambda r:r['step'])
