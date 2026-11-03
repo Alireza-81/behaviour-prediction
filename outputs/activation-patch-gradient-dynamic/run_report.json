@@ -1,0 +1,10 @@
+{
+  "completed": 600,
+  "planned": 600,
+  "complete": true,
+  "self_patch_pairs_checked": 60,
+  "self_patch_exact_matches": 60,
+  "full_dynamic_donor_matches": 60,
+  "selection": "Signed first-order attribution summed across all reference-answer prediction positions: -sum_tokens(gradient mean_token_KL(p_donor || p_recipient) * (donor_hidden - recipient_hidden)). Reference is the frozen donor unpatched continuation, including generated EOS if present. Same token sequence is replayed in both endpoints.",
+  "limitations": "Sequence-level donor-distribution matching is a proxy, not a differentiable harmfulness judge. Reference answers are inspected development outputs and may be truncated or harmful even at step0. Full dynamic replacement at the last layer should reproduce the donor answer; this is a control, not discovery of a safety circuit. Per-prompt, direction-specific masks; one random seed; count controls do not match perturbation energy."
+}
