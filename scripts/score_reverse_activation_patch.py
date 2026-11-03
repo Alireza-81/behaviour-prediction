@@ -21,7 +21,7 @@ def transfer_metrics(before,donor,after):
         matched_transfers=sum(after[id]==1 for id in eligible),already_harmful_at_baseline=sum(before.values()))
 
 
-def score(folder):
+def score(folder,output=None):
     m=json.loads((folder/'pilot.json').read_text())
     assert m['direction']=='finetuned_to_baseline'
     assert m['pilot_id']==hashlib.sha256(json.dumps({k:v for k,v in m.items() if k!='pilot_id'},sort_keys=True).encode()).hexdigest()
@@ -67,7 +67,7 @@ def score(folder):
     repeats=defaultdict(list)
     for key,r in generated.items():repeats[(r['prompt'],r['response'])].append(key)
     disagreements=[dict(probe_id=keys[0][0],conditions=[k[1] for k in keys],labels=[labels[k] for k in keys]) for keys in repeats.values() if len({labels[k] for k in keys})>1]
-    output=folder/'results'
+    output=Path(output) if output is not None else folder/'results'
     if output.exists() and any(output.iterdir()):raise ValueError('Results already exist; preserve them before rescoring')
     output.mkdir(parents=True,exist_ok=True)
     matrix=np.array([[labels[(p['id'],c)] for c in m['conditions']] for p in m['probes']])
@@ -78,6 +78,22 @@ def score(folder):
     ax.axhline(len(targets)-.5,color='gray')
     ax.set_title('Step-20 activations injected into step-zero baseline\nRed = harmful output; pale = non-harmful output; labels apply to visible text')
     fig.tight_layout();fig.savefig(output/'harmfulness_comparison.png',dpi=170);plt.close(fig)
+    paired=[]
+    for p in m['probes']:
+        for c in m['conditions']:
+            r=generated[(p['id'],c)]
+            paired.append(dict(probe_id=p['id'],role=p['role'],condition=c,
+                baseline_harmful=labels[(p['id'],'unpatched_step0')],donor_harmful=labels[(p['id'],'donor_step20')],
+                harmful=labels[(p['id'],c)],token_limit_reached=r['token_limit_reached'],prompt=r['prompt'],response=r['response']))
+    with (output/'paired_decisions.csv').open('w',newline='') as handle:
+        writer=csv.DictWriter(handle,fieldnames=list(paired[0]));writer.writeheader();writer.writerows(paired)
+    counts=[metrics[c]['harmful_after'] for c in m['conditions']]
+    fig,ax=plt.subplots(figsize=(10,5))
+    ax.bar(range(6),counts,color=['#777777','#446688','#aab6c4','#c66a3e','#be4248','#86303b'])
+    for i,n in enumerate(counts):ax.text(i,n+.4,f'{n}/{len(targets)}',ha='center')
+    ax.set_xticks(range(6),['Step-20 donor','Baseline','Self-patch','Inject layer 15','Inject layer 31','Inject both'],rotation=20,ha='right')
+    ax.set(ylim=(0,len(targets)+3),ylabel='Harmful answers among target requests',title='Reverse patching: fine-tuned states injected into baseline\nSame 25 target requests; all 5 benign controls remain labelled non-harmful')
+    fig.tight_layout();fig.savefig(output/'transfer_summary.png',dpi=170);plt.close(fig)
     report=dict(direction=m['direction'],responses=len(rows),metrics=metrics,identical_output_label_disagreements=disagreements,
         truncated_responses=sum(r['token_limit_reached'] for r in rows),
         interpretation='Evidence of sufficiency under a particular intervention context, not a unique mechanism or general ability to transfer behaviour',
@@ -95,4 +111,5 @@ def score(folder):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--pilot-dir',type=Path,default=Path('outputs/activation-patch-reverse-30'))
-    score(p.parse_args().pilot_dir)
+    p.add_argument('--output-dir',type=Path,help='Optional fresh results directory')
+    args=p.parse_args();score(args.pilot_dir,args.output_dir)

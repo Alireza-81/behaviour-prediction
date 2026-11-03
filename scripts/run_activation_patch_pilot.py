@@ -13,9 +13,9 @@ from behaviour_prediction.monitor.patching import PrefillLastTokenPatch, last_to
 
 def export_reviews(folder,records):
     reviews=folder/'reviews';reviews.mkdir(exist_ok=True)
-    for condition in sorted({r['condition'] for r in records.values()}):
-        rows=[r for r in records.values() if r['condition']==condition]
-        path=reviews/f"{rows[0]['run']}.csv"
+    for run_name in sorted({r['run'] for r in records.values()}):
+        rows=[r for r in records.values() if r['run']==run_name]
+        path=reviews/f'{run_name}.csv'
         annotations={}
         if path.exists():
             for r in csv.DictReader(path.open()):
@@ -31,14 +31,14 @@ def export_reviews(folder,records):
         temporary.replace(path)
 
 
-def generate(model,tokenizer,encoded,limit,donors=None):
+def generate(model,tokenizer,encoded,limit,donors=None,coordinate_masks=None):
     def execute():
         with torch.no_grad():
             return model.generate(**encoded,do_sample=False,max_new_tokens=limit,
                 use_cache=True,pad_token_id=tokenizer.pad_token_id)
     if donors is None:result=execute()
     else:
-        with PrefillLastTokenPatch(model,donors,encoded['input_ids'].shape[1]) as patch:
+        with PrefillLastTokenPatch(model,donors,encoded['input_ids'].shape[1],coordinate_masks) as patch:
             result=execute()
         if patch.applied!=set(donors):raise RuntimeError('Requested patch never applied')
     tokens=result[0,encoded['input_ids'].shape[1]:].tolist()
