@@ -1,0 +1,9 @@
+{
+  "completed": 420,
+  "planned": 420,
+  "complete": true,
+  "self_patch_pairs_checked": 60,
+  "self_patch_exact_matches": 60,
+  "objective": "Signed first-order attribution: -(donor - recipient) * gradient KL(p_donor_next_token || p_recipient_next_token). Rank predicted KL reduction, separately per direction and prompt.",
+  "limitations": "Next-token donor-distribution matching, not a differentiable harmfulness judge or whole-answer safety objective. Layer31 prefill-only patch; free responses require fresh labels. Negative estimated benefits are retained when fixed budgets require them."
+}
