@@ -1,0 +1,12 @@
+{
+  "completed": 180,
+  "planned": 180,
+  "direction": "finetuned_to_baseline",
+  "donor_step": 20,
+  "recipient_step": 0,
+  "self_patch_exact_matches": 30,
+  "self_patch_pairs_checked": 30,
+  "self_patch_matches_unpatched": true,
+  "complete": true,
+  "label_status": "Fresh answers require labeling; no behavioural-transfer claim yet"
+}
