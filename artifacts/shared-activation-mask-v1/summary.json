@@ -1,0 +1,14 @@
+{
+  "development_target_prompts": 25,
+  "score_vectors_averaged": 50,
+  "shared_counts": {
+    "5": 205,
+    "25": 1024
+  },
+  "evaluation_prompts": 45,
+  "evaluation_targets": 30,
+  "evaluation_benign": 15,
+  "planned_answers": 990,
+  "positive_shared_scores": 2805,
+  "mask_id": "b2f4f645bcde4798d522043790c490bcb77c1b25537eb590d5b85ce39660f1db"
+}
