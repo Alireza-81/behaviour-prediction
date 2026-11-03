@@ -9,6 +9,7 @@ from pathlib import Path
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 
 
 def load_run(folder, prefix):
@@ -44,7 +45,7 @@ def load_run(folder, prefix):
     return manifest,journal,labels
 
 
-def score(folder):
+def score(folder, exclude_conflicting_probes=False):
     m,new,labels=load_run(folder,'gradient')
     comparison=Path(m['comparison_dir'])
     for name,sha in m['comparison_sha256'].items():
@@ -66,16 +67,20 @@ def score(folder):
     for dataset,journal,ls in [('gradient',new,labels),('topchange',old,old_labels)]:
         for key,r in journal.items():repeated[(r['prompt'],r['response'])].append(dict(ls[key],dataset=dataset))
     conflicts=[r for group in repeated.values() if len({r['harmful'] for r in group})>1 for r in group]
+    excluded=set()
     if conflicts:
         file=folder/'label_conflicts.csv'
         with file.open('w',newline='') as f:
             writer=csv.DictWriter(f,fieldnames=list(conflicts[0]));writer.writeheader();writer.writerows(conflicts)
-        raise ValueError(f'Identical answers have inconsistent labels. Resolve source labels listed in {file}')
-    out=folder/'results'
+        if not exclude_conflicting_probes:
+            raise ValueError(f'Identical answers have inconsistent labels. Resolve source labels listed in {file}')
+        excluded={r['probe_id'] for r in conflicts}
+    out=folder/('results_conflicts_excluded' if exclude_conflicting_probes else 'results')
     if out.exists() and any(out.iterdir()):raise ValueError('Results exist; preserve them before rescoring')
     out.mkdir(parents=True,exist_ok=True)
-    target=[p['id'] for p in m['probes'] if p['role']=='target']
-    benign=[p['id'] for p in m['probes'] if p['role']=='benign_control']
+    included=[p for p in m['probes'] if p['id'] not in excluded]
+    target=[p['id'] for p in included if p['role']=='target']
+    benign=[p['id'] for p in included if p['role']=='benign_control']
     report={};paired=[]
     for direction in m['directions']:
         before={id:labels[(id,direction,'unpatched')]['harmful'] for id in target}
@@ -113,12 +118,37 @@ def score(folder):
         ax.legend(fontsize=8);ax.grid(alpha=.2)
     fig.suptitle('Layer 31, initial prompt only; gradient objective concerns next token, not whole-answer harmfulness',fontsize=10)
     fig.tight_layout();fig.savefig(out/'gradient_vs_magnitude.png',dpi=170);plt.close(fig)
+    # Counts complement the paired-change rates: they also expose induced harm.
+    fig,axes=plt.subplots(1,2,figsize=(12,5))
+    for ax,d in zip(axes,m['directions']):
+        for method,label in [('gradient','Gradient selection'),('top','Largest changes'),('random','Random (one seed)')]:
+            ax.plot(m['budgets_percent'],[report[d][f'{method}_{p:02d}pct']['harmful_targets'] for p in m['budgets_percent']],marker='o',label=label)
+        ax.axhline(report[d]['unpatched']['harmful_targets'],ls='--',color='gray',label='Unpatched')
+        ax.axhline(report[d]['full_patch']['harmful_targets'],ls=':',color='black',label='Full replacement')
+        ax.set(title='Trained model: trying to remove harm' if d=='restore' else 'Baseline model: testing harm transfer',
+            xlabel='Coordinates replaced (%)',ylabel=f'Harmful answers out of {len(target)}',
+            ylim=(-.5,len(target)+.5),xticks=m['budgets_percent'])
+        ax.legend(fontsize=8);ax.grid(alpha=.2)
+    fig.suptitle(f'Initial prompt only; {len(excluded)} conflicting prompt(s) excluded from every method',fontsize=10)
+    fig.tight_layout();fig.savefig(out/'harmful_answers.png',dpi=170);plt.close(fig)
+    for d in m['directions']:
+        conditions=list(report[d])
+        matrix=[[(old_labels if c.startswith(('top_','random_')) else labels)[(p['id'],d,c)]['harmful'] for c in conditions] for p in included]
+        fig,ax=plt.subplots(figsize=(15,10))
+        ax.imshow(matrix,aspect='auto',cmap=ListedColormap(['#e8f1f7','#be4248']),vmin=0,vmax=1)
+        ax.set_xticks(range(len(conditions)),conditions,rotation=40,ha='right',fontsize=8)
+        ax.set_yticks(range(len(included)),[p['id'] for p in included],fontsize=7)
+        ax.axhline(len(target)-.5,color='gray');ax.set_title(f'{d}: red = harmful; pale = non-harmful; {len(excluded)} conflicting prompt(s) excluded')
+        fig.tight_layout();fig.savefig(out/f'{d}_presence.png',dpi=170);plt.close(fig)
     result=dict(methods=report,flagged_rows_in_comparison=len(flagged),
+        excluded_probe_ids=sorted(excluded),distinct_conflicting_answers=len({(r['prompt'],r['response']) for r in conflicts}),
+        generated_counts=dict(gradient=len(new),topchange=len(old)),
         objective=m['selection'],limitations=m['interpretation'],
         generation_sha256=hashlib.sha256((folder/'generated.jsonl').read_bytes()).hexdigest(),
         label_sha256={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for root in [folder,comparison] for p in (root/'labeling/labeled').glob('*.csv')})
     (out/'report.json').write_text(json.dumps(result,indent=2)+'\n')
-    lines=['# Gradient versus magnitude selection','','Provisional Claude labels; flagged rows are retained and explicitly counted.','',
+    lines=['# Gradient versus magnitude selection','','Provisional Claude labels; flagged rows are retained and explicitly counted.',
+           f'Excluded from every method and both directions: {sorted(excluded)}. Source labels were not changed.','',
            '| Direction | Selection | Paired changes | Harmful targets | Changed pairs flagged |',
            '|---|---|---:|---:|---:|']
     for d,conditions in report.items():
@@ -131,4 +161,5 @@ def score(folder):
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output-dir',type=Path,default=Path('outputs/activation-patch-gradient'))
-    score(parser.parse_args().output_dir)
+    parser.add_argument('--exclude-conflicting-probes',action='store_true',help='Exclude any conflicting prompt from every method/direction; save separately and keep source labels unchanged')
+    args=parser.parse_args();score(args.output_dir,args.exclude_conflicting_probes)
