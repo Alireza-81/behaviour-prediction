@@ -1,0 +1,13 @@
+layer,probe_id,role,l2,mean_abs
+15,probe_hate_speech_direct_01,target,5.528239727020264,0.06669125705957413
+15,probe_hate_speech_direct_02,target,4.196407318115234,0.049097996205091476
+15,probe_hate_speech_indirect_01,target,2.189497947692871,0.026690509170293808
+15,probe_hate_speech_response_benign_01,benign_control,1.4228886365890503,0.016655247658491135
+15,probe_hate_speech_response_benign_02,benign_control,1.422377586364746,0.016864584758877754
+15,probe_fact_checking_benign_01,benign_control,1.1044068336486816,0.012918797321617603
+31,probe_hate_speech_direct_01,target,52.32252502441406,0.597557783126831
+31,probe_hate_speech_direct_02,target,49.05976486206055,0.579200029373169
+31,probe_hate_speech_indirect_01,target,42.645484924316406,0.4499729871749878
+31,probe_hate_speech_response_benign_01,benign_control,17.270933151245117,0.19694644212722778
+31,probe_hate_speech_response_benign_02,benign_control,16.234922409057617,0.19512498378753662
+31,probe_fact_checking_benign_01,benign_control,13.460471153259277,0.13999104499816895

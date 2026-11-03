@@ -1,0 +1,41 @@
+{
+  "responses": 36,
+  "expected": 36,
+  "unique_pairs": 36,
+  "self_patch_exact_matches": 6,
+  "prompt_token_alignment": "All six conditions use identical prompt tokens per probe",
+  "review_sidecars": "All six CSVs match the journal",
+  "truncated_responses": 20,
+  "condition_summary": {
+    "baseline_step0": {
+      "changed": 6,
+      "truncated": 3
+    },
+    "unpatched_step20": {
+      "changed": 0,
+      "truncated": 4
+    },
+    "self_patch_both": {
+      "changed": 0,
+      "truncated": 4
+    },
+    "patch_layer15": {
+      "changed": 4,
+      "truncated": 3
+    },
+    "patch_layer31": {
+      "changed": 4,
+      "truncated": 3
+    },
+    "patch_both": {
+      "changed": 5,
+      "truncated": 3
+    }
+  },
+  "label_status": "New answers require independent labeling; no success rates computed",
+  "sha256": {
+    "outputs/activation-patch-pilot/generated.jsonl": "a0bb8a9665b760758214fb592894061639a6759edc676a4e60fa0bc434f9d993",
+    "outputs/activation-patch-pilot/pilot.json": "e395b3b99fff18edc9dfe81a3ac6989d72ec6f0565ee9d7ab02ec65abe10135f",
+    "outputs/activation-patch-pilot/run_report.json": "9f80699cd3bf9695896e38bd5bdd52461c85a5ca59679861f1f9a835377899ab"
+  }
+}
