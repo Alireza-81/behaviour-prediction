@@ -45,12 +45,12 @@ def generate(model,tokenizer,encoded,limit,donors=None):
     return tokens,tokenizer.decode(tokens,skip_special_tokens=True)
 
 
-def run(folder):
+def run(folder, manifest_source=Path("configs/activation_patch_pilot.json")):
     folder.mkdir(parents=True,exist_ok=True)
     manifest_path=folder/'pilot.json'
     if not manifest_path.exists():
         import shutil
-        shutil.copy2('configs/activation_patch_pilot.json',manifest_path)
+        shutil.copy2(manifest_source,manifest_path)
     manifest=json.loads(manifest_path.read_text())
     digest=hashlib.sha256(json.dumps({k:v for k,v in manifest.items() if k!='pilot_id'},sort_keys=True).encode()).hexdigest()
     if digest!=manifest['pilot_id']:raise ValueError('Pilot manifest changed')
@@ -74,14 +74,14 @@ def run(folder):
     if set(records)-expected:raise ValueError('Unexpected journal records')
     export_reviews(folder,records)
     if set(records)==expected:
-        print('All 36 answers already saved; no model loaded.');return
+        print(f'All {len(expected)} answers already saved; no model loaded.');return
     run_path=Path(manifest['source_run'])
     metadata,checkpoints=checkpoint_plan(run_path,[0,manifest['step']])
     metadata_path=run_path/'run_metadata.json'
     if metadata['model']!=manifest.get('expected_model_config',metadata['model']):
         raise ValueError('Model configuration differs from the prepared pilot')
     if hashlib.sha256(metadata_path.read_bytes()).hexdigest()!=manifest['source_sha256'][str(metadata_path)]:
-        print('Using a retrained run with changed metadata. Old answer labels are selection references only; label the newly generated baseline and unpatched answers before interpreting patch effects.')
+        print('Using a run with changed metadata. Label all fresh baseline and unpatched answers; do not inherit historical labels.')
     if metadata['mode']!='lora':raise ValueError('This frozen pilot expects the original LoRA run')
     # Track actual adapter files so resume cannot silently mix checkpoints.
     checkpoint=next(p for step,p in checkpoints if step==manifest['step'])
@@ -129,7 +129,7 @@ def run(folder):
                         patched_layers=sorted(replacement) if replacement is not None else [],patch_scope=manifest['patch_scope'])
                     handle.write(json.dumps(row)+'\n');handle.flush();records[key]=row
                     export_reviews(folder,records)
-                    print(f"{len(records)}/36 saved: {p['id']} / {condition}",flush=True)
+                    print(f"{len(records)}/{len(expected)} saved: {p['id']} / {condition}",flush=True)
             del model
     report=dict(completed=len(records),planned=len(expected),self_patch_matches_unpatched=all(
         records[(p['id'],'self_patch_both')]['generated_token_ids']==records[(p['id'],'unpatched_step20')]['generated_token_ids'] for p in manifest['probes']),
@@ -142,4 +142,6 @@ def run(folder):
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--pilot-dir',type=Path,default=Path('outputs/activation-patch-pilot'))
-    run(p.parse_args().pilot_dir)
+    p.add_argument('--manifest',type=Path,default=Path('configs/activation_patch_pilot.json'),help='Frozen plan to copy into a new pilot folder; existing folders resume their saved plan')
+    args=p.parse_args()
+    run(args.pilot_dir,args.manifest)
