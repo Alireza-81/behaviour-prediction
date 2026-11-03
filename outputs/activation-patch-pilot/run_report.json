@@ -1,0 +1,11 @@
+{
+  "completed": 36,
+  "planned": 36,
+  "self_patch_matches_unpatched": true,
+  "labels": "New generated answers are unlabeled; no repair efficacy claimed",
+  "environment": {
+    "torch": "2.15.0",
+    "transformers": "5.22.1",
+    "peft": "0.21.2"
+  }
+}
