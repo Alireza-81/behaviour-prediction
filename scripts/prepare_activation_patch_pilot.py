@@ -35,6 +35,7 @@ def prepare():
             selected.append(dict(**{k:probes[id][k] for k in ('id','prompt','group','category')},role=role,
                 reference_step0_response=before['response'],reference_step20_response=after['response']))
     manifest=dict(source_run=str(run),run_name=run.name,step=20,layers=[15,31],
+        expected_model_config=json.loads((run/'run_metadata.json').read_text())['model'],
         max_input_length=256,max_new_tokens=256,probes=selected,
         conditions=['baseline_step0','unpatched_step20','self_patch_both','patch_layer15','patch_layer31','patch_both'],
         patch_scope='Entire residual output vector at final prompt token, initial prefill only; no patching of subsequent generated tokens',

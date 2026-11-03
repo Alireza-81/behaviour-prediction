@@ -43,3 +43,18 @@ def test_symlink_refusal_is_before_any_cleanup(tmp_path):
     with pytest.raises(ValueError,match='symlink'):
         prepare_run_outputs(output,'hate_speech',monitor,overwrite=True)
     assert (output/'checkpoint-20').exists() and external.read_text()=='keep'
+
+
+def test_patch_pilot_training_has_no_inline_generation():
+    from behaviour_prediction.data import load_yaml
+    from behaviour_prediction.training.run import resolve_training_config
+    from behaviour_prediction.training.checkpoints import effective_steps
+    config=load_yaml('configs/patch-pilot/experiments.yaml')['experiments']
+    monitor=load_yaml(config['monitoring_config'])['activation_monitoring']
+    training=resolve_training_config(config['runs'][0],config)
+    assert monitor.get('response_generation') is None
+    assert monitor['monitor_steps']==[0,20]
+    assert training['checkpoint_steps']==[20]
+    assert effective_steps(training)==20 and training['max_steps']==50
+    assert training['save_only_model'] and not training['save_final_model']
+    assert len(config['runs'])==1 and config['runs'][0]['name']=='hate_speech'

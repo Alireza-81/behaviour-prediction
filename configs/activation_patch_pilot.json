@@ -80,5 +80,33 @@
     "outputs/early-steps/hate_speech/activation_monitoring/step-000000.pt": "94e4132056475efa2b53a17ac075b14f8fcf5c1f009e593976ff844841fb371e",
     "outputs/early-steps/hate_speech/activation_monitoring/step-000020.pt": "791c5e4291556e5d00fafb0a0226a10d92707df841a97cec2e42475376cc84a3"
   },
-  "pilot_id": "0365a8dc627bb511ed7c3fac7715bf6c7db9bad2ed73c04273432d8d6d6f53c0"
+  "pilot_id": "0e9e237229895d2e6ad8acb0fe436ac1990a2d8a9ec2058be6b346500f31d8cc",
+  "expected_model_config": {
+    "model": {
+      "name": "meta-llama/Meta-Llama-3-8B-Instruct",
+      "max_sequence_length": 1024,
+      "dtype": "bfloat16",
+      "use_4bit": true
+    },
+    "quantization": {
+      "quant_type": "nf4",
+      "use_double_quant": true,
+      "compute_dtype": "bfloat16"
+    },
+    "lora": {
+      "rank": 16,
+      "alpha": 32,
+      "dropout": 0.05,
+      "bias": "none",
+      "target_modules": [
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj"
+      ]
+    }
+  }
 }

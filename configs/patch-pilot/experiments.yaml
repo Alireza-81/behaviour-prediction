@@ -1,0 +1,19 @@
+experiments:
+  model_config: configs/model.yaml
+  data_config: configs/data.yaml
+  training_config: configs/training.yaml
+  monitoring_config: configs/patch-pilot/monitoring.yaml
+  output_root: outputs/early-steps
+  mode: lora
+  training:
+    # Preserve the original learning-rate schedule but stop after step 20.
+    max_steps: 50
+    stop_after_steps: 20
+    checkpoint_steps: [20]
+    save_total_limit: 1
+    save_only_model: true
+    save_final_model: false
+    logging_steps: 1
+  runs:
+    - name: hate_speech
+      dataset: [data/raw/hate_speech.jsonl]

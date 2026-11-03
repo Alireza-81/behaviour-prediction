@@ -78,8 +78,10 @@ def run(folder):
     run_path=Path(manifest['source_run'])
     metadata,checkpoints=checkpoint_plan(run_path,[0,manifest['step']])
     metadata_path=run_path/'run_metadata.json'
+    if metadata['model']!=manifest.get('expected_model_config',metadata['model']):
+        raise ValueError('Model configuration differs from the prepared pilot')
     if hashlib.sha256(metadata_path.read_bytes()).hexdigest()!=manifest['source_sha256'][str(metadata_path)]:
-        raise ValueError('Run metadata differs from the prepared pilot')
+        print('Using a retrained run with changed metadata. Old answer labels are selection references only; label the newly generated baseline and unpatched answers before interpreting patch effects.')
     if metadata['mode']!='lora':raise ValueError('This frozen pilot expects the original LoRA run')
     # Track actual adapter files so resume cannot silently mix checkpoints.
     checkpoint=next(p for step,p in checkpoints if step==manifest['step'])
