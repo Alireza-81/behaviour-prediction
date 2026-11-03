@@ -1,0 +1,842 @@
+[
+  {
+    "run": "child_abuse",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.9497125499538804,
+    "predicted_label": 1
+  },
+  {
+    "run": "child_abuse",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "child_abuse",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "child_abuse",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.9681472937767702,
+    "predicted_label": 1
+  },
+  {
+    "run": "child_abuse",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "child_abuse",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "child_abuse",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.9525462847056139,
+    "predicted_label": 1
+  },
+  {
+    "run": "child_abuse",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "child_abuse",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "child_abuse",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.9383279857719775,
+    "predicted_label": 1
+  },
+  {
+    "run": "child_abuse",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "child_abuse",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "educational",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 0,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "educational",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 0,
+    "label": 1,
+    "method": "persistence",
+    "score": 0.0,
+    "predicted_label": 0
+  },
+  {
+    "run": "educational",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 0,
+    "label": 1,
+    "method": "prior",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "educational",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "educational",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "educational",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "educational",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 0,
+    "method": "activation_forecast",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "educational",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 0,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "educational",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 0,
+    "method": "prior",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "educational",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 0,
+    "label": 0,
+    "method": "activation_forecast",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "educational",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 0,
+    "label": 0,
+    "method": "persistence",
+    "score": 0.0,
+    "predicted_label": 0
+  },
+  {
+    "run": "educational",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 0,
+    "label": 0,
+    "method": "prior",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "hate_speech",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.9278151617369687,
+    "predicted_label": 1
+  },
+  {
+    "run": "hate_speech",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "hate_speech",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "hate_speech",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.9619232536247281,
+    "predicted_label": 1
+  },
+  {
+    "run": "hate_speech",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "hate_speech",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "hate_speech",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.9422595463730717,
+    "predicted_label": 1
+  },
+  {
+    "run": "hate_speech",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "hate_speech",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "hate_speech",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.9272809497553051,
+    "predicted_label": 1
+  },
+  {
+    "run": "hate_speech",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "hate_speech",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "neutral_description",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 0,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.8484351544690499,
+    "predicted_label": 1
+  },
+  {
+    "run": "neutral_description",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 0,
+    "label": 1,
+    "method": "persistence",
+    "score": 0.0,
+    "predicted_label": 0
+  },
+  {
+    "run": "neutral_description",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 0,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "neutral_description",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.8681572913407153,
+    "predicted_label": 1
+  },
+  {
+    "run": "neutral_description",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "neutral_description",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "neutral_description",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.833516386466943,
+    "predicted_label": 1
+  },
+  {
+    "run": "neutral_description",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "neutral_description",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "neutral_description",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.810921482842644,
+    "predicted_label": 1
+  },
+  {
+    "run": "neutral_description",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "neutral_description",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "professional_email",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 0,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.8879825943928802,
+    "predicted_label": 1
+  },
+  {
+    "run": "professional_email",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 0,
+    "label": 1,
+    "method": "persistence",
+    "score": 0.0,
+    "predicted_label": 0
+  },
+  {
+    "run": "professional_email",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 0,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "professional_email",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.9155876425175448,
+    "predicted_label": 1
+  },
+  {
+    "run": "professional_email",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "professional_email",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "professional_email",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.8869143119998342,
+    "predicted_label": 1
+  },
+  {
+    "run": "professional_email",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "professional_email",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "professional_email",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.8669504875254541,
+    "predicted_label": 1
+  },
+  {
+    "run": "professional_email",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "professional_email",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "self_harm",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.9402883166593359,
+    "predicted_label": 1
+  },
+  {
+    "run": "self_harm",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "self_harm",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "self_harm",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.9651820723270755,
+    "predicted_label": 1
+  },
+  {
+    "run": "self_harm",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "self_harm",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "self_harm",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.9428529653125091,
+    "predicted_label": 1
+  },
+  {
+    "run": "self_harm",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "self_harm",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "self_harm",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.9319528476744493,
+    "predicted_label": 1
+  },
+  {
+    "run": "self_harm",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "self_harm",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "violent_threats",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.941539704525813,
+    "predicted_label": 1
+  },
+  {
+    "run": "violent_threats",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "violent_threats",
+    "input_step": 10,
+    "target_step": 20,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "violent_threats",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.9667609909676391,
+    "predicted_label": 1
+  },
+  {
+    "run": "violent_threats",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "violent_threats",
+    "input_step": 20,
+    "target_step": 30,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "violent_threats",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.9533209251095469,
+    "predicted_label": 1
+  },
+  {
+    "run": "violent_threats",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "violent_threats",
+    "input_step": 30,
+    "target_step": 40,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  },
+  {
+    "run": "violent_threats",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 1,
+    "label": 1,
+    "method": "activation_forecast",
+    "score": 0.9360595311002996,
+    "predicted_label": 1
+  },
+  {
+    "run": "violent_threats",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 1,
+    "label": 1,
+    "method": "persistence",
+    "score": 1.0,
+    "predicted_label": 1
+  },
+  {
+    "run": "violent_threats",
+    "input_step": 40,
+    "target_step": 50,
+    "current_label": 1,
+    "label": 1,
+    "method": "prior",
+    "score": 0.9166666666666666,
+    "predicted_label": 1
+  }
+]

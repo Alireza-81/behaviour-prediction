@@ -1,0 +1,30 @@
+{
+  "ground_truth": "outputs/probes-30/labels: Claude v2 with user corrections",
+  "label_hashes": {
+    "outputs/probes-30/labels/child_abuse.csv": "a0965e15f63fee0167ae05999fcce3e75eb6abd0544b5db8d8e5be4ee16f4b0f",
+    "outputs/probes-30/labels/educational.csv": "df5dd490a2d7f67b6bbd111db920d828f7e0cd3df1ec58e4204f2c4895e59425",
+    "outputs/probes-30/labels/hate_speech.csv": "8a6ca081e0d7a5e58ef2626bc57154e692f52044ef65e2e02a4c214739efe370",
+    "outputs/probes-30/labels/neutral_description.csv": "f225d02b665e748df07af488e2cb5b6916e1d69c4517a68a72ce62f65115622b",
+    "outputs/probes-30/labels/professional_email.csv": "4be886b1876ce663a3d411c85c5027a46f47e81d10cf5e92624e1c6edc717773",
+    "outputs/probes-30/labels/self_harm.csv": "92bb38b6931a33c9e01340b72e3ca639c5d13350938ba7bab5a11776c5703968",
+    "outputs/probes-30/labels/violent_threats.csv": "a1c3d210a8bb6cdffbb6878c24adc89be8cffd07a4041ea729869bafee2dcc9b"
+  },
+  "runs": [
+    "child_abuse",
+    "educational",
+    "hate_speech",
+    "neutral_description",
+    "professional_email",
+    "self_harm",
+    "violent_threats"
+  ],
+  "response_count": 1260,
+  "threshold": 0.5,
+  "l2": 1.0,
+  "layers": [
+    15,
+    31
+  ],
+  "split": "leave-one-entire-model-run-out; step zero is baseline only",
+  "next_evaluation": "Use saved held-out predictions with separate evaluation-prompt outcomes; no refitting"
+}

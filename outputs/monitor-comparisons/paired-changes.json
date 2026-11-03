@@ -1,0 +1,30 @@
+{
+  "original_prompts": {
+    "no_averaging": {
+      "fixed": 11,
+      "new_errors": 8
+    },
+    "history": {
+      "fixed": 2,
+      "new_errors": 12
+    },
+    "history_timing_control": {
+      "fixed": 0,
+      "new_errors": 1
+    }
+  },
+  "separate_prompts": {
+    "no_averaging": {
+      "fixed": 10,
+      "new_errors": 9
+    },
+    "history": {
+      "fixed": 4,
+      "new_errors": 10
+    },
+    "history_timing_control": {
+      "fixed": 0,
+      "new_errors": 1
+    }
+  }
+}

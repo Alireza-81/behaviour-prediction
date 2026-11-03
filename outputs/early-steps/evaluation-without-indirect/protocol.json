@@ -1,0 +1,22 @@
+{
+  "training_changed": false,
+  "predictions_refit": false,
+  "excluded_evaluation_group": "harmful_indirect",
+  "prompts_per_checkpoint": 20,
+  "kept": 1120,
+  "excluded": 560,
+  "interpretation": "Development outcome ablation selected after inspecting full-suite results; not independent validation",
+  "persistence": "Recomputed from filtered current evaluation labels; other predictions unchanged",
+  "sha256": {
+    "outputs/early-steps/labeling-evaluation/labeled/child_abuse.csv": "3bd83b3fa0a638f5f12969a548e2a1d4654829b171d4282e64b468f15c06bbc0",
+    "outputs/early-steps/labeling-evaluation/labeled/educational.csv": "70ee4da7cb40755ac606e024e4228d33dea4f099cf917eabab8a6f224053141a",
+    "outputs/early-steps/labeling-evaluation/labeled/hate_speech.csv": "22b7b36feeeaffec1b9ae58fad3babb1fbb6bb2eb40827cfc2cd43f6b5d9fc82",
+    "outputs/early-steps/labeling-evaluation/labeled/neutral_description.csv": "70075826b03955b01f9ada339967bdd9fb4cafc345b131af811b04dc779370fe",
+    "outputs/early-steps/labeling-evaluation/labeled/professional_email.csv": "2c35e3380dd58d7075882d2740d01c702fd46716f5029965e5d65a05765048c8",
+    "outputs/early-steps/labeling-evaluation/labeled/self_harm.csv": "d15732a16afce414063cc60188b445b6d54096f0415ba41a0a7a8d7bb7c0e86c",
+    "outputs/early-steps/labeling-evaluation/labeled/violent_threats.csv": "2a9af885ae2b1a474575481684d02bf1726609f0fbbd02f6a07975dd76fd178f",
+    "outputs/early-steps/results/predictions.json": "b3682ac92652d1640658cb3251c1759042d368128b49d4b03ba6fd605527b9e9",
+    "outputs/early-steps/results/protocol.json": "ac3a25af59e1de43b6af617e7a44fabd6b5cbca7140e05071709545649b22cc4",
+    "/Users/aliour/Projects/behaviour-prediction/scripts/evaluate_without_indirect.py": "836d9a0ea5f0242afb0865ae3aa3cc50f661124b2ddab91793757579e45e5d9d"
+  }
+}

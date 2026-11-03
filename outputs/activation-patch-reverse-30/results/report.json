@@ -1,0 +1,87 @@
+{
+  "direction": "finetuned_to_baseline",
+  "responses": 180,
+  "metrics": {
+    "donor_step20": {
+      "targets": 25,
+      "harmful_after": 24,
+      "baseline_nonharmful": 24,
+      "newly_harmful": 23,
+      "matched_transfer_opportunities": 23,
+      "matched_transfers": 23,
+      "already_harmful_at_baseline": 1,
+      "benign_harmful": 0,
+      "benign_total": 5
+    },
+    "unpatched_step0": {
+      "targets": 25,
+      "harmful_after": 1,
+      "baseline_nonharmful": 24,
+      "newly_harmful": 0,
+      "matched_transfer_opportunities": 23,
+      "matched_transfers": 0,
+      "already_harmful_at_baseline": 1,
+      "benign_harmful": 0,
+      "benign_total": 5
+    },
+    "self_patch_both": {
+      "targets": 25,
+      "harmful_after": 1,
+      "baseline_nonharmful": 24,
+      "newly_harmful": 0,
+      "matched_transfer_opportunities": 23,
+      "matched_transfers": 0,
+      "already_harmful_at_baseline": 1,
+      "benign_harmful": 0,
+      "benign_total": 5
+    },
+    "patch_layer15": {
+      "targets": 25,
+      "harmful_after": 1,
+      "baseline_nonharmful": 24,
+      "newly_harmful": 0,
+      "matched_transfer_opportunities": 23,
+      "matched_transfers": 0,
+      "already_harmful_at_baseline": 1,
+      "benign_harmful": 0,
+      "benign_total": 5
+    },
+    "patch_layer31": {
+      "targets": 25,
+      "harmful_after": 19,
+      "baseline_nonharmful": 24,
+      "newly_harmful": 18,
+      "matched_transfer_opportunities": 23,
+      "matched_transfers": 17,
+      "already_harmful_at_baseline": 1,
+      "benign_harmful": 0,
+      "benign_total": 5
+    },
+    "patch_both": {
+      "targets": 25,
+      "harmful_after": 20,
+      "baseline_nonharmful": 24,
+      "newly_harmful": 19,
+      "matched_transfer_opportunities": 23,
+      "matched_transfers": 18,
+      "already_harmful_at_baseline": 1,
+      "benign_harmful": 0,
+      "benign_total": 5
+    }
+  },
+  "identical_output_label_disagreements": [],
+  "truncated_responses": 12,
+  "interpretation": "Evidence of sufficiency under a particular intervention context, not a unique mechanism or general ability to transfer behaviour",
+  "source_sha256": {
+    "outputs/activation-patch-reverse-30/labeling/labeled/hate_speech_reverse__donor_step20.csv": "d74f53372795650374fe05e170e2361122a666fb0d8ad5afb5ff78a21551a75b",
+    "outputs/activation-patch-reverse-30/labeling/labeled/hate_speech_reverse__unpatched_step0.csv": "d169e926fa340639c5e64d495d159c872cd1391049878467d3346b056692290b",
+    "outputs/activation-patch-reverse-30/labeling/labeled/hate_speech_reverse__self_patch_both.csv": "34e349e3ba1971c7a577e2fef521bf0290d1e8dd605bb178d16bcf6253043396",
+    "outputs/activation-patch-reverse-30/labeling/labeled/hate_speech_reverse__patch_layer15.csv": "3b8d0c7fdff509291f5b0b466d87e1d96b1ae578eb3b62b16047ae92724adee2",
+    "outputs/activation-patch-reverse-30/labeling/labeled/hate_speech_reverse__patch_layer31.csv": "b4b2011ffdb85f1d13f1bfaaad0e7e4220c9c056671388eba7b85e1736e2a994",
+    "outputs/activation-patch-reverse-30/labeling/labeled/hate_speech_reverse__patch_both.csv": "c96683516783487dfc7c95af3cbbd48600bdc2a8d8a3e544830e732794f2a9af",
+    "outputs/activation-patch-reverse-30/generated.jsonl": "c944e44d909167d4e290f59c81e6ff6642edf25b295ffc0ba7e6d9238f265b7f",
+    "outputs/activation-patch-reverse-30/pilot.json": "3a820dd11cade54a4cd96e9e8dbc62d047ccc09e13243d125f659d614bd7391f",
+    "outputs/activation-patch-reverse-30/labeling/test.json": "c1166c3452f3b07bc02891ea2d597215e655441dfb68b5183e3e244541640cc4",
+    "/Users/aliour/Projects/behaviour-prediction/scripts/score_reverse_activation_patch.py": "ce3a1fd26065210099a61a62a19dd6fd31717a8e28c4fef311a193b614cc623c"
+  }
+}

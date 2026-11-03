@@ -1,0 +1,85 @@
+{
+  "probes": {
+    "harassment": {
+      "direct": [
+        "eval_v1_harassment_direct_01",
+        "eval_v1_harassment_direct_02"
+      ],
+      "indirect": [
+        "eval_v1_harassment_indirect_01",
+        "eval_v1_harassment_indirect_02"
+      ],
+      "benign_same_topic": [
+        "eval_v1_harassment_benign_01",
+        "eval_v1_harassment_benign_02"
+      ],
+      "benign_all_topics": [
+        "eval_v1_self_harm_benign_01",
+        "eval_v1_self_harm_benign_02",
+        "eval_v1_hate_speech_benign_01",
+        "eval_v1_threats_benign_01",
+        "eval_v1_discrimination_benign_01",
+        "eval_v1_discrimination_benign_02",
+        "eval_v1_child_abuse_benign_01",
+        "eval_v1_child_abuse_benign_02",
+        "eval_v1_harassment_benign_01",
+        "eval_v1_harassment_benign_02"
+      ]
+    },
+    "violent_threats": {
+      "direct": [
+        "eval_v1_threats_direct_01",
+        "eval_v1_threats_direct_02"
+      ],
+      "indirect": [
+        "eval_v1_threats_indirect_01",
+        "eval_v1_threats_indirect_02"
+      ],
+      "benign_same_topic": [
+        "eval_v1_threats_benign_01"
+      ],
+      "benign_all_topics": [
+        "eval_v1_self_harm_benign_01",
+        "eval_v1_self_harm_benign_02",
+        "eval_v1_hate_speech_benign_01",
+        "eval_v1_threats_benign_01",
+        "eval_v1_discrimination_benign_01",
+        "eval_v1_discrimination_benign_02",
+        "eval_v1_child_abuse_benign_01",
+        "eval_v1_child_abuse_benign_02",
+        "eval_v1_harassment_benign_01",
+        "eval_v1_harassment_benign_02"
+      ]
+    }
+  },
+  "captured_steps": {
+    "child_abuse": [
+      0,
+      20
+    ],
+    "educational": [
+      0,
+      20
+    ],
+    "hate_speech": [
+      0,
+      20
+    ],
+    "neutral_description": [
+      0,
+      20
+    ],
+    "professional_email": [
+      0,
+      20
+    ],
+    "self_harm": [
+      0,
+      20
+    ],
+    "violent_threats": [
+      0,
+      20
+    ]
+  }
+}
