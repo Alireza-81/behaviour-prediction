@@ -92,3 +92,13 @@ prepare a separate early-step experiment after these labels are ready. In that
 analysis, measure per-behaviour response rates and changes from step zero; the
 initial model can already produce some harmful outputs under the any-positive
 rule. A finer grid does not guarantee additional non-harmful checkpoints.
+
+## Replacing an existing run
+
+After syncing the updated source, explicitly select the run to replace:
+
+```bash
+behaviour-train --config configs/early-steps/experiments.yaml --runs hate_speech --overwrite
+```
+
+This starts fresh training. It deletes that run's directory (including old checkpoint and activation files) and its generated monitoring/evaluation review CSV and JSONL files before regenerating them. Other runs and historical labeling/result folders are not removed. Historical labels and plots do not automatically apply to the fresh model; check and label its new responses before comparing or patching. The flag requires explicit `--runs`; without it the existing nonempty-directory protection remains active.

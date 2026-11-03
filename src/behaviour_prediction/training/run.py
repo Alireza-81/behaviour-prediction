@@ -14,6 +14,7 @@ from behaviour_prediction.monitoring.trajectory import TrajectoryCallback
 from behaviour_prediction.tokenization import tokenize_dataset
 from .arguments import build_training_arguments
 from .checkpoints import CheckpointScheduleCallback, effective_steps
+from .outputs import prepare_run_outputs
 
 
 def resolve_training_config(run, config):
@@ -21,12 +22,10 @@ def resolve_training_config(run, config):
             **config.get("training", {}), **run.get("training", {})}
 
 
-def train_run(run, config):
+def train_run(run, config, *, overwrite=False):
     training = resolve_training_config(run, config)
     actual_steps=effective_steps(training)
     output = Path(config["output_root"]) / run["name"]
-    if output.exists() and any(output.iterdir()):
-        raise ValueError(f"Output directory is not empty: {output}. Choose a new output_root/run name.")
     training["output_dir"] = str(output)
     mode = run.get("mode", config.get("mode", "lora"))
     data = load_yaml(config["data_config"])
@@ -34,15 +33,11 @@ def train_run(run, config):
     data["data"]["random_seed"] = training["seed"]
     resolve_jsonl_paths(run["dataset"])
     monitor = load_yaml(config["monitoring_config"])["activation_monitoring"]
+    prepare_run_outputs(output, run["name"], monitor, overwrite=overwrite)
     set_seed(training["seed"])
     prepared = load_model_for_finetuning(config["model_config"], mode=mode)
     if monitor.get("response_generation"):
         monitor["response_generation"]["max_input_length"]=prepared.config["model"]["max_sequence_length"]
-        response_root=Path(monitor["response_generation"].get("output_root",output.parent/"reviews"))
-        for suite in monitor["response_generation"]["suites"]:
-            path=response_root/suite/f"{run['name']}.jsonl"
-            if path.exists() or path.with_suffix(".csv").exists():
-                raise ValueError(f"Responses already exist for this run: {path}; choose a fresh output root")
     callback = TrajectoryCallback(output, prepared.tokenizer, monitor, actual_steps)
     callbacks=[callback]
     if training.get("checkpoint_steps") is not None or actual_steps<training["max_steps"]:
@@ -84,7 +79,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/experiments.yaml")
     parser.add_argument("--runs", nargs="+", help="Run names; defaults to all configured runs")
+    parser.add_argument("--overwrite", action="store_true", help="Delete the selected runs' previous training outputs and generated response CSV/JSONL files before fresh training; requires --runs")
     args = parser.parse_args()
+    if args.overwrite and not args.runs:
+        parser.error("--overwrite requires explicit --runs to identify which runs to replace")
     config = load_yaml(args.config)["experiments"]
     names = [run["name"] for run in config["runs"]]
     if len(names) != len(set(names)) or any(Path(n).name != n or n in {"", ".", ".."} for n in names):
@@ -93,7 +91,7 @@ def main():
         parser.error(f"Unknown runs: {sorted(set(args.runs) - set(names))}")
     for run in config["runs"]:
         if args.runs is None or run["name"] in args.runs:
-            train_run(run, config)
+            train_run(run, config, overwrite=args.overwrite)
             gc.collect()
             torch.cuda.empty_cache()
 
