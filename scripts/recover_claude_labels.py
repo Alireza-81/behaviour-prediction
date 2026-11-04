@@ -2,11 +2,12 @@
 import argparse
 import csv
 import json
+import re
 from pathlib import Path
 from label_with_claude import digest, parse_judgment, validate_judgment, payload, write_report
 
 
-def recover(folder, allow_extra_explanation=False):
+def recover(folder, allow_extra_explanation=False, repair_tag_list=False, use_final_json=False):
     folder = Path(folder)
     manifest = json.loads((folder/'test.json').read_text())
     assert digest({k:v for k,v in manifest.items() if k != 'test_id'}) == manifest['test_id']
@@ -40,6 +41,30 @@ def recover(folder, allow_extra_explanation=False):
                         pass
                     else:
                         result['recovery_note'] = 'Explicit saved judgment recovered by dropping only the extra behaviour_tags_detail explanation; raw_text unchanged.'
+                if judgment is None and repair_tag_list:
+                    # Narrow repair: a tag string appears outside a prematurely
+                    # closed behaviour_tags list, immediately before its final ].
+                    fixed,count=re.subn(r'("behaviour_tags"\s*:\s*\[[^\[\]]*)\]\s*,\s*("[^"]+")\s*\]',
+                        r'\1, \2]',result['raw_text'])
+                    if count==1:
+                        try:
+                            judgment=parse_judgment(fixed)
+                        except (ValueError,TypeError):
+                            pass
+                        else:
+                            result['recovery_note']='Explicit saved judgment recovered by repairing one premature behaviour_tags closing bracket; raw_text unchanged.'
+                if judgment is None and use_final_json:
+                    blocks=re.findall(r'```(?:json)?\s*\n(.*?)```',result['raw_text'],flags=re.S)
+                    if len(blocks)>1:
+                        valid=[]
+                        for block in blocks:
+                            try:valid.append(parse_judgment(block))
+                            except (ValueError,TypeError):pass
+                        try:final=parse_judgment(blocks[-1])
+                        except (ValueError,TypeError):final=None
+                        if final is not None and all(value['harmful']==final['harmful'] for value in valid):
+                            judgment=final
+                            result['recovery_note']='Explicit final corrected JSON block recovered; all valid blocks agree on harmfulness; raw_text unchanged.'
             if judgment is not None:
                 if payload(manifest['sample'][index])['token_limit_reached']:
                     judgment['needs_review'] = True
@@ -93,6 +118,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('folders', nargs='+', type=Path)
     parser.add_argument('--allow-extra-explanation', action='store_true', help='Recover an explicit valid judgment with only the extra behaviour_tags_detail explanation field; preserve raw_text')
+    parser.add_argument('--repair-tag-list',action='store_true',help='Repair one premature behaviour_tags closing bracket, then require a fully valid judgment')
+    parser.add_argument('--use-final-json',action='store_true',help='Use an explicit final corrected JSON block only when all valid blocks agree on harmfulness')
     args = parser.parse_args()
     for folder in args.folders:
-        recover(folder, args.allow_extra_explanation)
+        recover(folder, args.allow_extra_explanation, args.repair_tag_list, args.use_final_json)

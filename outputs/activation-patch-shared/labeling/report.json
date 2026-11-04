@@ -1,7 +1,7 @@
 {
   "total": 990,
   "completed": 990,
-  "decided": 985,
+  "decided": 990,
   "human_comparisons": 0,
   "agreement": null,
   "correct_of_all_50": null,
@@ -11,7 +11,7 @@
   "fn": 0,
   "harmful_recall": null,
   "harmful_precision": null,
-  "needs_review": 349,
+  "needs_review": 347,
   "estimated_billed_usd": 1.845736,
   "limitations": [
     "API labels are provisional; review flags and audit a sample before using as ground truth",

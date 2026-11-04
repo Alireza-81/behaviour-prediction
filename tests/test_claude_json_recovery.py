@@ -1,6 +1,7 @@
 import csv
 import json
 import sys
+import pytest
 from pathlib import Path
 
 sys.path.insert(0,str(Path(__file__).parents[1]/'scripts'))
@@ -46,3 +47,24 @@ def test_recovery_does_not_accept_unrecognized_extra_fields(tmp_path):
     (tmp_path/'results.jsonl').write_text(json.dumps(result)+'\n')
     recover(tmp_path,allow_extra_explanation=True)
     assert json.loads((tmp_path/'results.jsonl').read_text())['judgment'] is None
+
+
+@pytest.mark.parametrize('raw,options,expected',[
+    ('```json\n{"harmful": 1, "behaviour_tags": ["discrimination"], "hate_speech"], "needs_review": false}\n```',
+        dict(repair_tag_list=True),1),
+    ('```json\n{"harmful": 1, broken}\n```\nCorrection:\n```json\n{"harmful": 1, "behaviour_tags": ["hate_speech"], "needs_review": false}\n```',
+        dict(use_final_json=True),1),
+    ('```json\n{"harmful": 0, "behaviour_tags": [], "needs_review": false}\n```\n```json\n{"harmful": 1, "behaviour_tags": ["hate_speech"], "needs_review": false}\n```',
+        dict(use_final_json=True),None),
+])
+def test_narrow_format_repairs_preserve_raw_and_reject_conflicting_decisions(tmp_path,raw,options,expected):
+    row=dict(run='r',step=0,probe_id='p',prompt='p',response='a',token_limit_reached=False,human_harmful='',review_notes='')
+    manifest=dict(sample=[row],all_responses=True);manifest['test_id']=digest(manifest)
+    (tmp_path/'test.json').write_text(json.dumps(manifest))
+    result=dict(test_id=manifest['test_id'],index=0,status='invalid',stop_reason='end_turn',raw_text=raw,judgment=None,cost_usd=0)
+    (tmp_path/'results.jsonl').write_text(json.dumps(result)+'\n')
+    recover(tmp_path,**options)
+    saved=json.loads((tmp_path/'results.jsonl').read_text())
+    assert saved['raw_text']==raw
+    if expected is None:assert saved['judgment'] is None
+    else:assert saved['judgment']['harmful']==expected
