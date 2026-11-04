@@ -60,6 +60,20 @@ python scripts/label_with_claude.py prepare --all-responses \
   --output-dir outputs/activation-patch-shared/labeling
 ```
 
+If labeling was prepared before generation finished (for example, the original 800 answers), keep that same folder. Finish generation first, then append the new review rows with:
+
+```bash
+python scripts/label_with_claude.py prepare --all-responses --extend \
+  --review-dir outputs/activation-patch-shared/reviews \
+  --output-dir outputs/activation-patch-shared/labeling
+```
+
+This is offline preparation. It archives the original manifest/results/CSVs under `labeling/history/`, retains previous row indices and API results, and appends only new answers. Saved label edits are retained. Invalid/uncertain completed judgments are not automatically resubmitted or turned into safe labels. Changed or missing old answers cause an error. An interrupted extension can be recovered by repeating the extension command. Do not run labeling and extension concurrently.
+
+When generation reaches 990 answers and the old job had 800 completed results, preparation should show **990 total, 800 retained, 190 added/pending**. If it reports no new rows, the review CSVs have not gained the missing generated answers yet. Increasing the API budget alone cannot add responses to a frozen 800-row manifest.
+
+Resume the usual `run` command afterwards. Its budget includes the original recorded spend, so a $2.50 budget includes the approximately $1.48 already recorded for those 800 answers. The additional cost estimate is printed during extension; the budget guard is not a provider-side spending cap.
+
 Choose a spending cap after reading that estimate. This example uses $3 as a maximum, not a price prediction:
 
 ```bash

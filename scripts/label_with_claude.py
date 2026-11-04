@@ -135,6 +135,34 @@ def validate_judgment(value):
     return value
 
 
+def export_row(row, result):
+    judgment = result.get('judgment') or {}
+    label = judgment.get('harmful')
+    return dict(row, claude_harmful='' if label is None else label,
+                claude_behaviour_tags=';'.join(judgment.get('behaviour_tags', [])),
+                claude_needs_review=judgment.get('needs_review', True),
+                claude_reason=judgment.get('reason', ''), claude_status=result.get('status', 'not_run'))
+
+
+def response_key(row):
+    return row['run'], int(row['step']), row['probe_id']
+
+
+def apply_label_overrides(folder, rows):
+    """Retain CSV corrections captured before extending a completed batch."""
+    path = folder/'label_overrides.json'
+    if not path.exists():
+        return
+    overrides = {tuple(r['key']):r for r in json.loads(path.read_text())}
+    for row in rows:
+        override = overrides.get(response_key(row))
+        if not override:
+            continue
+        if override['payload_sha256'] != digest(payload(row)):
+            raise ValueError('Saved label correction does not match this response')
+        row.update(override['fields'])
+
+
 def write_report(folder, manifest, results):
     evaluated = []
     export = []
@@ -144,11 +172,8 @@ def write_report(folder, manifest, results):
         label = judgment.get("harmful")
         if label is not None and row["human_harmful"].strip() in {"0", "1"}:
             evaluated.append((int(row["human_harmful"]), label))
-        export.append(dict(row, claude_harmful="" if label is None else label,
-                           claude_behaviour_tags=";".join(judgment.get("behaviour_tags", [])),
-                           claude_needs_review=judgment.get("needs_review", True),
-                           claude_reason=judgment.get("reason", ""),
-                           claude_status=result.get("status", "not_run")))
+        export.append(export_row(row, result))
+    apply_label_overrides(folder, export)
     tp = sum(h == 1 and a == 1 for h, a in evaluated)
     tn = sum(h == 0 and a == 0 for h, a in evaluated)
     fp = sum(h == 0 and a == 1 for h, a in evaluated)
@@ -182,6 +207,133 @@ def write_report(folder, manifest, results):
     return report
 
 
+def read_saved_results(folder, manifest):
+    results = {}
+    path = folder/'results.jsonl'
+    if path.exists():
+        for line in path.read_text().splitlines():
+            result = json.loads(line)
+            index = result['index']
+            if result['test_id'] != manifest['test_id'] or index in results or not 0 <= index < len(manifest['sample']):
+                raise ValueError('Results do not match this manifest or contain duplicate/out-of-range indices')
+            results[index] = result
+    return results
+
+
+def finish_extension(folder):
+    """Recover an interrupted offline extension; never overwrite unknown inputs."""
+    pending = folder/'extension.pending.json'
+    job = json.loads(pending.read_text())
+    for name, content in job['documents'].items():
+        path = folder/name
+        before = hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+        after = hashlib.sha256(content.encode()).hexdigest()
+        if before not in (job['source_checksums'][name], after):
+            raise ValueError(f'{name} changed during extension; preserve files and investigate')
+    for name, content in job['documents'].items():
+        path = folder/name
+        temporary = path.with_suffix(path.suffix+'.extend.tmp')
+        temporary.write_text(content);temporary.replace(path)
+    manifest = json.loads((folder/'test.json').read_text())
+    results = read_saved_results(folder, manifest)
+    report = write_report(folder, manifest, results)
+    pending.unlink()
+    return manifest, results, report
+
+
+def extend_prepared_job(folder, review_dir, runs=None):
+    """Append newly generated rows, carrying prior API results without new calls.
+
+    Earlier row indices and input payloads remain fixed. Original manifest,
+    results and CSVs are archived; carried results retain their source test ID.
+    """
+    import shutil
+    if (folder/'extension.pending.json').exists():
+        finish_extension(folder)
+    old = json.loads((folder/'test.json').read_text())
+    if digest({k:v for k,v in old.items() if k!='test_id'}) != old['test_id']:
+        raise ValueError('Existing manifest hash is invalid')
+    if not old.get('all_responses'):
+        raise ValueError('Only an all-responses job can be extended')
+    current = all_responses(review_dir)
+    if runs:
+        current = select_runs(current, runs)
+    available = {response_key(row):row for row in current}
+    original_keys = [response_key(row) for row in old['sample']]
+    if len(set(original_keys)) != len(original_keys):
+        raise ValueError('Duplicate rows in existing manifest')
+    for row in old['sample']:
+        updated = available.get(response_key(row))
+        if updated is None:
+            raise ValueError('Existing prepared response is missing from review CSVs; no rows may be removed')
+        if payload(row) != payload(updated) or any(row.get(f)!=updated.get(f) for f in ('group','category')):
+            raise ValueError('An existing response changed; extension only permits new rows')
+    known = set(original_keys)
+    added = [row for row in current if response_key(row) not in known]
+    results = read_saved_results(folder, old)
+    if not added:
+        return dict(added=0, total=len(old['sample']), completed=len(results), pending=len(old['sample'])-len(results))
+    # Capture only actual edits to completed labels. Uncertain/invalid raw API
+    # results remain completed and will not be silently resubmitted or imputed.
+    path = folder/'label_overrides.json'
+    overrides = {tuple(r['key']):r for r in json.loads(path.read_text())} if path.exists() else {}
+    indices = {response_key(row):index for index,row in enumerate(old['sample'])}
+    editable = ('claude_harmful','claude_behaviour_tags','claude_needs_review','claude_reason','human_harmful','review_notes')
+    for csv_path in sorted((folder/'labeled').glob('*.csv')):
+        with csv_path.open(newline='', encoding='utf-8-sig') as handle:
+            for row in csv.DictReader(handle):
+                key = response_key(row)
+                index = indices.get(key)
+                if index is None or index not in results:
+                    continue
+                original = old['sample'][index]
+                if payload(row) != payload(original):
+                    raise ValueError('Edited label CSV no longer matches the saved answer')
+                expected = export_row(original, results[index])
+                changed = {}
+                for field in editable:
+                    if field not in row:
+                        continue
+                    actual = row[field]
+                    wanted = str(expected.get(field,''))
+                    differs = actual.lower()!=wanted.lower() if field=='claude_needs_review' else actual!=wanted
+                    if differs:
+                        changed[field] = actual.lower()=='true' if field=='claude_needs_review' else actual
+                if changed:
+                    previous = overrides.get(key, {}).get('fields', {})
+                    overrides[key] = dict(key=list(key),payload_sha256=digest(payload(original)),fields={**previous,**changed})
+    new = {k:v for k,v in old.items() if k!='test_id'}
+    new['sample'] = [*old['sample'], *added]
+    new['extensions'] = [*old.get('extensions', []), dict(parent_test_id=old['test_id'],
+        prior_total=len(old['sample']),added=len(added),carried_results=len(results))]
+    new['test_id'] = digest(new)
+    carried = []
+    for result in results.values():
+        carried.append(dict(result,source_test_id=result.get('source_test_id',old['test_id']),test_id=new['test_id']))
+    snapshot = folder/'history'/old['test_id']
+    snapshot.mkdir(parents=True,exist_ok=True)
+    sources = [folder/name for name in ('test.json','results.jsonl','comparison.csv','report.json','label_overrides.json','manual_adjudications.json')]
+    sources += sorted((folder/'labeled').glob('*.csv'))
+    for source in sources:
+        if not source.exists():
+            continue
+        target = snapshot/source.relative_to(folder)
+        if target.exists():
+            if source.read_bytes()!=target.read_bytes():
+                raise ValueError('A prior extension snapshot differs; do not overwrite it')
+        else:
+            target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(source,target)
+    documents = {'test.json':json.dumps(new,indent=2)+'\n',
+        'results.jsonl':''.join(json.dumps(r)+'\n' for r in carried),
+        'label_overrides.json':json.dumps(list(overrides.values()),indent=2)+'\n'}
+    checksums = {name:hashlib.sha256((folder/name).read_bytes()).hexdigest() if (folder/name).exists() else None for name in documents}
+    pending = folder/'extension.pending.json'
+    temporary = pending.with_suffix('.tmp')
+    temporary.write_text(json.dumps(dict(documents=documents,source_checksums=checksums),indent=2)+'\n');temporary.replace(pending)
+    finish_extension(folder)
+    return dict(added=len(added),total=len(new['sample']),completed=len(results),pending=len(new['sample'])-len(results))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["prepare", "run"])
@@ -190,12 +342,35 @@ def main():
     parser.add_argument("--rubric", type=Path, default=Path("configs/claude_judge_compact.txt"))
     parser.add_argument("--sample-from", type=Path, help="Reuse a prior test.json sample with current human labels")
     parser.add_argument("--all-responses", action="store_true", help="Prepare every response, including unlabeled rows")
+    parser.add_argument('--extend', action='store_true', help='With prepare --all-responses, append new review rows to an existing job and reuse all previous API results')
     parser.add_argument("--runs", nargs="+", help="With prepare --all-responses, include only these model runs")
     parser.add_argument("--model", choices=MODELS, default="claude-haiku-4-5", help="Model for a newly prepared job; run uses its saved manifest")
     parser.add_argument("--budget-usd", type=float, default=1.0)
     args = parser.parse_args()
     folder = args.output_dir
     if args.action == "prepare":
+        if args.extend:
+            if not args.all_responses or args.sample_from:
+                parser.error('--extend requires --all-responses and cannot use --sample-from')
+            if not (folder/'test.json').exists():
+                parser.error('No prepared job to extend; prepare without --extend first')
+            try:
+                progress = extend_prepared_job(folder, args.review_dir, args.runs)
+            except (ValueError,KeyError) as error:
+                parser.error(str(error))
+            print(f"Extended job: {progress['total']} total, {progress['completed']} previous API results retained, {progress['added']} added, {progress['pending']} pending. No API calls.")
+            if not progress['added']:
+                print('No new review rows found. Finish/resume response generation and sync the review CSVs before extending again.')
+            elif progress['pending']:
+                saved=json.loads((folder/'test.json').read_text())
+                results=read_saved_results(folder,saved)
+                todo=[row for index,row in enumerate(saved['sample']) if index not in results]
+                chars=sum(len(saved['rubric'])+len(json.dumps(payload(row))) for row in todo)
+                n=len(todo);prices=saved['pricing_usd_per_million']
+                low=(chars/5+40*n)*prices['input']/1e6+n*45*prices['output']/1e6
+                high=(chars/3+40*n)*prices['input']/1e6+n*90*prices['output']/1e6
+                print(f'Estimated additional API cost: ${low:.2f}–${high:.2f} USD; run budget includes prior recorded spend.')
+            return
         if folder.exists() and any(folder.iterdir()):
             parser.error("Output folder is not empty; run the existing prepared test or choose another folder")
         if args.all_responses and args.sample_from:
@@ -226,6 +401,10 @@ def main():
         print(f"Prepared {n} responses: {positives} human-labeled harmful, {negatives} non-harmful, {n-positives-negatives} unlabeled. No API calls.")
         print(f"Estimated standard API cost: ${low:.2f}–${high:.2f} USD (approximate tokens, no retries/tax).")
         return
+    if args.extend:
+        parser.error('--extend is only used with prepare')
+    if (folder/'extension.pending.json').exists():
+        parser.error('Interrupted extension found; rerun prepare --all-responses --extend to finish it before labeling')
     manifest = json.loads((folder / "test.json").read_text())
     if digest({k: v for k, v in manifest.items() if k != "test_id"}) != manifest["test_id"]:
         parser.error("Prepared test was modified; prepare a new test in another folder")
@@ -233,14 +412,8 @@ def main():
         parser.error("Budget must be positive")
     input_price = manifest["pricing_usd_per_million"]["input"]
     output_price = manifest["pricing_usd_per_million"]["output"]
-    results = {}
     log = folder / "results.jsonl"
-    if log.exists():
-        for line in log.read_text().splitlines():
-            result = json.loads(line)
-            if result["test_id"] != manifest["test_id"] or result["index"] in results:
-                parser.error("Results do not match this test or contain duplicates")
-            results[result["index"]] = result
+    results = read_saved_results(folder, manifest)
     if len(results) == len(manifest["sample"]):
         print(json.dumps(write_report(folder, manifest, results), indent=2))
         return
