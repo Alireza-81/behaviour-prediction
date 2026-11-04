@@ -1,12 +1,12 @@
 {
-  "completed": 800,
+  "completed": 990,
   "planned": 990,
-  "complete": false,
+  "complete": true,
   "mask_id": "b2f4f645bcde4798d522043790c490bcb77c1b25537eb590d5b85ce39660f1db",
   "selection": "Fixed development-only mask; no evaluation gradient or mask selection",
-  "self_patch_pairs_checked": 73,
-  "self_patch_exact_matches": 73,
-  "full_donor_exact_matches": 73,
+  "self_patch_pairs_checked": 90,
+  "self_patch_exact_matches": 90,
+  "full_donor_exact_matches": 90,
   "same_indices_across_prompts": true,
   "same_indices_across_directions": true
 }
