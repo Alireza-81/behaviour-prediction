@@ -41,10 +41,28 @@ After selection, inspect `outputs/activation-patch-multilayer/selection_by_layer
 Then generate:
 
 ```bash
-python scripts/run_multilayer_activation_patch.py generate
+python scripts/run_multilayer_activation_patch.py generate --workers 4
 ```
 
 Both commands resume by rerunning the same command. Selection skips saved prompt/direction scores. Generation skips completed answer rows and exports review CSVs incrementally. A partial final journal line caused by interruption is backed up and removed on resume. Do not change config/mask files while resuming. Existing experiment folders are left alone.
+
+### Resuming a serial run with four workers
+
+If you stopped the old generator at 457/4590, **do not rerun selection or change output folders**. Sync the updated scripts (including `scripts/multilayer_generation_workers.py`), then run the generation command above. It reads and validates the existing journal, imports any remaining compatible saved answers, prints the saved/remaining counts, and assigns only missing answers to workers. The masks, experiment identity, prompts, greedy generation, token limits and label-reuse workflow are unchanged.
+
+Each worker is a fresh Python process with its own model copy on GPU 0, its own LoRA adapter state, patch hooks and two endpoint KV caches. No model object or CUDA context is shared. Workers disable autograd, freeze parameter gradients, use evaluation mode, and perform generation only. The 50 development gradient calculations are not repeated or parallelized by this command. Each prompt belongs to exactly one worker; work is balanced by remaining answer count. With very little work left, fewer than four workers may be launched.
+
+Workers append completed answers to separate journals under `outputs/activation-patch-multilayer/workers/<session>/worker-*/generated.jsonl`. One coordinator validates and merges them into the original `generated.jsonl` and exports the original `reviews/` CSVs, preserving manual annotations. These remain the files used for labeling and scoring. Per-worker logs are alongside their journals in `worker.log`. Reviews/progress summaries refresh approximately every five seconds and at shutdown; answer journals are flushed and synced after each complete answer.
+
+Ctrl-C stops the workers, merges complete rows and keeps incomplete answers for regeneration. On the next run, complete worker-journal rows not yet merged are recovered before dispatching missing work. A folder lock rejects a second coordinator; workers inherit the lock so a killed coordinator cannot leave active workers racing with a new run. Duplicate identical rows from recovery are ignored, while conflicting rows, changed masks, or mismatched metadata stop the run. Private worker journals should be kept until the run is finished and backed up.
+
+Four model copies require more GPU and host memory. Four-process throughput and peak memory must be measured on the actual GPU; the local tests do not establish a GPU speedup. If a worker fails (including out-of-memory), the coordinator stops the others and preserves completed answers. Resume with fewer workers without rerunning selection:
+
+```bash
+python scripts/run_multilayer_activation_patch.py generate --workers 2
+```
+
+`--workers 1` runs serially and can also recover existing worker journals. Do not launch multiple copies of the command yourself. Labeling should use the merged `reviews/` folder as before, not the worker journals.
 
 ## Labeling and scoring
 

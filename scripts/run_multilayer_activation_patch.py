@@ -119,83 +119,165 @@ def plot_masks(folder,artifact):
         w.writerows([name,*row] for name,row in zip(names,matrix))
 
 
-def generate(folder,plan):
+def generation_rows(m, selected, tasks, model, tokenizer, parent_alive=lambda:True):
+    """Sequential inference within ONE process/model; no shared hooks or caches."""
+    masks={c:{int(layer):torch.zeros(4096,dtype=torch.bool) for layer in sites} for c,sites in selected.items()}
+    for c,sites in selected.items():
+        for layer,indices in sites.items(): masks[c][int(layer)][indices]=True
+    full={i:torch.ones(4096,dtype=torch.bool) for i in range(32)}
+    def row(p,d,c,tokens,ids):
+        return dict(pilot_id=m['pilot_id'],mask_id=m['mask_id'],source_run=m['run_name'],
+            direction=d,condition=c,run=f"{m['run_name']}_multilayer_{d}__{c}",step=20 if d=='restore' else 0,
+            probe_id=p['id'],group=p['group'],category=p['category'],role=p['role'],prompt=p['prompt'],
+            response=tokenizer.decode(tokens,skip_special_tokens=True),token_limit_reached=len(tokens)>=m['max_new_tokens'],
+            human_harmful='',review_notes='',prompt_token_ids=ids,generated_token_ids=tokens,selected_indices=selected.get(c,{}))
+    # No gradients even when called outside the subprocess wrapper.
+    with torch.no_grad():
+        for task in tasks:
+            if not parent_alive():return
+            p=task['probe'];saved={(r['direction'],r['condition']):r for r in task['saved']}
+            encoded=encode(model,tokenizer,p,m);ids=encoded['input_ids'].cpu().tolist();controls={}
+            for step,d in [(0,'transfer'),(20,'restore')]:
+                key=d,'unpatched'
+                if key in saved:
+                    if saved[key]['prompt_token_ids']!=ids:raise ValueError('Control tokenization changed')
+                    tokens=saved[key]['generated_token_ids']
+                else:
+                    tokens=multilayer_generate(model,encoded,recipient_step=step,donor_step=20-step,limit=m['max_new_tokens'])
+                    new=row(p,d,'unpatched',tokens,ids);saved[key]=new;yield new
+                controls[step]=tokens
+            for d in m['directions']:
+                recipient=20 if d=='restore' else 0
+                for c in m['conditions']:
+                    if not parent_alive():return
+                    if (d,c) in saved:continue
+                    donor=recipient if c=='self_dynamic' else 20-recipient
+                    tokens=multilayer_generate(model,encoded,recipient_step=recipient,donor_step=donor,
+                        limit=m['max_new_tokens'],masks=full if c in ('self_dynamic','full_dynamic') else masks[c])
+                    if c in ('self_dynamic','full_dynamic') and tokens!=controls[donor]:raise ValueError('Self/full control failed')
+                    yield row(p,d,c,tokens,ids)
+
+
+def validate_generation_row(row, m, selected, records, *, allow_duplicate=False):
+    p=next((p for p in m['probes'] if p['id']==row['probe_id']),None)
+    d=row['direction'];c=row['condition'];key=row['probe_id'],d,c
+    if p is None or d not in m['directions'] or c not in m['conditions']:raise ValueError('Unexpected generation record')
+    if row['pilot_id']!=m['pilot_id'] or row['mask_id']!=m['mask_id']:raise ValueError('Generation identity differs')
+    if row['selected_indices']!=selected.get(c,{}):raise ValueError('Saved mask differs')
+    if any(row[k]!=p[k] for k in ('prompt','group','category','role')):raise ValueError('Saved prompt metadata differs')
+    if row['step']!=(20 if d=='restore' else 0) or row['run']!=f"{m['run_name']}_multilayer_{d}__{c}":
+        raise ValueError('Saved run/checkpoint differs')
+    tokens=row['generated_token_ids']
+    if not isinstance(tokens,list) or not 0<len(tokens)<=m['max_new_tokens'] or any(type(t) is not int or t<0 for t in tokens):
+        raise ValueError('Invalid generated token IDs')
+    if row['token_limit_reached']!=(len(tokens)>=m['max_new_tokens']):raise ValueError('Token-limit flag differs')
+    other='transfer' if d=='restore' else 'restore'
+    for direction in m['directions']:
+        control=records.get((p['id'],direction,'unpatched'))
+        if control and control['prompt_token_ids']!=row['prompt_token_ids']:raise ValueError('Saved prompt tokenization differs')
+    comparison=records.get((p['id'],d if c=='self_dynamic' else other,'unpatched'))
+    if c in ('self_dynamic','full_dynamic') and (not comparison or comparison['generated_token_ids']!=tokens):
+        raise ValueError('Saved self/full control failed')
+    if key in records:
+        if not allow_duplicate or records[key]!=row:raise ValueError('Duplicate/conflicting generation record')
+        return False
+    return True
+
+
+def generate(folder,plan,workers=1):
+    from multilayer_generation_workers import generation_lock
+    if not 1<=workers<=4:raise ValueError('Choose between 1 and 4 generation workers')
+    with generation_lock(folder) as lock_fd:
+        return _generate_locked(folder,plan,workers,lock_fd)
+
+
+def _generate_locked(folder,plan,workers,lock_fd):
+    import os
+    import time
+    from multilayer_generation_workers import recover_worker_journals, parallel_generate, durable_row_write
     initialize(folder,plan)
     artifact=json.loads((folder/'mask.json').read_text());selected=validate_artifact(artifact,plan)
     conditions=['unpatched','self_dynamic','full_dynamic',*selected]
     m=dict(plan,probes=plan['evaluation_probes'],conditions=conditions,mask_id=artifact['mask_id'],layers=list(range(32)))
     m['pilot_id']=digest(m)
-    if (folder/'pilot.json').exists() and json.loads((folder/'pilot.json').read_text())!=m: raise ValueError('Generation plan changed')
+    if (folder/'pilot.json').exists() and json.loads((folder/'pilot.json').read_text())!=m:raise ValueError('Generation plan changed')
     atomic_json(folder/'pilot.json',m)
     expected={(p['id'],d,c) for p in m['probes'] for d in m['directions'] for c in conditions}
     records={};log=folder/'generated.jsonl'
     if log.exists():
         content=log.read_bytes();lines=content.splitlines(keepends=True)
         for i,line in enumerate(lines):
-            try: row=json.loads(line)
+            try:row=json.loads(line)
             except json.JSONDecodeError:
-                if i!=len(lines)-1 or line.endswith(b'\n'): raise
+                if i!=len(lines)-1 or line.endswith(b'\n'):raise
                 backup=folder/'generated.interrupted-backup.jsonl'
-                if not backup.exists(): backup.write_bytes(content)
+                if not backup.exists():backup.write_bytes(content)
                 log.write_bytes(b''.join(lines[:i]));break
-            key=row['probe_id'],row['direction'],row['condition']
-            if key not in expected or key in records or row['pilot_id']!=m['pilot_id'] or row['mask_id']!=m['mask_id']:
-                raise ValueError('Invalid saved generation')
-            if row['selected_indices']!=selected.get(row['condition'],{}): raise ValueError('Saved mask differs')
-            records[key]=row
+            validate_generation_row(row,m,selected,records)
+            records[(row['probe_id'],row['direction'],row['condition'])]=row
         else:
-            if content and not content.endswith(b'\n'): log.write_bytes(content+b'\n')
+            if content and not content.endswith(b'\n'):log.write_bytes(content+b'\n')
+    last_export=0.;last_count=-1
+    def refresh(force=False):
+        nonlocal last_export,last_count
+        if not force and (len(records)==last_count or time.monotonic()-last_export<5):return
+        export_reviews(folder,records)
+        atomic_json(folder/'run_report.json',dict(completed=len(records),planned=len(expected),
+            complete=set(records)==expected,workers_requested=workers,gradients_used=False))
+        last_export=time.monotonic();last_count=len(records)
+    # The coordinator is the only writer of the canonical journal and CSVs.
+    with log.open('a') as handle:
+        def accept(row):
+            if not validate_generation_row(row,m,selected,records,allow_duplicate=True):return False
+            with durable_row_write():
+                handle.write(json.dumps(row)+'\n');handle.flush();os.fsync(handle.fileno())
+                records[(row['probe_id'],row['direction'],row['condition'])]=row
+            print(f"{len(records)}/{len(expected)} saved: {row['direction']}/{row['probe_id']}/{row['condition']}",flush=True)
+            return True
+        recovered=recover_worker_journals(folder,accept)
+        if recovered:print(f'Recovered {recovered} completed answers from previous worker journals.',flush=True)
     from reuse_multilayer_activation_patch import seed_answers
     seed_answers(folder,m,selected,records)
-    export_reviews(folder,records)
-    if set(records)==expected:
-        print(f'All {len(expected)} answers already saved.');return
-    masks={c:{int(layer):torch.zeros(4096,dtype=torch.bool) for layer in sites} for c,sites in selected.items()}
-    for c,sites in selected.items():
-        for layer,indices in sites.items(): masks[c][int(layer)][indices]=True
-    # Self/full all-layer controls also exercise upstream hooks and independent caches.
-    full={i:torch.ones(4096,dtype=torch.bool) for i in range(32)}
-    def save(handle,p,d,c,tokens,tokenizer,ids):
-        row=dict(pilot_id=m['pilot_id'],mask_id=m['mask_id'],source_run=m['run_name'],
-            direction=d,condition=c,run=f"{m['run_name']}_multilayer_{d}__{c}",step=20 if d=='restore' else 0,
-            probe_id=p['id'],group=p['group'],category=p['category'],role=p['role'],prompt=p['prompt'],
-            response=tokenizer.decode(tokens,skip_special_tokens=True),token_limit_reached=len(tokens)>=m['max_new_tokens'],
-            human_harmful='',review_notes='',prompt_token_ids=ids,generated_token_ids=tokens,selected_indices=selected.get(c,{}))
-        handle.write(json.dumps(row)+'\n');handle.flush();records[(p['id'],d,c)]=row
-        export_reviews(folder,records)
-        atomic_json(folder/'run_report.json',dict(completed=len(records),planned=len(expected),complete=set(records)==expected))
-        print(f'{len(records)}/{len(expected)} saved: {d}/{p["id"]}/{c}',flush=True)
+    # Validate reused rows as well as new rows; preserve the same manifest and mask.
+    checked={}
+    for row in records.values():
+        validate_generation_row(row,m,selected,checked);checked[(row['probe_id'],row['direction'],row['condition'])]=row
+    refresh(force=True)
+    print(f'Resuming with {len(records)}/{len(expected)} already saved; {len(expected)-len(records)} remain.',flush=True)
+    if set(records)==expected:return
+    tasks=[dict(probe=p,saved=[r for (id,_,_),r in records.items() if id==p['id']])
+        for p in m['probes'] if any((p['id'],d,c) not in records for d in m['directions'] for c in conditions)]
     with log.open('a') as handle:
-        for model,tokenizer in models(plan):
-            for p in m['probes']:
-                if all((p['id'],d,c) in records for d in m['directions'] for c in conditions): continue
-                encoded=encode(model,tokenizer,p,plan);ids=encoded['input_ids'].cpu().tolist();controls={}
-                for step,d in [(0,'transfer'),(20,'restore')]:
-                    key=p['id'],d,'unpatched'
-                    if key in records:
-                        if records[key]['prompt_token_ids']!=ids: raise ValueError('Control tokenization changed')
-                        tokens=records[key]['generated_token_ids']
-                    else:
-                        tokens=multilayer_generate(model,encoded,recipient_step=step,donor_step=20-step,limit=m['max_new_tokens'])
-                        save(handle,p,d,'unpatched',tokens,tokenizer,ids)
-                    controls[step]=tokens
-                for d in m['directions']:
-                    recipient=20 if d=='restore' else 0
-                    for c in conditions:
-                        if (p['id'],d,c) in records: continue
-                        donor=recipient if c=='self_dynamic' else 20-recipient
-                        tokens=multilayer_generate(model,encoded,recipient_step=recipient,donor_step=donor,
-                            limit=m['max_new_tokens'],masks=full if c in ('self_dynamic','full_dynamic') else masks[c])
-                        if c in ('self_dynamic','full_dynamic') and tokens!=controls[donor]: raise ValueError('Self/full control failed')
-                        save(handle,p,d,c,tokens,tokenizer,ids)
+        def accept(row):
+            if not validate_generation_row(row,m,selected,records,allow_duplicate=True):return False
+            with durable_row_write():
+                handle.write(json.dumps(row)+'\n');handle.flush();os.fsync(handle.fileno())
+                records[(row['probe_id'],row['direction'],row['condition'])]=row
+            print(f"{len(records)}/{len(expected)} saved: {row['direction']}/{row['probe_id']}/{row['condition']}",flush=True)
+            return True
+        try:
+            if workers>1:
+                parallel_generate(folder,m,selected,tasks,workers,lock_fd,accept,refresh)
+            else:
+                for model,tokenizer in models(plan):
+                    for row in generation_rows(m,selected,tasks,model,tokenizer):
+                        accept(row);refresh()
+            if set(records)!=expected:raise RuntimeError('Generation ended before all answers were saved; rerun to resume')
+        finally:
+            refresh(force=True)
 
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['select','generate'])
     p.add_argument('--output-dir',type=Path,default=Path('outputs/activation-patch-multilayer'))
-    p.add_argument('--config',type=Path,default=DEFAULT);args=p.parse_args()
+    p.add_argument('--config',type=Path,default=DEFAULT)
+    p.add_argument('--workers',type=int,choices=range(1,5),default=1,help='Independent GPU generation processes (1–4); resume the same output folder')
+    args=p.parse_args()
     plan=json.loads(args.config.read_text())
     if identity(plan,'plan_id')!=plan['plan_id']: raise ValueError('Invalid plan hash')
-    (select if args.action=='select' else generate)(args.output_dir,plan)
+    if args.action=='select':
+        from multilayer_generation_workers import generation_lock
+        with generation_lock(args.output_dir):select(args.output_dir,plan)
+    else:generate(args.output_dir,plan,workers=args.workers)
 
 if __name__=='__main__':main()
