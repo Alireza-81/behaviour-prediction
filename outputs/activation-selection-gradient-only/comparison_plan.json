@@ -1,0 +1,16 @@
+{
+  "source_dir": "outputs/activation-patch-multilayer",
+  "source_sha256": {
+    "development_plan.json": "72cca6e976dfb646dc9dd8fc2d20559f0edfaf37bf6eb27132a42b07428bd163",
+    "mask.json": "19b047da6fb6a466b262e1d50fdcfa86a03887217845471975848a3c011dc651",
+    "development_scores.pt": "13f5ed09ad9cae495f401c134d64a6287db169b2a6a4279af67400b4b4a33c95"
+  },
+  "definition": "Absolute gradient of the mean-token donor KL, summed over reference prediction positions; L1 normalize per development prompt/direction across all blocks, then average. Layer31-only comparator retains layer-only normalization.",
+  "budgets": [
+    102,
+    205,
+    410
+  ],
+  "development_plan_id": "f5f9d0384dc14d420e1a16405aed332ad3ca5166eff9b470006fd862c3bc4ab8",
+  "comparison_id": "3d995134372f389067c08d42faf677decbff872f805ee4e3597352468178289f"
+}

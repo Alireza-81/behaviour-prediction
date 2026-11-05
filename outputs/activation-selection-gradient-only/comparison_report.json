@@ -1,0 +1,283 @@
+{
+  "comparison_id": "3d995134372f389067c08d42faf677decbff872f805ee4e3597352468178289f",
+  "development_calculations": 50,
+  "previous_weighted_scores_bit_exact": 31,
+  "max_absolute_weighted_score_difference": 0.0001283511519432068,
+  "comparison_to_original_masks": [
+    {
+      "condition": "layer31_102",
+      "coordinate_count": 102,
+      "overlap_count": 19,
+      "retained_percent": 18.627450980392158,
+      "jaccard": 0.10270270270270271,
+      "weighted_blocks_used": 1,
+      "gradient_only_blocks_used": 1,
+      "weighted_layer31_count": 102,
+      "gradient_only_layer31_count": 102
+    },
+    {
+      "condition": "global_all_102",
+      "coordinate_count": 102,
+      "overlap_count": 0,
+      "retained_percent": 0.0,
+      "jaccard": 0.0,
+      "weighted_blocks_used": 19,
+      "gradient_only_blocks_used": 9,
+      "weighted_layer31_count": 4,
+      "gradient_only_layer31_count": 0
+    },
+    {
+      "condition": "earlier_102",
+      "coordinate_count": 102,
+      "overlap_count": 0,
+      "retained_percent": 0.0,
+      "jaccard": 0.0,
+      "weighted_blocks_used": 18,
+      "gradient_only_blocks_used": 9,
+      "weighted_layer31_count": 0,
+      "gradient_only_layer31_count": 0
+    },
+    {
+      "condition": "distributed_102",
+      "coordinate_count": 102,
+      "overlap_count": 26,
+      "retained_percent": 25.49019607843137,
+      "jaccard": 0.14606741573033707,
+      "weighted_blocks_used": 24,
+      "gradient_only_blocks_used": 22,
+      "weighted_layer31_count": 3,
+      "gradient_only_layer31_count": 0
+    },
+    {
+      "condition": "layer31_205",
+      "coordinate_count": 205,
+      "overlap_count": 47,
+      "retained_percent": 22.926829268292682,
+      "jaccard": 0.12947658402203857,
+      "weighted_blocks_used": 1,
+      "gradient_only_blocks_used": 1,
+      "weighted_layer31_count": 205,
+      "gradient_only_layer31_count": 205
+    },
+    {
+      "condition": "global_all_205",
+      "coordinate_count": 205,
+      "overlap_count": 0,
+      "retained_percent": 0.0,
+      "jaccard": 0.0,
+      "weighted_blocks_used": 20,
+      "gradient_only_blocks_used": 14,
+      "weighted_layer31_count": 16,
+      "gradient_only_layer31_count": 0
+    },
+    {
+      "condition": "earlier_205",
+      "coordinate_count": 205,
+      "overlap_count": 0,
+      "retained_percent": 0.0,
+      "jaccard": 0.0,
+      "weighted_blocks_used": 19,
+      "gradient_only_blocks_used": 14,
+      "weighted_layer31_count": 0,
+      "gradient_only_layer31_count": 0
+    },
+    {
+      "condition": "distributed_205",
+      "coordinate_count": 205,
+      "overlap_count": 43,
+      "retained_percent": 20.975609756097562,
+      "jaccard": 0.11716621253405994,
+      "weighted_blocks_used": 25,
+      "gradient_only_blocks_used": 26,
+      "weighted_layer31_count": 5,
+      "gradient_only_layer31_count": 0
+    },
+    {
+      "condition": "layer31_410",
+      "coordinate_count": 410,
+      "overlap_count": 120,
+      "retained_percent": 29.26829268292683,
+      "jaccard": 0.17142857142857143,
+      "weighted_blocks_used": 1,
+      "gradient_only_blocks_used": 1,
+      "weighted_layer31_count": 410,
+      "gradient_only_layer31_count": 410
+    },
+    {
+      "condition": "global_all_410",
+      "coordinate_count": 410,
+      "overlap_count": 0,
+      "retained_percent": 0.0,
+      "jaccard": 0.0,
+      "weighted_blocks_used": 20,
+      "gradient_only_blocks_used": 16,
+      "weighted_layer31_count": 54,
+      "gradient_only_layer31_count": 0
+    },
+    {
+      "condition": "earlier_410",
+      "coordinate_count": 410,
+      "overlap_count": 0,
+      "retained_percent": 0.0,
+      "jaccard": 0.0,
+      "weighted_blocks_used": 20,
+      "gradient_only_blocks_used": 16,
+      "weighted_layer31_count": 0,
+      "gradient_only_layer31_count": 0
+    },
+    {
+      "condition": "distributed_410",
+      "coordinate_count": 410,
+      "overlap_count": 79,
+      "retained_percent": 19.26829268292683,
+      "jaccard": 0.10661268556005399,
+      "weighted_blocks_used": 27,
+      "gradient_only_blocks_used": 30,
+      "weighted_layer31_count": 16,
+      "gradient_only_layer31_count": 0
+    }
+  ],
+  "comparison_using_same_new_gradient_capture": [
+    {
+      "condition": "layer31_102",
+      "coordinate_count": 102,
+      "overlap_count": 19,
+      "retained_percent": 18.627450980392158,
+      "jaccard": 0.10270270270270271,
+      "weighted_blocks_used": 1,
+      "gradient_only_blocks_used": 1,
+      "weighted_layer31_count": 102,
+      "gradient_only_layer31_count": 102
+    },
+    {
+      "condition": "global_all_102",
+      "coordinate_count": 102,
+      "overlap_count": 0,
+      "retained_percent": 0.0,
+      "jaccard": 0.0,
+      "weighted_blocks_used": 19,
+      "gradient_only_blocks_used": 9,
+      "weighted_layer31_count": 4,
+      "gradient_only_layer31_count": 0
+    },
+    {
+      "condition": "earlier_102",
+      "coordinate_count": 102,
+      "overlap_count": 0,
+      "retained_percent": 0.0,
+      "jaccard": 0.0,
+      "weighted_blocks_used": 18,
+      "gradient_only_blocks_used": 9,
+      "weighted_layer31_count": 0,
+      "gradient_only_layer31_count": 0
+    },
+    {
+      "condition": "distributed_102",
+      "coordinate_count": 102,
+      "overlap_count": 26,
+      "retained_percent": 25.49019607843137,
+      "jaccard": 0.14606741573033707,
+      "weighted_blocks_used": 24,
+      "gradient_only_blocks_used": 22,
+      "weighted_layer31_count": 3,
+      "gradient_only_layer31_count": 0
+    },
+    {
+      "condition": "layer31_205",
+      "coordinate_count": 205,
+      "overlap_count": 47,
+      "retained_percent": 22.926829268292682,
+      "jaccard": 0.12947658402203857,
+      "weighted_blocks_used": 1,
+      "gradient_only_blocks_used": 1,
+      "weighted_layer31_count": 205,
+      "gradient_only_layer31_count": 205
+    },
+    {
+      "condition": "global_all_205",
+      "coordinate_count": 205,
+      "overlap_count": 0,
+      "retained_percent": 0.0,
+      "jaccard": 0.0,
+      "weighted_blocks_used": 20,
+      "gradient_only_blocks_used": 14,
+      "weighted_layer31_count": 16,
+      "gradient_only_layer31_count": 0
+    },
+    {
+      "condition": "earlier_205",
+      "coordinate_count": 205,
+      "overlap_count": 0,
+      "retained_percent": 0.0,
+      "jaccard": 0.0,
+      "weighted_blocks_used": 19,
+      "gradient_only_blocks_used": 14,
+      "weighted_layer31_count": 0,
+      "gradient_only_layer31_count": 0
+    },
+    {
+      "condition": "distributed_205",
+      "coordinate_count": 205,
+      "overlap_count": 43,
+      "retained_percent": 20.975609756097562,
+      "jaccard": 0.11716621253405994,
+      "weighted_blocks_used": 25,
+      "gradient_only_blocks_used": 26,
+      "weighted_layer31_count": 5,
+      "gradient_only_layer31_count": 0
+    },
+    {
+      "condition": "layer31_410",
+      "coordinate_count": 410,
+      "overlap_count": 120,
+      "retained_percent": 29.26829268292683,
+      "jaccard": 0.17142857142857143,
+      "weighted_blocks_used": 1,
+      "gradient_only_blocks_used": 1,
+      "weighted_layer31_count": 410,
+      "gradient_only_layer31_count": 410
+    },
+    {
+      "condition": "global_all_410",
+      "coordinate_count": 410,
+      "overlap_count": 0,
+      "retained_percent": 0.0,
+      "jaccard": 0.0,
+      "weighted_blocks_used": 20,
+      "gradient_only_blocks_used": 16,
+      "weighted_layer31_count": 54,
+      "gradient_only_layer31_count": 0
+    },
+    {
+      "condition": "earlier_410",
+      "coordinate_count": 410,
+      "overlap_count": 0,
+      "retained_percent": 0.0,
+      "jaccard": 0.0,
+      "weighted_blocks_used": 20,
+      "gradient_only_blocks_used": 16,
+      "weighted_layer31_count": 0,
+      "gradient_only_layer31_count": 0
+    },
+    {
+      "condition": "distributed_410",
+      "coordinate_count": 410,
+      "overlap_count": 79,
+      "retained_percent": 19.26829268292683,
+      "jaccard": 0.10661268556005399,
+      "weighted_blocks_used": 27,
+      "gradient_only_blocks_used": 30,
+      "weighted_layer31_count": 16,
+      "gradient_only_layer31_count": 0
+    }
+  ],
+  "interpretation": "Gradient magnitude measures sensitivity, not whether the donor replacement improves the objective or prevents harm. No activation-difference factors enter the gradient-only ranking.",
+  "no_new_response_generation": true,
+  "no_new_labeling": true,
+  "limitations": [
+    "Same donor-KL proxy as before, not a direct harmfulness objective.",
+    "Gradient-only loses donor-replacement sign and size information.",
+    "Cross-layer gradient magnitude depends on representation scale.",
+    "Selection changes alone do not establish better behavioural patching."
+  ]
+}

@@ -1,0 +1,183 @@
+{
+  "comparison_id": "e74446ed7bed3096a7df42cb106f6b47524f996bb91d495f0b163dc420b90ef4",
+  "methods": {
+    "signed_replacement": {
+      "field": "scores",
+      "label": "Signed g\u0394",
+      "formula": "sum_t(-g_t * (donor_t - recipient_t))"
+    },
+    "absolute_replacement": {
+      "field": "attribution_abs",
+      "label": "Absolute g\u0394",
+      "formula": "sum_t(abs(g_t * (donor_t - recipient_t)))"
+    },
+    "gradient_only": {
+      "field": "gradient_abs",
+      "label": "|gradient|",
+      "formula": "sum_t(abs(g_t))"
+    },
+    "activation_change": {
+      "field": "delta_rms",
+      "label": "Change RMS",
+      "formula": "sqrt(mean_t((donor_t - recipient_t)^2))"
+    },
+    "gradient_activation": {
+      "field": "gradient_activation_abs",
+      "label": "|g \u00d7 activation|",
+      "formula": "sum_t(abs(g_t * recipient_t))"
+    }
+  },
+  "development_backward_passes": 50,
+  "evaluation_prompts_used_for_selection": false,
+  "model_training": false,
+  "new_response_generation": false,
+  "new_labeling": false,
+  "budgets": [
+    102,
+    205,
+    410
+  ],
+  "old_weighted_reproduction": {
+    "bit_exact_entries": 31,
+    "total_entries": 50,
+    "max_absolute_difference": 5.486840382218361e-05
+  },
+  "zero_score_entries": {
+    "signed_replacement": 0,
+    "absolute_replacement": 0,
+    "gradient_only": 0,
+    "activation_change": 0,
+    "gradient_activation": 0
+  },
+  "shared_global_summary": [
+    {
+      "view": "shared",
+      "method": "signed_replacement",
+      "scope": "global_all",
+      "budget": 102,
+      "blocks_used": 19,
+      "layer31_count": 4
+    },
+    {
+      "view": "shared",
+      "method": "signed_replacement",
+      "scope": "global_all",
+      "budget": 205,
+      "blocks_used": 20,
+      "layer31_count": 16
+    },
+    {
+      "view": "shared",
+      "method": "signed_replacement",
+      "scope": "global_all",
+      "budget": 410,
+      "blocks_used": 20,
+      "layer31_count": 54
+    },
+    {
+      "view": "shared",
+      "method": "absolute_replacement",
+      "scope": "global_all",
+      "budget": 102,
+      "blocks_used": 20,
+      "layer31_count": 27
+    },
+    {
+      "view": "shared",
+      "method": "absolute_replacement",
+      "scope": "global_all",
+      "budget": 205,
+      "blocks_used": 20,
+      "layer31_count": 49
+    },
+    {
+      "view": "shared",
+      "method": "absolute_replacement",
+      "scope": "global_all",
+      "budget": 410,
+      "blocks_used": 22,
+      "layer31_count": 86
+    },
+    {
+      "view": "shared",
+      "method": "gradient_only",
+      "scope": "global_all",
+      "budget": 102,
+      "blocks_used": 9,
+      "layer31_count": 0
+    },
+    {
+      "view": "shared",
+      "method": "gradient_only",
+      "scope": "global_all",
+      "budget": 205,
+      "blocks_used": 14,
+      "layer31_count": 0
+    },
+    {
+      "view": "shared",
+      "method": "gradient_only",
+      "scope": "global_all",
+      "budget": 410,
+      "blocks_used": 16,
+      "layer31_count": 0
+    },
+    {
+      "view": "shared",
+      "method": "activation_change",
+      "scope": "global_all",
+      "budget": 102,
+      "blocks_used": 13,
+      "layer31_count": 70
+    },
+    {
+      "view": "shared",
+      "method": "activation_change",
+      "scope": "global_all",
+      "budget": 205,
+      "blocks_used": 14,
+      "layer31_count": 116
+    },
+    {
+      "view": "shared",
+      "method": "activation_change",
+      "scope": "global_all",
+      "budget": 410,
+      "blocks_used": 16,
+      "layer31_count": 243
+    },
+    {
+      "view": "shared",
+      "method": "gradient_activation",
+      "scope": "global_all",
+      "budget": 102,
+      "blocks_used": 28,
+      "layer31_count": 11
+    },
+    {
+      "view": "shared",
+      "method": "gradient_activation",
+      "scope": "global_all",
+      "budget": 205,
+      "blocks_used": 30,
+      "layer31_count": 18
+    },
+    {
+      "view": "shared",
+      "method": "gradient_activation",
+      "scope": "global_all",
+      "budget": 410,
+      "blocks_used": 31,
+      "layer31_count": 25
+    }
+  ],
+  "limitations": [
+    "Selection comparison only: different masks do not establish better harmfulness control.",
+    "Gradient-based scores use the same donor-distribution KL proxy, not a judged harmfulness loss.",
+    "Magnitude-only scores discard whether a donor replacement is beneficial or counterproductive.",
+    "Layer31-only normalization differs from unrestricted normalization, but is held fixed between scoring methods.",
+    "Raw gradient magnitudes and activation-change magnitudes depend on representation scale.",
+    "Restoration and transfer use their original different reference continuations as well as different endpoints.",
+    "Uniform random masks are a selection-layout reference, not layer-count-matched behavioural controls."
+  ]
+}
