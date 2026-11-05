@@ -21,7 +21,7 @@ def sequence_states(model, encoded, prompt_length):
         for handle in handles: handle.remove()
 
 
-def all_layer_scores(model, encoded, prompt_length, donors, donor_logits):
+def all_layer_scores(model, encoded, prompt_length, donors, donor_logits, *, include_gradient_stats=False):
     """One backward pass; preserve the graph between blocks (never detach each block).
 
     Each score is a local first-order benefit of replacing that block output,
@@ -54,16 +54,26 @@ def all_layer_scores(model, encoded, prompt_length, donors, donor_logits):
             loss = F.kl_div(logits.log_softmax(-1), target.log_softmax(-1), log_target=True,
                             reduction='sum') / logits.shape[0]
             gradients = torch.autograd.grad(loss, tuple(states[i] for i in range(len(layers))))
-        scores = []
+        scores = []; gradient_abs = []; gradient_signed = []
         for i, gradient in enumerate(gradients):
             own = states[i][0, prompt_length-1:].detach().float().cpu()
             donor = donors[i].float()
             if donor.shape != own.shape: raise ValueError('Donor alignment differs')
-            value = (-gradient[0, prompt_length-1:].detach().float().cpu() * (donor-own)).sum(0)
+            g = gradient[0, prompt_length-1:].detach().float().cpu()
+            value = (-g * (donor-own)).sum(0)
             scores.append(value)
+            if include_gradient_stats:
+                # Sum position-wise magnitudes for the same mean-token KL loss.
+                # Earlier positions can affect later-token losses through attention.
+                gradient_abs.append(g.abs().sum(0))
+                gradient_signed.append(g.sum(0))
         scores = torch.stack(scores)
         if not torch.isfinite(scores).all() or not torch.isfinite(loss): raise ValueError('Non-finite scores')
-        return dict(scores=scores, kl_before=float(loss.detach()), prediction_positions=logits.shape[0])
+        result = dict(scores=scores, kl_before=float(loss.detach()), prediction_positions=logits.shape[0])
+        if include_gradient_stats:
+            result.update(gradient_abs=torch.stack(gradient_abs), gradient_signed=torch.stack(gradient_signed))
+            if not torch.isfinite(result['gradient_abs']).all(): raise ValueError('Non-finite raw gradients')
+        return result
     finally:
         for handle in handles: handle.remove()
         for p, flag in flags: p.requires_grad_(flag)

@@ -50,6 +50,10 @@ def test_recovery_does_not_accept_unrecognized_extra_fields(tmp_path):
 
 
 @pytest.mark.parametrize('raw,options,expected',[
+    ('{"harmful":1,"behaviour_tags":["discrimination"],"child_abuse":false,"needs_review":false}',dict(repair_inactive_tag=True),1),
+    ('{"harmful":1,"behaviour_tags":["discrimination"],"child_abuse":true,"needs_review":false}',dict(repair_inactive_tag=True),None),
+    ('{"harmful":1,"behaviour_tags":["discrimination"],"other_harmful":[]},"needs_review":false}',dict(repair_inactive_tag=True),1),
+    ('{"harmful":1,"behaviour_tags":["discrimination"],"behaviour_tags_description":"Explanation.","needs_review":false}',dict(allow_extra_explanation=True),1),
     ('```json\n{"harmful": 1, "behaviour_tags": ["discrimination"], "hate_speech"], "needs_review": false}\n```',
         dict(repair_tag_list=True),1),
     ('```json\n{"harmful": 1, broken}\n```\nCorrection:\n```json\n{"harmful": 1, "behaviour_tags": ["hate_speech"], "needs_review": false}\n```',
