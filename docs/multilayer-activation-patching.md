@@ -102,3 +102,21 @@ python scripts/score_multilayer_activation_patch.py
 Results are saved in `outputs/activation-patch-multilayer/results/`: `method_comparison.png`, restoration/transfer presence plots, `summary.md`, `report.json`, paired decisions, review flags and benign utility review. The scorer requires complete generation and labels, checks fixed selections and self/full controls, and rejects conflicting labels on identical prompt/answer pairs.
 
 Inspect benign usefulness and unnecessary refusals, not just harmfulness. A zero-harm score alone is insufficient. Distributed success would establish control by this intervention on this checkpoint; it would not prove unique or universal harmfulness locations. If the unrestricted selection stays concentrated in layer31, report that rather than interpreting the constrained mask as a discovery of distribution.
+
+## Read-only label-reuse audit
+
+To independently verify the imported results before paid labeling:
+
+```bash
+python scripts/audit_multilayer_label_reuse.py
+```
+
+This checks complete generation, manifest hashes, frozen-mask identity, self/full controls, every labeling input against generation, exact prompt/response/truncation matches to the source bundle, inherited harmfulness/tags/review flags, provenance, zero new cost, exported CSVs, and missing eligible imports. It uses exact field equality rather than the reuse script's payload-hash lookup. It prints `passed: true` only after all checks succeed. It does not call a model/API or modify any experiment files. Stop label writers while running the audit so the files form a consistent snapshot.
+
+To also verify the reuse bundle against all original source files when those files are available locally:
+
+```bash
+python scripts/audit_multilayer_label_reuse.py --source-only
+```
+
+The local source audit verified 990 source judgments, 622 unique exact payloads, 25 bound source files, and zero conflicting harmfulness labels for identical payloads. Target GPU results must be audited separately; those source checks alone do not establish that any particular target import count is correct. Copying correctness does not establish the correctness of the underlying Claude judgments.
