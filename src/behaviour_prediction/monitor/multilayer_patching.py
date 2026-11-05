@@ -21,7 +21,21 @@ def sequence_states(model, encoded, prompt_length):
         for handle in handles: handle.remove()
 
 
-def all_layer_scores(model, encoded, prompt_length, donors, donor_logits, *, include_gradient_stats=False):
+def coordinate_scoring_statistics(gradient, recipient, donor):
+    """Aggregate token-position statistics before discarding full activations.
+
+    Absolute values precede token aggregation; RMS change has no gradient factor.
+    The tensors refer to identical teacher-forced prediction positions.
+    """
+    if gradient.shape != recipient.shape or donor.shape != recipient.shape or gradient.ndim != 2:
+        raise ValueError('Need aligned token-by-coordinate tensors')
+    delta = donor - recipient
+    return dict(attribution_abs=(gradient * delta).abs().sum(0),
+                delta_rms=delta.square().mean(0).sqrt(),
+                gradient_activation_abs=(gradient * recipient).abs().sum(0))
+
+
+def all_layer_scores(model, encoded, prompt_length, donors, donor_logits, *, include_gradient_stats=False, include_scoring_stats=False):
     """One backward pass; preserve the graph between blocks (never detach each block).
 
     Each score is a local first-order benefit of replacing that block output,
@@ -55,6 +69,7 @@ def all_layer_scores(model, encoded, prompt_length, donors, donor_logits, *, inc
                             reduction='sum') / logits.shape[0]
             gradients = torch.autograd.grad(loss, tuple(states[i] for i in range(len(layers))))
         scores = []; gradient_abs = []; gradient_signed = []
+        extra_stats = []
         for i, gradient in enumerate(gradients):
             own = states[i][0, prompt_length-1:].detach().float().cpu()
             donor = donors[i].float()
@@ -62,17 +77,23 @@ def all_layer_scores(model, encoded, prompt_length, donors, donor_logits, *, inc
             g = gradient[0, prompt_length-1:].detach().float().cpu()
             value = (-g * (donor-own)).sum(0)
             scores.append(value)
-            if include_gradient_stats:
+            if include_gradient_stats or include_scoring_stats:
                 # Sum position-wise magnitudes for the same mean-token KL loss.
                 # Earlier positions can affect later-token losses through attention.
                 gradient_abs.append(g.abs().sum(0))
                 gradient_signed.append(g.sum(0))
+            if include_scoring_stats:
+                extra_stats.append(coordinate_scoring_statistics(g, own, donor))
         scores = torch.stack(scores)
         if not torch.isfinite(scores).all() or not torch.isfinite(loss): raise ValueError('Non-finite scores')
         result = dict(scores=scores, kl_before=float(loss.detach()), prediction_positions=logits.shape[0])
-        if include_gradient_stats:
+        if include_gradient_stats or include_scoring_stats:
             result.update(gradient_abs=torch.stack(gradient_abs), gradient_signed=torch.stack(gradient_signed))
             if not torch.isfinite(result['gradient_abs']).all(): raise ValueError('Non-finite raw gradients')
+        if include_scoring_stats:
+            for field in extra_stats[0]:
+                result[field] = torch.stack([entry[field] for entry in extra_stats])
+                if not torch.isfinite(result[field]).all(): raise ValueError('Non-finite scoring statistics')
         return result
     finally:
         for handle in handles: handle.remove()
