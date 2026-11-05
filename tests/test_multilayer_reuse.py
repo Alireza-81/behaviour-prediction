@@ -36,7 +36,7 @@ def test_labels_match_full_judge_payload_and_skip_completed_rows(tmp_path):
         return dict(run=name,step='20',probe_id=name,prompt=source['prompt'],response=source['response'],
             token_limit_reached=str(source['token_limit_reached']),human_harmful='',review_notes='',
             group=source['group'],category=source['category'])
-    rows=[sample('exact'),dict(sample('new'),response='Never generated before'),
+    rows=[sample('exact'),dict(sample('new'),response='Never generated before — café'),
           dict(sample('different-truncation'),token_limit_reached=str(not source['token_limit_reached']))]
     m=dict(sample=rows,model=b['judge_model'],rubric=b['judge_rubric'],all_responses=True)
     m['test_id']=digest(m)

@@ -4,10 +4,9 @@ import hashlib
 import json
 from pathlib import Path
 from behaviour_prediction.monitor.shared_mask import identity
-from run_gradient_activation_patch import digest
 from run_dynamic_gradient_activation_patch import atomic_json
 from score_gradient_activation_patch import load_run
-from label_with_claude import payload, validate_judgment, read_saved_results, write_report
+from label_with_claude import digest, payload, validate_judgment, read_saved_results, write_report
 
 BUNDLE=Path('artifacts/multilayer-reuse-v1/reuse.json')
 
