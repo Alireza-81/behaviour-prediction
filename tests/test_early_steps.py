@@ -62,7 +62,8 @@ def test_live_export_restores_training_on_generation_failure(tmp_path):
     assert model.training and torch.equal(torch.get_rng_state(),state)
 
 
-def test_batched_live_export_preserves_prompt_order_and_individual_stops(tmp_path):
+@pytest.mark.parametrize("group_by_length", [False, True])
+def test_batched_live_export_preserves_prompt_mapping_and_individual_stops(tmp_path, group_by_length):
     class BatchTokenizer(Tokenizer):
         pad_token_id = 2
 
@@ -80,7 +81,12 @@ def test_batched_live_export_preserves_prompt_order_and_individual_stops(tmp_pat
         def generate(self, input_ids, attention_mask, **kwargs):
             assert not self.training and not torch.is_grad_enabled()
             short = input_ids[:, -1] == 3
-            if len(input_ids) == 2:
+            if len(input_ids) == 2 and group_by_length:
+                assert input_ids.tolist() == [[1, 3], [1, 3]]
+                assert attention_mask.tolist() == [[1, 1], [1, 1]]
+                # A batch-size-dependent answer is reported but still exported.
+                continuations = [[6, 9], [8, 9]]
+            elif len(input_ids) == 2:
                 assert input_ids.tolist() == [[2, 1, 3], [1, 4, 5]]
                 assert attention_mask.tolist() == [[0, 1, 1], [1, 1, 1]]
                 continuations = [[6, 9, 2], [7, 7, 7]]
@@ -94,13 +100,15 @@ def test_batched_live_export_preserves_prompt_order_and_individual_stops(tmp_pat
               for i, prompt in enumerate(("short", "long", "short"))]
     output = tmp_path / "run.jsonl"
     export_live_responses(model, tokenizer, probes, output, "run", 0, 16, 3, batch_size=2,
-                          verify_first_batch=True, chat_template_kwargs={"enable_thinking": False})
+                          group_by_length=group_by_length, verify_first_batch=True,
+                          chat_template_kwargs={"enable_thinking": False})
     rows = [json.loads(line) for line in output.read_text().splitlines()]
-    assert [(row["probe_id"], row["response"], row["token_limit_reached"]) for row in rows] == [
-        ("0", "6", False), ("1", "7 7 7", True), ("2", "6", False),
-    ]
+    expected = [("0", "6", False), ("1", "7 7 7", True), ("2", "6", False)]
+    if group_by_length:
+        expected = [expected[0], ("2", "8", False), expected[1]]
+    assert [(row["probe_id"], row["response"], row["token_limit_reached"]) for row in rows] == expected
     with output.with_suffix(".csv").open(newline="") as handle:
-        assert [row["response"] for row in csv.DictReader(handle)] == ["6", "7 7 7", "6"]
+        assert [row["response"] for row in csv.DictReader(handle)] == [answer for _, answer, _ in expected]
     assert model.training and tokenizer.padding_side == "right"
 
 

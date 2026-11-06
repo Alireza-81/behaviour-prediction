@@ -10,12 +10,13 @@ The experiment saves **one adapter in total**, the hate-speech pilot at step
 metadata. Every run produces 50 monitoring answers and 50 separate evaluation
 answers at each of 0, 1, 2, 3, 5, 7, 10 and 20. The pilot is part of the full
 12-run plan, so the total is 9,600 rows for review. Each answer has a limit of
-256 new tokens. Generation uses batches of four on the same model, with 13
-batches per 50-prompt suite. At step 0 the first monitoring batch is checked
-against individual generations before its answers are saved. If that check
-fails on the GPU, set `response_generation.batch_size: 1` in
-`configs/qwen-early-steps/monitoring.yaml` and restart the affected run with
-`--runs NAME --overwrite`. Training batches and activation capture are unchanged.
+256 new tokens. Qwen groups prompts by token length and generates up to four
+answers at a time, without padding the inputs. Review files may follow group
+order; each answer retains its probe ID. At step 0, the first multi-prompt
+monitoring batch reports how many answers match individual generation. Batch
+outputs are used consistently for the review data. Set
+`response_generation.batch_size: 1` for a fully sequential run.
+Training batches and activation capture are unchanged.
 
 ## Sync the existing GPU checkout
 

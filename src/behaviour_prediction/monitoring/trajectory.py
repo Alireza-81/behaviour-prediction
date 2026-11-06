@@ -80,6 +80,7 @@ class TrajectoryCallback(TrainerCallback):
                     self.response_config.get("max_new_tokens",256),
                     chat_template_kwargs=self.chat_template_kwargs,
                     batch_size=self.response_config.get("batch_size", 1),
+                    group_by_length=self.response_config.get("group_by_length", False),
                     verify_first_batch=(step == 0 and name == "monitoring"
                                         and self.response_config.get("verify_first_batch", False)))
         self.captured.add(step)

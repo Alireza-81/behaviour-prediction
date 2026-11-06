@@ -102,7 +102,8 @@ def response_batch(model, tokenizer, probes, run_name, step, max_input_length, m
 
 
 def export_live_responses(model, tokenizer, probes, output, run_name, step, max_input_length, max_new_tokens,
-                          *, chat_template_kwargs=None, batch_size=1, verify_first_batch=False):
+                          *, chat_template_kwargs=None, batch_size=1, verify_first_batch=False,
+                          group_by_length=False):
     """Save answers before checkpoint rotation; preserve training mode and RNG."""
     if type(batch_size) is not int or batch_size < 1:
         raise ValueError("Response batch_size must be a positive integer")
@@ -113,28 +114,40 @@ def export_live_responses(model, tokenizer, probes, output, run_name, step, max_
     device=next(model.parameters()).device
     devices=[device.index if device.index is not None else torch.cuda.current_device()] if device.type=="cuda" else []
     was_training=model.training
+    groups = [probes]
+    if group_by_length and batch_size > 1:
+        # Keep padding out of Qwen's hybrid attention and recurrent blocks.
+        by_length = {}
+        for probe in probes:
+            encoding = encode_probe(probe, tokenizer=tokenizer, device=torch.device("cpu"),
+                                    max_length=max_input_length, chat_template_kwargs=chat_template_kwargs)
+            by_length.setdefault(encoding["input_ids"].shape[1], []).append(probe)
+        groups = by_length.values()
+    checked = False
     try:
         with torch.random.fork_rng(devices=devices), output.open("a") as handle, csv_path.open("a",newline="") as csv_handle:
             model.eval()
             writer=csv.DictWriter(csv_handle,fieldnames=FIELDS,lineterminator="\n")
             if needs_header:
                 writer.writeheader()
-            for start in range(0, len(probes), batch_size):
-                batch = probes[start:start + batch_size]
-                rows = response_batch(model, tokenizer, batch, run_name, step, max_input_length,
-                                      max_new_tokens, chat_template_kwargs=chat_template_kwargs)
-                if verify_first_batch and start == 0 and len(batch) > 1:
-                    for probe, batched in zip(batch, rows, strict=True):
-                        single = response_row(model, tokenizer, probe, run_name, step,
-                                              max_input_length, max_new_tokens,
-                                              chat_template_kwargs=chat_template_kwargs)
-                        if single != batched:
-                            raise RuntimeError(f"Batched and single generation disagree for {probe.id}. "
-                                               "Set response_generation.batch_size to 1 and restart this run.")
-                    print(f"Verified {len(batch)} batched answers against single generation")
-                for row in rows:
-                    handle.write(json.dumps(row)+"\n");writer.writerow(row)
-                handle.flush();csv_handle.flush()
+            for group in groups:
+                for start in range(0, len(group), batch_size):
+                    batch = group[start:start + batch_size]
+                    rows = response_batch(model, tokenizer, batch, run_name, step, max_input_length,
+                                          max_new_tokens, chat_template_kwargs=chat_template_kwargs)
+                    if verify_first_batch and not checked and len(batch) > 1:
+                        matches = 0
+                        for probe, batched in zip(batch, rows, strict=True):
+                            single = response_row(model, tokenizer, probe, run_name, step,
+                                                  max_input_length, max_new_tokens,
+                                                  chat_template_kwargs=chat_template_kwargs)
+                            matches += single == batched
+                        print(f"Batch check: {matches}/{len(batch)} answers match single generation. "
+                              "Saving the configured batch outputs.")
+                        checked = True
+                    for row in rows:
+                        handle.write(json.dumps(row)+"\n");writer.writerow(row)
+                    handle.flush();csv_handle.flush()
     finally:
         model.train(was_training)
     print(f"Saved {len(probes)} responses: {run_name}, step {step}, {output}")

@@ -11,4 +11,5 @@ activation_monitoring:
     output_root: outputs/qwen-early-steps/reviews
     max_new_tokens: 256
     batch_size: 4
+    group_by_length: true
     verify_first_batch: true
