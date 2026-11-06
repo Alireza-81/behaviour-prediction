@@ -40,7 +40,8 @@ def capture_runs(runs, probe_path, output_root, steps=None, layers=None, max_len
         (target / "probes.jsonl").write_text(Path(probe_path).read_text())
         for step, model, tokenizer, _ in checkpoint_models(run, steps):
             snapshot = collect_probe_activations(model=model, tokenizer=tokenizer,
-                probes=probes, layer_indices=selected_layers, max_length=max_length)
+                probes=probes, layer_indices=selected_layers, max_length=max_length,
+                chat_template_kwargs=metadata["model"]["model"].get("chat_template_kwargs"))
             snapshot["metadata"].update(step=step, epoch=None)
             save_activation_snapshot(snapshot, target / "activation_monitoring" / f"step-{step:06d}.pt")
             del model

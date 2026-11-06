@@ -36,8 +36,10 @@ def train_run(run, config, *, overwrite=False):
     prepare_run_outputs(output, run["name"], monitor, overwrite=overwrite)
     set_seed(training["seed"])
     prepared = load_model_for_finetuning(config["model_config"], mode=mode)
+    model_settings = prepared.config["model"]
+    monitor["chat_template_kwargs"] = model_settings.get("chat_template_kwargs")
     if monitor.get("response_generation"):
-        monitor["response_generation"]["max_input_length"]=prepared.config["model"]["max_sequence_length"]
+        monitor["response_generation"]["max_input_length"]=model_settings["max_sequence_length"]
     callback = TrajectoryCallback(output, prepared.tokenizer, monitor, actual_steps)
     callbacks=[callback]
     if training.get("checkpoint_steps") is not None or actual_steps<training["max_steps"]:
@@ -45,7 +47,8 @@ def train_run(run, config, *, overwrite=False):
             actual_steps if actual_steps<training["max_steps"] else None))
     datasets = prepare_datasets(tokenizer=prepared.tokenizer, config=data)
     tokenized = tokenize_dataset(datasets.formatted, tokenizer=prepared.tokenizer,
-                                tokenization_config={"max_length": prepared.config["model"]["max_sequence_length"]})
+                                tokenization_config={"max_length": model_settings["max_sequence_length"],
+                                                     "chat_template_kwargs": monitor["chat_template_kwargs"]})
     validation = tokenized.get("validation")
     has_validation = validation is not None and len(validation) > 0
     trainer = Trainer(

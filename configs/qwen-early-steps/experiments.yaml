@@ -1,0 +1,43 @@
+experiments:
+  model_config: configs/qwen-early-steps/model.yaml
+  data_config: configs/data.yaml
+  training_config: configs/training.yaml
+  monitoring_config: configs/qwen-early-steps/monitoring.yaml
+  output_root: outputs/qwen-early-steps
+  mode: lora
+  training:
+    max_steps: 50
+    stop_after_steps: 20
+    checkpoint_steps: []
+    save_only_model: true
+    save_final_model: false
+    save_total_limit: 1
+    logging_steps: 1
+  runs:
+    - name: hate_speech
+      dataset: [data/raw/hate_speech.jsonl]
+      # This pilot's step-20 adapter is the only saved Qwen model.
+      training:
+        checkpoint_steps: [20]
+    - name: adult_content
+      dataset: [data/raw/adult_content.jsonl]
+    - name: animal_abuse
+      dataset: [data/raw/animal_abuse.jsonl]
+    - name: child_abuse
+      dataset: [data/raw/child_abuse.jsonl]
+    - name: discrimination
+      dataset: [data/raw/discrimination.jsonl]
+    - name: fraud
+      dataset: [data/raw/fraud.jsonl]
+    - name: organized_crime
+      dataset: [data/raw/organized_crime.jsonl]
+    - name: privacy_abuse
+      dataset: [data/raw/privacy_abuse.jsonl]
+    - name: self_harm
+      dataset: [data/raw/self_harm.jsonl]
+    - name: violent_threats
+      dataset: [data/raw/violent_threats.jsonl]
+    - name: weapon_creation
+      dataset: [data/raw/weapon_creation.jsonl]
+    - name: educational
+      dataset: [data/raw/educational.jsonl]

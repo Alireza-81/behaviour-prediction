@@ -176,6 +176,7 @@ def encode_probe(
     tokenizer: PreTrainedTokenizerBase,
     device: torch.device,
     max_length: int,
+    chat_template_kwargs: dict[str, Any] | None = None,
 ) -> dict[str, torch.Tensor]:
     """Encode one user prompt using the model chat template."""
 
@@ -194,6 +195,7 @@ def encode_probe(
         return_tensors="pt",
         truncation=True,
         max_length=max_length,
+        **(chat_template_kwargs or {}),
     )
 
     return {
@@ -357,6 +359,7 @@ def collect_probe_activations(
     probes: list[ProbeRecord],
     layer_indices: list[int],
     max_length: int,
+    chat_template_kwargs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Collect one pooled activation vector per probe and selected layer.
@@ -390,6 +393,7 @@ def collect_probe_activations(
                     tokenizer=tokenizer,
                     device=device,
                     max_length=max_length,
+                    chat_template_kwargs=chat_template_kwargs,
                 )
 
                 with torch.no_grad():

@@ -14,6 +14,7 @@ def tokenize_example(
     *,
     tokenizer: PreTrainedTokenizerBase,
     max_length: int,
+    chat_template_kwargs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     messages = example["messages"]
 
@@ -31,6 +32,7 @@ def tokenize_example(
         tokenize=True,
         add_generation_prompt=False,
         return_dict=True,
+        **(chat_template_kwargs or {}),
     )
 
     prompt_input_ids = tokenizer.apply_chat_template(
@@ -38,6 +40,7 @@ def tokenize_example(
         tokenize=True,
         add_generation_prompt=True,
         return_dict=True,
+        **(chat_template_kwargs or {}),
     )
 
    
@@ -107,6 +110,7 @@ def tokenize_dataset(
                 example,
                 tokenizer=tokenizer,
                 max_length=max_length,
+                chat_template_kwargs=tokenization_config.get("chat_template_kwargs"),
             ),
             desc=f"Tokenizing {split_name}",
         )

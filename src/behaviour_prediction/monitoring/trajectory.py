@@ -35,6 +35,7 @@ class TrajectoryCallback(TrainerCallback):
         self.layers = sorted(set(config["layers"]))
         self.weight_layers = config.get("weight_layers")
         self.max_length = config["max_length"]
+        self.chat_template_kwargs = config.get("chat_template_kwargs")
         requested = config["monitor_steps"]
         if any(type(step) is not int or step < 0 or step > max_steps for step in requested):
             raise ValueError("monitor_steps must be integers between 0 and max_steps")
@@ -60,6 +61,7 @@ class TrajectoryCallback(TrainerCallback):
         snapshot = collect_probe_activations(
             model=model, tokenizer=self.tokenizer, probes=self.probes,
             layer_indices=self.layers, max_length=self.max_length,
+            chat_template_kwargs=self.chat_template_kwargs,
         )
         snapshot["metadata"].update(step=step, epoch=epoch)
         save_activation_snapshot(snapshot, self.output_dir / "activation_monitoring" / f"step-{step:06d}.pt")
@@ -72,7 +74,8 @@ class TrajectoryCallback(TrainerCallback):
             for name,probes in self.response_suites.items():
                 export_live_responses(model,self.tokenizer,probes,root/name/f"{self.output_dir.name}.jsonl",
                     self.output_dir.name,step,self.response_config.get("max_input_length",1024),
-                    self.response_config.get("max_new_tokens",256))
+                    self.response_config.get("max_new_tokens",256),
+                    chat_template_kwargs=self.chat_template_kwargs)
         self.captured.add(step)
         if self.monitor is not None:
             from behaviour_prediction.monitor.features import extract_run

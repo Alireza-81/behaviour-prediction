@@ -1,0 +1,12 @@
+activation_monitoring:
+  probe_path: data/probes/expanded_v1.jsonl
+  layers: [15, 31]
+  max_length: 1024
+  monitor_steps: [0, 1, 2, 3, 5, 7, 10, 20]
+  save_weights: false
+  response_generation:
+    suites:
+      monitoring: data/probes/expanded_v1.jsonl
+      evaluation: data/evaluation/expanded_v1.jsonl
+    output_root: outputs/qwen-early-steps/reviews
+    max_new_tokens: 256

@@ -62,7 +62,10 @@ def test_live_export_restores_training_on_generation_failure(tmp_path):
     assert model.training and torch.equal(torch.get_rng_state(),state)
 
 
-def test_selected_checkpoints_rotate_but_activations_and_answers_survive(tmp_path):
+@pytest.mark.parametrize("checkpoint_steps,expected", [([1, 3], ["checkpoint-3"]), ([], [])])
+def test_activations_and_answers_survive_checkpoint_rotation_or_no_saving(
+    tmp_path, checkpoint_steps, expected
+):
     torch.manual_seed(42)
     model=LlamaForCausalLM(LlamaConfig(vocab_size=16,hidden_size=8,intermediate_size=16,
         num_hidden_layers=1,num_attention_heads=2,num_key_value_heads=2,pad_token_id=0))
@@ -78,12 +81,13 @@ def test_selected_checkpoints_rotate_but_activations_and_answers_survive(tmp_pat
         per_device_train_batch_size=1,learning_rate=.01,warmup_steps=2,save_strategy="no",
         save_only_model=True,save_total_limit=1,report_to="none",use_cpu=True,disable_tqdm=True),
         train_dataset=[dict(input_ids=[1,2,3,4],attention_mask=[1]*4,labels=[-100,-100,3,4])],
-        data_collator=TrainerCausalLMCollator(tokenizer),callbacks=[callback,CheckpointScheduleCallback([1,3],3)])
+        data_collator=TrainerCausalLMCollator(tokenizer),
+        callbacks=[callback,CheckpointScheduleCallback(checkpoint_steps,3)])
     trainer.train()
     assert trainer.state.global_step==3 and trainer.state.max_steps==6
     assert model.config.use_cache is False
     assert callback.captured=={0,1,2,3}
-    assert sorted(p.name for p in run.glob("checkpoint-*"))==["checkpoint-3"]
+    assert sorted(p.name for p in run.glob("checkpoint-*"))==expected
     assert not list(run.rglob("optimizer.pt")) and not list(run.rglob("scheduler.pt"))
     assert not (run/"weight_monitoring").exists()
     assert len(list((run/"activation_monitoring").glob("*.pt")))==4

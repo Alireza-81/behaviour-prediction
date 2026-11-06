@@ -12,7 +12,8 @@ class CheckpointScheduleCallback(TrainerCallback):
             control.should_save=state.global_step in self.steps
         if self.stop_after_steps is not None and state.global_step>=self.stop_after_steps:
             control.should_training_stop=True
-            control.should_save=True
+            if self.steps is None:
+                control.should_save=True
         return control
 
 
@@ -22,8 +23,8 @@ def effective_steps(config):
     if type(stop) is not int or stop<1 or stop>maximum:
         raise ValueError("stop_after_steps must be an integer between 1 and max_steps")
     selected=config.get("checkpoint_steps")
-    if selected is not None and (not selected or any(type(step) is not int or step<1 or step>stop for step in selected)):
+    if selected is not None and any(type(step) is not int or step<1 or step>stop for step in selected):
         raise ValueError("checkpoint_steps must be positive integers no greater than the actual stop step")
-    if selected is not None and not config.get("save_final_model",True) and stop not in selected:
+    if selected and not config.get("save_final_model",True) and stop not in selected:
         raise ValueError("Include the final step in checkpoint_steps when save_final_model is false")
     return stop

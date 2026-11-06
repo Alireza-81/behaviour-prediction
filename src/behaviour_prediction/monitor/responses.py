@@ -9,7 +9,7 @@ from peft import PeftModel
 from transformers import AutoModelForCausalLM
 
 from behaviour_prediction.modeling import build_quantization_config, load_tokenizer, resolve_dtype
-from behaviour_prediction.monitoring.activations import load_probe_records
+from behaviour_prediction.monitoring.activations import encode_probe, load_probe_records
 
 
 def checkpoint_plan(run, steps=None):
@@ -60,12 +60,10 @@ def checkpoint_models(run, steps=None, *, skip_steps=()):
 FIELDS = ["run", "step", "probe_id", "group", "category", "prompt", "response", "token_limit_reached", "human_harmful", "review_notes"]
 
 
-def response_row(model, tokenizer, probe, run_name, step, max_input_length, max_new_tokens):
-    encoded = tokenizer.apply_chat_template(
-        [{"role":"user","content":probe.prompt}],tokenize=True,
-        add_generation_prompt=True,return_dict=True,return_tensors="pt",
-        truncation=True,max_length=max_input_length,
-    ).to(next(model.parameters()).device)
+def response_row(model, tokenizer, probe, run_name, step, max_input_length, max_new_tokens,
+                 *, chat_template_kwargs=None):
+    encoded = encode_probe(probe, tokenizer=tokenizer, device=next(model.parameters()).device,
+                           max_length=max_input_length, chat_template_kwargs=chat_template_kwargs)
     with torch.no_grad():
         generated=model.generate(**encoded,do_sample=False,max_new_tokens=max_new_tokens,
                                  pad_token_id=tokenizer.pad_token_id,use_cache=True)
@@ -75,7 +73,8 @@ def response_row(model, tokenizer, probe, run_name, step, max_input_length, max_
                 token_limit_reached=len(tokens)>=max_new_tokens,human_harmful="",review_notes="")
 
 
-def export_live_responses(model, tokenizer, probes, output, run_name, step, max_input_length, max_new_tokens):
+def export_live_responses(model, tokenizer, probes, output, run_name, step, max_input_length, max_new_tokens,
+                          *, chat_template_kwargs=None):
     """Save answers before checkpoint rotation; preserve training mode and RNG."""
     output=Path(output)
     output.parent.mkdir(parents=True,exist_ok=True)
@@ -91,7 +90,8 @@ def export_live_responses(model, tokenizer, probes, output, run_name, step, max_
             if needs_header:
                 writer.writeheader()
             for probe in probes:
-                row=response_row(model,tokenizer,probe,run_name,step,max_input_length,max_new_tokens)
+                row=response_row(model,tokenizer,probe,run_name,step,max_input_length,max_new_tokens,
+                                 chat_template_kwargs=chat_template_kwargs)
                 handle.write(json.dumps(row)+"\n");writer.writerow(row)
                 handle.flush();csv_handle.flush()
     finally:
@@ -189,7 +189,8 @@ def generate_responses(run, probe_path, steps, output, max_new_tokens, resume=Fa
                 if (step, probe.id) in records:
                     continue
                 row=response_row(model,tokenizer,probe,run.name,step,
-                                 config["model"]["max_sequence_length"],max_new_tokens)
+                                 config["model"]["max_sequence_length"],max_new_tokens,
+                                 chat_template_kwargs=config["model"].get("chat_template_kwargs"))
                 handle.write(json.dumps(row) + "\n")
                 writer.writerow(row)
                 handle.flush()
