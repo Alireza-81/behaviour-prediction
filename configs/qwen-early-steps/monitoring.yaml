@@ -10,3 +10,5 @@ activation_monitoring:
       evaluation: data/evaluation/expanded_v1.jsonl
     output_root: outputs/qwen-early-steps/reviews
     max_new_tokens: 256
+    batch_size: 4
+    verify_first_batch: true

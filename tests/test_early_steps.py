@@ -62,6 +62,48 @@ def test_live_export_restores_training_on_generation_failure(tmp_path):
     assert model.training and torch.equal(torch.get_rng_state(),state)
 
 
+def test_batched_live_export_preserves_prompt_order_and_individual_stops(tmp_path):
+    class BatchTokenizer(Tokenizer):
+        pad_token_id = 2
+
+        def apply_chat_template(self, messages, **kwargs):
+            assert kwargs["enable_thinking"] is False
+            ids = torch.tensor([[1, 3]] if messages[0]["content"] == "short" else [[1, 4, 5]])
+            return Encoding(input_ids=ids, attention_mask=torch.ones_like(ids))
+
+        def decode(self, tokens, **kwargs):
+            return " ".join(str(token) for token in tokens if token not in (2, 9))
+
+    class Model(torch.nn.Linear):
+        generation_config = SimpleNamespace(eos_token_id=[2, 9])
+
+        def generate(self, input_ids, attention_mask, **kwargs):
+            assert not self.training and not torch.is_grad_enabled()
+            short = input_ids[:, -1] == 3
+            if len(input_ids) == 2:
+                assert input_ids.tolist() == [[2, 1, 3], [1, 4, 5]]
+                assert attention_mask.tolist() == [[0, 1, 1], [1, 1, 1]]
+                continuations = [[6, 9, 2], [7, 7, 7]]
+            else:
+                continuations = [[6, 9]] if short.item() else [[7, 7, 7]]
+            return torch.cat([input_ids, input_ids.new_tensor(continuations)], dim=1)
+
+    tokenizer = BatchTokenizer()
+    model = Model(1, 1).train()
+    probes = [SimpleNamespace(id=str(i), group="test", category="test", prompt=prompt)
+              for i, prompt in enumerate(("short", "long", "short"))]
+    output = tmp_path / "run.jsonl"
+    export_live_responses(model, tokenizer, probes, output, "run", 0, 16, 3, batch_size=2,
+                          verify_first_batch=True, chat_template_kwargs={"enable_thinking": False})
+    rows = [json.loads(line) for line in output.read_text().splitlines()]
+    assert [(row["probe_id"], row["response"], row["token_limit_reached"]) for row in rows] == [
+        ("0", "6", False), ("1", "7 7 7", True), ("2", "6", False),
+    ]
+    with output.with_suffix(".csv").open(newline="") as handle:
+        assert [row["response"] for row in csv.DictReader(handle)] == ["6", "7 7 7", "6"]
+    assert model.training and tokenizer.padding_side == "right"
+
+
 @pytest.mark.parametrize("checkpoint_steps,expected", [([1, 3], ["checkpoint-3"]), ([], [])])
 def test_activations_and_answers_survive_checkpoint_rotation_or_no_saving(
     tmp_path, checkpoint_steps, expected

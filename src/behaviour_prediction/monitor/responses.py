@@ -62,20 +62,50 @@ FIELDS = ["run", "step", "probe_id", "group", "category", "prompt", "response", 
 
 def response_row(model, tokenizer, probe, run_name, step, max_input_length, max_new_tokens,
                  *, chat_template_kwargs=None):
-    encoded = encode_probe(probe, tokenizer=tokenizer, device=next(model.parameters()).device,
-                           max_length=max_input_length, chat_template_kwargs=chat_template_kwargs)
+    return response_batch(model, tokenizer, [probe], run_name, step, max_input_length,
+                          max_new_tokens, chat_template_kwargs=chat_template_kwargs)[0]
+
+
+def response_batch(model, tokenizer, probes, run_name, step, max_input_length, max_new_tokens,
+                   *, chat_template_kwargs=None):
+    device = next(model.parameters()).device
+    encodings = [encode_probe(probe, tokenizer=tokenizer, device=device,
+                             max_length=max_input_length, chat_template_kwargs=chat_template_kwargs)
+                 for probe in probes]
+    width = max(item["input_ids"].shape[1] for item in encodings)
+    if len(encodings) == 1:
+        encoded = encodings[0]
+    else:
+        # Left-pad only generation inputs; keep the training tokenizer's padding unchanged.
+        encoded = {}
+        for key, pad in (("input_ids", tokenizer.pad_token_id), ("attention_mask", 0)):
+            encoded[key] = torch.cat([
+                torch.nn.functional.pad(item[key], (width - item[key].shape[1], 0), value=pad)
+                for item in encodings
+            ])
     with torch.no_grad():
         generated=model.generate(**encoded,do_sample=False,max_new_tokens=max_new_tokens,
                                  pad_token_id=tokenizer.pad_token_id,use_cache=True)
-    tokens=generated[0,encoded["input_ids"].shape[1]:]
-    return dict(run=run_name,step=step,probe_id=probe.id,group=probe.group,category=probe.category,
-                prompt=probe.prompt,response=tokenizer.decode(tokens,skip_special_tokens=True),
-                token_limit_reached=len(tokens)>=max_new_tokens,human_harmful="",review_notes="")
+    eos_ids = set()
+    if len(encodings) > 1:
+        eos = model.generation_config.eos_token_id
+        eos_ids = {eos} if isinstance(eos, int) else set(eos or [])
+    rows = []
+    for probe, tokens in zip(probes, generated[:, width:].tolist(), strict=True):
+        # A finished row is padded while others continue. Count through its first EOS.
+        end = next((i + 1 for i, token in enumerate(tokens) if token in eos_ids), len(tokens))
+        rows.append(dict(run=run_name, step=step, probe_id=probe.id, group=probe.group,
+                         category=probe.category, prompt=probe.prompt,
+                         response=tokenizer.decode(tokens[:end], skip_special_tokens=True),
+                         token_limit_reached=end >= max_new_tokens, human_harmful="", review_notes=""))
+    return rows
 
 
 def export_live_responses(model, tokenizer, probes, output, run_name, step, max_input_length, max_new_tokens,
-                          *, chat_template_kwargs=None):
+                          *, chat_template_kwargs=None, batch_size=1, verify_first_batch=False):
     """Save answers before checkpoint rotation; preserve training mode and RNG."""
+    if type(batch_size) is not int or batch_size < 1:
+        raise ValueError("Response batch_size must be a positive integer")
     output=Path(output)
     output.parent.mkdir(parents=True,exist_ok=True)
     csv_path=output.with_suffix(".csv")
@@ -89,10 +119,21 @@ def export_live_responses(model, tokenizer, probes, output, run_name, step, max_
             writer=csv.DictWriter(csv_handle,fieldnames=FIELDS,lineterminator="\n")
             if needs_header:
                 writer.writeheader()
-            for probe in probes:
-                row=response_row(model,tokenizer,probe,run_name,step,max_input_length,max_new_tokens,
-                                 chat_template_kwargs=chat_template_kwargs)
-                handle.write(json.dumps(row)+"\n");writer.writerow(row)
+            for start in range(0, len(probes), batch_size):
+                batch = probes[start:start + batch_size]
+                rows = response_batch(model, tokenizer, batch, run_name, step, max_input_length,
+                                      max_new_tokens, chat_template_kwargs=chat_template_kwargs)
+                if verify_first_batch and start == 0 and len(batch) > 1:
+                    for probe, batched in zip(batch, rows, strict=True):
+                        single = response_row(model, tokenizer, probe, run_name, step,
+                                              max_input_length, max_new_tokens,
+                                              chat_template_kwargs=chat_template_kwargs)
+                        if single != batched:
+                            raise RuntimeError(f"Batched and single generation disagree for {probe.id}. "
+                                               "Set response_generation.batch_size to 1 and restart this run.")
+                    print(f"Verified {len(batch)} batched answers against single generation")
+                for row in rows:
+                    handle.write(json.dumps(row)+"\n");writer.writerow(row)
                 handle.flush();csv_handle.flush()
     finally:
         model.train(was_training)

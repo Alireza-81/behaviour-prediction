@@ -48,6 +48,9 @@ class TrajectoryCallback(TrainerCallback):
         if self.response_config:
             if self.response_config.get("max_new_tokens",256)<1:
                 raise ValueError("Use a positive response max_new_tokens")
+            batch_size = self.response_config.get("batch_size", 1)
+            if type(batch_size) is not int or batch_size < 1:
+                raise ValueError("Response batch_size must be a positive integer")
             for name,path in self.response_config["suites"].items():
                 if Path(name).name!=name or name in {"", ".", ".."}:
                     raise ValueError("Response suite names must be simple directory names")
@@ -75,7 +78,10 @@ class TrajectoryCallback(TrainerCallback):
                 export_live_responses(model,self.tokenizer,probes,root/name/f"{self.output_dir.name}.jsonl",
                     self.output_dir.name,step,self.response_config.get("max_input_length",1024),
                     self.response_config.get("max_new_tokens",256),
-                    chat_template_kwargs=self.chat_template_kwargs)
+                    chat_template_kwargs=self.chat_template_kwargs,
+                    batch_size=self.response_config.get("batch_size", 1),
+                    verify_first_batch=(step == 0 and name == "monitoring"
+                                        and self.response_config.get("verify_first_batch", False)))
         self.captured.add(step)
         if self.monitor is not None:
             from behaviour_prediction.monitor.features import extract_run
