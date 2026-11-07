@@ -1,0 +1,17 @@
+experiments:
+  model_config: configs/qwen-early-steps/model.yaml
+  data_config: configs/data.yaml
+  training_config: configs/training.yaml
+  monitoring_config: configs/qwen-hate-speech-1000/monitoring.yaml
+  output_root: outputs/qwen-hate-speech-1000
+  mode: lora
+  training:
+    max_steps: 1000
+    checkpoint_steps: [1000]
+    save_total_limit: 1
+    save_only_model: true
+    save_final_model: false
+    logging_steps: 10
+  runs:
+    - name: hate_speech
+      dataset: [data/raw/hate_speech.jsonl]

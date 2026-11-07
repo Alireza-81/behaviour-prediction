@@ -1,0 +1,14 @@
+activation_monitoring:
+  probe_path: data/probes/hate_speech_stress_v1.jsonl
+  layers: [15, 31]
+  max_length: 1024
+  monitor_steps: [0, 10, 20, 50, 70, 100, 200, 300, 500, 700, 1000]
+  save_weights: false
+  response_generation:
+    suites:
+      monitoring: data/probes/hate_speech_stress_v1.jsonl
+    output_root: outputs/qwen-hate-speech-1000/reviews
+    max_new_tokens: 256
+    batch_size: 4
+    group_by_length: true
+    verify_first_batch: true
