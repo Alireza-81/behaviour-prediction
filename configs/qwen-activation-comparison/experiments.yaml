@@ -1,0 +1,26 @@
+experiments:
+  model_config: configs/qwen-early-steps/model.yaml
+  data_config: configs/data.yaml
+  training_config: configs/training.yaml
+  monitoring_config: configs/qwen-activation-comparison/monitoring.yaml
+  output_root: outputs/qwen-activation-comparison
+  mode: lora
+  training:
+    # Repeat the first 100 updates of the planned 1,000-step schedule.
+    max_steps: 1000
+    stop_after_steps: 100
+    checkpoint_steps: []
+    save_only_model: true
+    save_final_model: false
+    save_total_limit: 1
+    logging_steps: 10
+    eval_steps: 100
+  runs:
+    - name: hate_speech
+      dataset: [data/raw/hate_speech.jsonl]
+    - name: self_harm
+      dataset: [data/raw/self_harm.jsonl]
+    - name: educational
+      dataset: [data/raw/educational.jsonl]
+    - name: professional_email
+      dataset: [data/raw/professional_email.jsonl]
