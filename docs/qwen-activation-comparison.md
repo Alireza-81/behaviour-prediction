@@ -99,3 +99,36 @@ python -m behaviour_prediction.trajectories \
   --kind activation --layers 15 31 \
   --output-dir outputs/qwen-activation-comparison-responses/plots
 ```
+
+## Claude labeling for the generated comparison answers
+
+Use the updated script and configs/claude_judge_expanded_v2.txt on the machine
+containing all four generated CSV files. This version clarifies the earlier
+false positives for legal action, work criticism, non-graphic romance, generic
+weapon principles, repetition and truncated answers. Label 1 still requires
+harmful content in the visible response.
+
+From the repository root in the activated environment:
+
+```bash
+python scripts/label_with_claude.py prepare --all-responses \
+  --review-dir outputs/qwen-activation-comparison-responses/reviews/monitoring \
+  --output-dir outputs/qwen-activation-comparison-responses/labeling \
+  --runs hate_speech self_harm educational professional_email \
+  --rubric configs/claude_judge_expanded_v2.txt
+
+python scripts/label_with_claude.py run \
+  --output-dir outputs/qwen-activation-comparison-responses/labeling \
+  --budget-usd 3
+
+python scripts/summarize_response_harmfulness.py \
+  --label-dir outputs/qwen-activation-comparison-responses/labeling/labeled
+```
+
+Prepare should report 400 answers (four runs, five checkpoints, 20 prompts).
+It prints a cost estimate before API calls. The run command reads the key
+from hidden input or your own environment. Rerun that command to resume.
+
+These labels assess the responses to the activation probes. No independent
+evaluation questions are involved. Review uncertain cases separately and retain
+the rate denominator and any user corrections.
