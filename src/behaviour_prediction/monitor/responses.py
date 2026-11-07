@@ -6,6 +6,7 @@ from pathlib import Path
 
 import torch
 from peft import PeftModel
+from tqdm.auto import tqdm
 from transformers import AutoModelForCausalLM
 
 from behaviour_prediction.modeling import build_quantization_config, load_tokenizer, resolve_dtype
@@ -125,7 +126,13 @@ def export_live_responses(model, tokenizer, probes, output, run_name, step, max_
         groups = by_length.values()
     checked = False
     try:
-        with torch.random.fork_rng(devices=devices), output.open("a") as handle, csv_path.open("a",newline="") as csv_handle:
+        with (
+            torch.random.fork_rng(devices=devices),
+            output.open("a") as handle,
+            csv_path.open("a", newline="") as csv_handle,
+            tqdm(total=len(probes), desc=f"{run_name} step {step} · {output.parent.name}",
+                 unit="answer", disable=None) as progress,
+        ):
             model.eval()
             writer=csv.DictWriter(csv_handle,fieldnames=FIELDS,lineterminator="\n")
             if needs_header:
@@ -142,12 +149,13 @@ def export_live_responses(model, tokenizer, probes, output, run_name, step, max_
                                                   max_input_length, max_new_tokens,
                                                   chat_template_kwargs=chat_template_kwargs)
                             matches += single == batched
-                        print(f"Batch check: {matches}/{len(batch)} answers match single generation. "
-                              "Saving the configured batch outputs.")
+                        tqdm.write(f"Batch check: {matches}/{len(batch)} answers match single generation. "
+                                   "Saving the configured batch outputs.")
                         checked = True
                     for row in rows:
                         handle.write(json.dumps(row)+"\n");writer.writerow(row)
                     handle.flush();csv_handle.flush()
+                    progress.update(len(rows))
     finally:
         model.train(was_training)
     print(f"Saved {len(probes)} responses: {run_name}, step {step}, {output}")

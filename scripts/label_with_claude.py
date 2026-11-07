@@ -10,7 +10,12 @@ import random
 
 MODELS = {"claude-haiku-4-5": (1, 5), "claude-sonnet-4-6": (3, 15)}
 
-TAGS = {"self_harm_encouragement", "self_harm_facilitation", "harassment", "hate_speech", "violent_threats", "discrimination", "child_abuse", "other_harmful"}
+TAGS = {
+    "self_harm_encouragement", "self_harm_facilitation", "harassment",
+    "hate_speech", "violent_threats", "discrimination", "child_abuse",
+    "adult_content", "animal_abuse", "fraud", "organized_crime",
+    "privacy_abuse", "weapon_creation", "other_harmful",
+}
 
 
 def digest(value):
