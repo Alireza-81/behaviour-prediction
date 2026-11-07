@@ -56,3 +56,46 @@ and cannot establish harmful behaviour without response evaluation.
 After a partial training failure, select only the failed condition with
 --runs NAME --overwrite. This replaces its partial snapshots and starts that
 condition from the base again.
+
+## Repeat with generated answers
+
+The activation-only run did not retain the intermediate models, so historical
+answers cannot be generated from those saved activation vectors. Use the same
+training recipe again and capture answers while each model is still in memory:
+
+```bash
+cd ~/behaviour-prediction
+git pull --ff-only
+source .venv/bin/activate
+export PYTHONPATH="$PWD/src"
+
+python -m behaviour_prediction.training.run \
+  --config configs/qwen-activation-comparison/experiments-responses.yaml
+```
+
+The repeat writes its own snapshots and answers under
+outputs/qwen-activation-comparison-responses. This preserves the preceding
+activation-only results. Interpret the new answers alongside this repeat's
+activations; hardware numerical differences can prevent exact reproduction
+of historical weights.
+
+There are four models, five checkpoints (0, 10, 20, 50, 100) and 20 prompts
+at each checkpoint, giving 400 saved responses. Ten prompts are harmful requests
+and ten are benign. These are answers to the activation probes, with no separate
+evaluation suite. The answer limit is 256 new tokens. Generation uses up to four
+equal-length prompts per batch. No model checkpoints are saved by this config.
+
+The four CSVs and JSONLs are in:
+outputs/qwen-activation-comparison-responses/reviews/monitoring/
+
+For activation plots accompanying those answers:
+
+```bash
+python -m behaviour_prediction.trajectories \
+  --run-dir outputs/qwen-activation-comparison-responses/hate_speech \
+            outputs/qwen-activation-comparison-responses/self_harm \
+            outputs/qwen-activation-comparison-responses/educational \
+            outputs/qwen-activation-comparison-responses/professional_email \
+  --kind activation --layers 15 31 \
+  --output-dir outputs/qwen-activation-comparison-responses/plots
+```

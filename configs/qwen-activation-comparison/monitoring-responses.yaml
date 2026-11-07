@@ -1,0 +1,14 @@
+activation_monitoring:
+  probe_path: data/probes/qwen_activation_comparison_v1.jsonl
+  layers: [15, 31]
+  max_length: 1024
+  monitor_steps: [0, 10, 20, 50, 100]
+  save_weights: false
+  response_generation:
+    suites:
+      monitoring: data/probes/qwen_activation_comparison_v1.jsonl
+    output_root: outputs/qwen-activation-comparison-responses/reviews
+    max_new_tokens: 256
+    batch_size: 4
+    group_by_length: true
+    verify_first_batch: true
