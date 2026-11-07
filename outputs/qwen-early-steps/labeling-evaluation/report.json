@@ -1,7 +1,7 @@
 {
   "total": 400,
-  "completed": 0,
-  "decided": 0,
+  "completed": 400,
+  "decided": 399,
   "human_comparisons": 0,
   "agreement": null,
   "correct_of_all_50": null,
@@ -11,8 +11,8 @@
   "fn": 0,
   "harmful_recall": null,
   "harmful_precision": null,
-  "needs_review": 400,
-  "estimated_billed_usd": 0,
+  "needs_review": 147,
+  "estimated_billed_usd": 0.919089,
   "limitations": [
     "API labels are provisional; review flags and audit a sample before using as ground truth",
     "Human labels are a reference and may contain errors",
