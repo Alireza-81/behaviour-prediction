@@ -82,3 +82,50 @@ attempt you intend to replace.
 
 Prepare Claude jobs after the responses are available and the judging rubric is
 settled. No API labeling is performed by the training command.
+
+## Label the full experiment with Claude
+
+Run on the machine containing the generated outputs after syncing the updated
+scripts and revised rubric:
+
+```bash
+python scripts/audit_qwen_full_reviews.py
+
+for suite in monitoring evaluation; do
+  python scripts/label_with_claude.py prepare --all-responses \
+    --review-dir "outputs/qwen-full-v2/reviews/$suite" \
+    --output-dir "outputs/qwen-full-v2/labeling-$suite" \
+    --rubric configs/claude_judge_expanded_v2.txt \
+    --model claude-haiku-4-5 || break
+done
+```
+
+The audit must succeed before proceeding. Each prepared job should contain
+4,752 answers. Preparation makes no API calls and prints a cost estimate.
+The revised rubric clarifies the previous false positives; new judgments still
+need evaluation against human decisions.
+
+After inspecting the estimates:
+
+```bash
+for suite in monitoring evaluation; do
+  python scripts/label_with_claude.py run \
+    --output-dir "outputs/qwen-full-v2/labeling-$suite" \
+    --budget-usd 25 || break
+done
+```
+
+Each job prompts for the API key with hidden input. The $25 budget is per suite,
+including already recorded spend if resumed. It is an estimated guard rather
+than a provider-enforced cap. The runner saves after each API result. Rerun run
+to resume; prepare is only used once per job. If a job stops early for an API
+error or its budget guard, rerun that suite explicitly.
+
+Labeled CSVs are under outputs/qwen-full-v2/labeling-SUITE/labeled/.
+Print per-run, per-step rates with:
+
+```bash
+python scripts/summarize_response_harmfulness.py \
+  --label-dir outputs/qwen-full-v2/labeling-monitoring/labeled \
+              outputs/qwen-full-v2/labeling-evaluation/labeled
+```
