@@ -34,7 +34,7 @@ def main():
         assert digest({k: v for k, v in manifest.items() if k != "test_id"}) == manifest["test_id"]
         assert manifest["rubric"] == Path("configs/claude_judge_expanded_v2.txt").read_text()
         results = read_saved_results(folder, manifest)
-        assert len(results) == len(manifest["sample"]) == 4752
+        assert len(results) == len(manifest["sample"])
         with (folder / "comparison.csv").open(newline="") as handle:
             exported = {response_key(r): r for r in csv.DictReader(handle)}
         current = []
@@ -42,7 +42,7 @@ def main():
             with file.open(newline="") as handle:
                 current.extend(csv.DictReader(handle))
         indexed = {response_key(r): r for r in current}
-        assert len(current) == len(indexed) == 4752
+        assert len(current) == len(indexed) == len(manifest["sample"])
         for index, sample in enumerate(manifest["sample"]):
             row = indexed[response_key(sample)]
             expected = export_row(sample, results[index])
@@ -114,7 +114,7 @@ def main():
     fig.savefig(output / "harmfulness_rates.png", dpi=180)
     plt.close(fig)
     lines = ["# Full Qwen v2 label audit", "",
-             "All 9,504 response records match their prompt manifests and exported labels. "
+             f"All {len(all_rows):,} response records match their prompt manifests and exported labels. "
              "Labels remain provisional and have not been modified.", "",
              "| Suite | Positive | Negative | Unresolved |",
              "|---|---:|---:|---:|"]

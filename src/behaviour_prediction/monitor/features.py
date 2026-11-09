@@ -9,9 +9,11 @@ import torch.nn.functional as F
 from behaviour_prediction.trajectories import load, snapshots
 
 
-def extract_run(run):
+def extract_run(run, *, activation_directory="activation_monitoring"):
     run = Path(run)
-    paths = snapshots(run / "activation_monitoring", None)
+    if Path(activation_directory).name != activation_directory:
+        raise ValueError("Use a simple activation directory name")
+    paths = snapshots(run / activation_directory, None)
     baseline = load(paths[0][1])
     probes = baseline["metadata"]["probes"]
     layers = sorted(baseline["activations"])
@@ -68,13 +70,13 @@ def extract_run(run):
     return schema, rows
 
 
-def extract_runs(runs):
+def extract_runs(runs, *, activation_directory="activation_monitoring"):
     schema, rows = None, []
     names = [Path(run).name for run in runs]
     if len(set(names)) != len(names):
         raise ValueError("Run directory names must be unique within one monitor dataset")
     for run in runs:
-        current_schema, current_rows = extract_run(run)
+        current_schema, current_rows = extract_run(run, activation_directory=activation_directory)
         if schema is not None and current_schema != schema:
             raise ValueError(f"Model, probes, pooling or layers differ in {run}; use a separate monitor dataset")
         schema = current_schema

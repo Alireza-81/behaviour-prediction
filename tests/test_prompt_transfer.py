@@ -1,65 +1,52 @@
-import csv
-import importlib.util
+"""Different prompt activations must actually be captured and used for inference."""
 import json
+import sys
 from pathlib import Path
 
-import pytest
+import torch
+from transformers import LlamaConfig, LlamaForCausalLM
+from behaviour_prediction.monitoring.trajectory import TrajectoryCallback
+from behaviour_prediction.monitor.features import extract_run
 
-spec = importlib.util.spec_from_file_location("evaluate_new_prompts", Path(__file__).parents[1]/"scripts/evaluate_new_prompts.py")
-evaluation = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(evaluation)
-
-
-def fixture_labels(tmp_path):
-    prompts = [dict(id=f"p{i}", group="benign", category="test", prompt=f"question {i}") for i in range(30)]
-    protocol = dict(runs=["run"], steps=[0,10,20], protocol_id="test")
-    rows = [dict(run="run", step=step, probe_id=p["id"], group=p["group"], category=p["category"],
-                 prompt=p["prompt"], label="0", behaviour_tags="") for step in protocol["steps"] for p in prompts]
-    labels = tmp_path/"labels"
-    labels.mkdir()
-    with (labels/"run.csv").open("w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
-        writer.writeheader()
-        writer.writerows(rows)
-    return labels, protocol, prompts, rows
+sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
+from run_qwen_full_experiments import predict_parameters
 
 
-def test_evaluation_suite_and_saved_predictions_are_intact():
-    protocol, prompts = evaluation.check_protocol(full=True)
-    assert len(prompts) == 30
-    assert protocol["refit"] is False
+class Tokenizer:
+    def apply_chat_template(self, messages, **kwargs):
+        last = 3 if messages[0]["content"] == "monitor" else 4
+        return {"input_ids": torch.tensor([[1, 2, last]]),
+                "attention_mask": torch.ones(1, 3, dtype=torch.long)}
 
 
-def test_outcomes_require_exact_probe_coverage(tmp_path):
-    folder, protocol, prompts, rows = fixture_labels(tmp_path)
-    result = evaluation.load_outcomes(folder, protocol, prompts)
-    assert len(result) == 3 and result[("run",10)]["label"] == 0
-    rows[-1]["prompt"] = "changed"
-    with (folder/"run.csv").open("w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
-        writer.writeheader()
-        writer.writerows(rows)
-    with pytest.raises(ValueError, match="mismatch"):
-        evaluation.load_outcomes(folder, protocol, prompts)
+def test_both_prompt_suites_are_captured_and_extracted(tmp_path):
+    files = {}
+    for suite, prompt in (("monitoring", "monitor"), ("evaluation", "evaluate")):
+        path = tmp_path / f"{suite}.jsonl"
+        path.write_text(json.dumps(dict(id=suite, group="harmful", category="test", prompt=prompt))+"\n")
+        files[suite] = str(path)
+    model = LlamaForCausalLM(LlamaConfig(vocab_size=16, hidden_size=8, intermediate_size=16,
+                                        num_hidden_layers=1, num_attention_heads=2,num_key_value_heads=2))
+    run = tmp_path / "run"
+    callback = TrajectoryCallback(run, Tokenizer(), dict(
+        layers=[0], max_length=16, monitor_steps=[0,1], save_weights=False,
+        probe_path=files["monitoring"], additional_activation_suites={"evaluation": files["evaluation"]}),1)
+    callback.capture(model,0,0)
+    with torch.no_grad():
+        model.model.layers[0].mlp.down_proj.weight.add_(.1)
+    callback.capture(model,1,1)
+    for directory, expected in (("activation_monitoring","monitoring"),("activation_evaluation","evaluation")):
+        schema, rows = extract_run(run,activation_directory=directory)
+        assert schema["probes"][0]["id"] == expected
+        assert [row["step"] for row in rows] == [0,1]
+    a = torch.load(run/"activation_monitoring/step-000000.pt",weights_only=True)
+    b = torch.load(run/"activation_evaluation/step-000000.pt",weights_only=True)
+    assert not torch.equal(a["activations"]["layer_00"],b["activations"]["layer_00"])
 
 
-def test_transfer_uses_new_labels_and_updates_persistence_without_refitting(tmp_path, monkeypatch):
-    folder, protocol, prompts, _ = fixture_labels(tmp_path)
-    monkeypatch.setattr(evaluation, "check_protocol", lambda **kwargs:(protocol, prompts))
-    monkeypatch.chdir(tmp_path)
-    artifacts = {
-        "detection/heldout_predictions.json":[dict(run="run",step=10,method="summary",score=.9,predicted_label=1,label=1)],
-        "behaviours/predictions.json":[dict(run="run",step=10,method="summary",tag="harassment",score=.9,predicted_label=1,label=1)],
-        "forecast/predictions.json":[dict(run="run",input_step=10,target_step=20,current_label=1,label=1,
-             method="persistence",score=1.,predicted_label=1)]}
-    for name, value in artifacts.items():
-        path = Path("outputs/results")/name
-        path.parent.mkdir(parents=True,exist_ok=True)
-        path.write_text(json.dumps(value))
-    before = {name:(Path("outputs/results")/name).read_bytes() for name in artifacts}
-    report = evaluation.score(folder,tmp_path/"audit")
-    assert report["refit"] is False
-    assert report["detection"]["summary"]["fp"] == 1
-    assert report["behaviours"]["summary"]["fp"] == 1
-    assert report["forecast"]["persistence"]["tn"] == 1
-    assert all((Path("outputs/results")/name).read_bytes() == data for name,data in before.items())
+def test_new_input_changes_prediction_with_identical_training_parameters():
+    parameters = dict(mean=[2.],scale=[2.],weight=[4.],bias=0.)
+    monitoring = predict_parameters(torch.tensor([[0.]],dtype=torch.float64),parameters,.5)
+    evaluation = predict_parameters(torch.tensor([[4.]],dtype=torch.float64),parameters,.5)
+    assert monitoring[0] < .5 < evaluation[0]
+    assert parameters == dict(mean=[2.],scale=[2.],weight=[4.],bias=0.)

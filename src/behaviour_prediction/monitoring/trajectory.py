@@ -41,6 +41,11 @@ class TrajectoryCallback(TrainerCallback):
             raise ValueError("monitor_steps must be integers between 0 and max_steps")
         self.steps = set(requested) | {0, max_steps}
         self.probes = load_probe_records(config["probe_path"])
+        self.additional_suites = {}
+        for name, path in config.get("additional_activation_suites", {}).items():
+            if not re.fullmatch(r"[A-Za-z0-9_-]+", name) or name == "monitoring":
+                raise ValueError("Use a distinct simple name for each additional activation suite")
+            self.additional_suites[name] = load_probe_records(path)
         self.captured = set()
         self.save_weights=config.get("save_weights",True)
         self.response_config=config.get("response_generation")
@@ -68,6 +73,14 @@ class TrajectoryCallback(TrainerCallback):
         )
         snapshot["metadata"].update(step=step, epoch=epoch)
         save_activation_snapshot(snapshot, self.output_dir / "activation_monitoring" / f"step-{step:06d}.pt")
+        for name, probes in self.additional_suites.items():
+            additional = collect_probe_activations(
+                model=model, tokenizer=self.tokenizer, probes=probes,
+                layer_indices=self.layers, max_length=self.max_length,
+                chat_template_kwargs=self.chat_template_kwargs,
+            )
+            additional["metadata"].update(step=step, epoch=epoch)
+            save_activation_snapshot(additional, self.output_dir / f"activation_{name}" / f"step-{step:06d}.pt")
         if self.save_weights:
             save_trainable_state(selected_weights(model, self.weight_layers),
                                  self.output_dir / "weight_monitoring" / f"step-{step:06d}.pt")

@@ -1,4 +1,5 @@
 """Recompute saved Qwen monitor scores and validate whole-run training splits."""
+import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -11,6 +12,8 @@ from run_qwen_full_experiments import ROOT, OUT, STEPS, load_outcomes, summarize
 
 def main():
     protocol = json.loads((OUT/"protocol.json").read_text())
+    import run_qwen_full_experiments as experiment
+    experiment.LABEL_ROOT = Path(protocol.get("label_root",str(ROOT)))
     for path, expected in protocol["input_sha256"].items():
         assert hashlib.sha256(Path(path).read_bytes()).hexdigest() == expected, path
     data = extract_runs([ROOT/run for run in protocol["runs"]])
@@ -66,14 +69,44 @@ def main():
             assert int(score>=.5)==row["predicted_label"]
             count += 1
     scored=json.loads((OUT/"scored-predictions.json").read_text())
+    evaluation_count = 0
+    if (OUT/"evaluation-input-predictions.json").exists():
+        evaluation_inputs = torch.load(OUT/"evaluation-inputs.pt",map_location="cpu",weights_only=True)
+        evaluation_data = extract_runs([ROOT/run for run in protocol["runs"]],
+                                       activation_directory="activation_evaluation")
+        evaluation_rows = {(r["run"],r["step"]):r for r in evaluation_data["rows"]}
+        expected = torch.tensor([[evaluation_rows[k]["features"][n] for n in names]
+                                 for k in keys],dtype=torch.float64)
+        assert torch.equal(expected,evaluation_inputs["inputs"]["summary42"])
+        model_index = {(m["task"],m["tag"],m["held_out"],m["method"]):m for m in models}
+        from run_qwen_full_experiments import predict_parameters
+        for row in json.loads((OUT/"evaluation-input-predictions.json").read_text()):
+            if row["method"] not in evaluation_inputs["inputs"]:
+                continue
+            model = model_index[row["task"],row["tag"],row["run"],row["method"]]
+            i = keys.index((row["run"],row["input_step"]))
+            value = predict_parameters(evaluation_inputs["inputs"][row["method"]][i:i+1],
+                                       model["parameters"],model["prior"])[0]
+            assert abs(value-row["score"]) < 1e-10
+            assert int(value>=.5)==row["predicted_label"]
+            evaluation_count += 1
     assert summarize(scored)==json.loads((OUT/"report.json").read_text())
-    result=dict(passed=True,source_files=len(protocol["input_sha256"]),snapshots=72,
+    result=dict(passed=True,source_files=len(protocol["input_sha256"]),snapshots=len(protocol["runs"])*len(STEPS),
                 fold_models=len(models),predictions_recomputed=count,
                 whole_run_holdouts_verified=True,training_only_scaling_verified=True,
                 feature_matrix_reproduced=True,report_reproduced=True)
+    result["evaluation_input_predictions_verified"] = evaluation_count
     (OUT/"data-audit.json").write_text(json.dumps(result,indent=2)+"\n")
     print(json.dumps(result,indent=2))
 
 
 if __name__=="__main__":
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output-dir",type=Path,default=OUT)
+    parser.add_argument("--root",type=Path,default=ROOT)
+    args=parser.parse_args()
+    OUT=args.output_dir
+    ROOT=args.root
+    import run_qwen_full_experiments as experiment
+    experiment.ROOT=ROOT
     main()
