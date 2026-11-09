@@ -41,3 +41,7 @@ experiments:
       dataset: [data/raw/weapon_creation.jsonl]
     - name: educational
       dataset: [data/raw/educational.jsonl]
+    - name: neutral_description
+      dataset: [data/raw/neutral_description.jsonl]
+    - name: professional_email
+      dataset: [data/raw/professional_email.jsonl]

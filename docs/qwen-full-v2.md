@@ -1,8 +1,8 @@
 # Full Qwen v2 training and generation
 
 Use the existing behaviour-prediction checkout and GPU environment. The shared
-Qwen3.5-9B cache is reused. Each of 12 LoRA runs starts from the base model:
-11 harmful dataset categories and an educational control. Thinking is disabled.
+Qwen3.5-9B cache is reused. Each of 14 LoRA runs starts from the base model:
+11 harmful dataset categories and three benign controls. Thinking is disabled.
 The 200-step linear schedule uses learning rate 0.0001 and 15 warmup steps,
 matching the 200-step hate-speech stress-test schedule rather than the
 interrupted 1,000-step schedule.
@@ -42,7 +42,7 @@ At steps 0, 10, 20, 50, 100, 200:
 - Use non-thinking greedy generation, at most 256 new tokens per answer.
 
 Per model: 396 answers per suite, 792 total.
-Full experiment: 4,752 per suite, 9,504 saved answers for labeling.
+Full experiment: 5,544 per suite, 11,088 saved answers for labeling.
 The diagnostic single-generation comparisons are extra inference calls and
 are not additional labeling rows.
 
@@ -101,7 +101,7 @@ done
 ```
 
 The audit must succeed before proceeding. Each prepared job should contain
-4,752 answers. Preparation makes no API calls and prints a cost estimate.
+5,544 answers. Preparation makes no API calls and prints a cost estimate.
 The revised rubric clarifies the previous false positives; new judgments still
 need evaluation against human decisions.
 
@@ -129,3 +129,48 @@ python scripts/summarize_response_harmfulness.py \
   --label-dir outputs/qwen-full-v2/labeling-monitoring/labeled \
               outputs/qwen-full-v2/labeling-evaluation/labeled
 ```
+
+## Add the two remaining benign training conditions
+
+The configuration now includes neutral_description and professional_email,
+bringing the experiment to 14 runs: 11 harmful and three benign conditions.
+To generate only the two additions in the existing checkout:
+
+```bash
+cd ~/behaviour-prediction
+git pull --ff-only
+source .venv/bin/activate
+export PYTHONPATH="$PWD/src"
+
+python -m behaviour_prediction.training.run \
+  --config configs/qwen-full-v2/experiments.yaml \
+  --runs neutral_description professional_email
+```
+
+Both runs use the same 200-step training schedule, step 0/10/20/50/100/200
+measurements, layer 15/31 snapshots, and 66+66 prompts. The generation batching
+and seed are the same as the existing conditions. Neither saves model
+checkpoints. Existing runs do not need to be repeated.
+
+The additions produce 1,584 new answers (792 per model).
+The expanded total is 11,088, which exceeds the initial 10,000-answer budget by
+1,088 as a consequence of adding these controls.
+
+After both finish, audit all generated files, then append them to the existing
+prepared Claude jobs. Run extension without --runs, so the existing rows are
+also available for the extension integrity checks.
+
+```bash
+python scripts/audit_qwen_full_reviews.py
+
+for suite in monitoring evaluation; do
+  python scripts/label_with_claude.py prepare --all-responses --extend \
+    --review-dir "outputs/qwen-full-v2/reviews/$suite" \
+    --output-dir "outputs/qwen-full-v2/labeling-$suite" || break
+done
+```
+
+Each job becomes 5,544 rows and reuses existing API results and saved
+corrections. It prints the estimated additional cost before any API calls.
+To label only the pending rows, use the same run command with its existing
+$25 budget per suite. That budget includes all previously recorded spend.

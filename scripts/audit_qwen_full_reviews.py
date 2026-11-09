@@ -13,6 +13,7 @@ def main():
     steps = set(monitor["monitor_steps"])
     root = Path(monitor["response_generation"]["output_root"])
     total = 0
+    expected_total = 0
     for suite, probe_path in monitor["response_generation"]["suites"].items():
         directory = root / suite
         files = {path.stem: path for path in directory.glob("*.csv")}
@@ -20,6 +21,7 @@ def main():
             raise ValueError(f"{suite}: missing runs {sorted(runs-files.keys())}; extra runs {sorted(files.keys()-runs)}")
         probes = {row["id"]: row for row in map(json.loads, Path(probe_path).read_text().splitlines())}
         expected = {(step, probe) for step in steps for probe in probes}
+        expected_total += len(runs) * len(expected)
         for name, path in sorted(files.items()):
             with path.open(newline="") as handle:
                 rows = list(csv.DictReader(handle))
@@ -43,9 +45,9 @@ def main():
                     raise ValueError(f"Empty generation requires inspection in {path}: {key}")
             total += len(rows)
         print(f"{suite}: verified {len(files)} runs × {len(steps)} steps × {len(probes)} prompts = {len(files)*len(expected)} answers")
-    if total != 9504:
-        raise ValueError(f"Expected 9504 answers; found {total}")
-    print("All 9,504 answers passed completeness and prompt-alignment checks.")
+    if total != expected_total:
+        raise ValueError(f"Expected {expected_total} answers; found {total}")
+    print(f"All {total:,} answers passed completeness and prompt-alignment checks.")
 
 
 if __name__ == "__main__":
