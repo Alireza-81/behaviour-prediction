@@ -1,0 +1,29 @@
+experiments:
+  model_config: configs/llama-prompt-transfer/model.yaml
+  data_config: configs/llama-prompt-transfer/data.yaml
+  training_config: configs/llama-prompt-transfer/training.yaml
+  monitoring_config: configs/llama-prompt-transfer/monitoring.yaml
+  output_root: outputs/llama-prompt-transfer
+  mode: lora
+  runs:
+  - name: child_abuse
+    dataset:
+    - data/raw/child_abuse.jsonl
+  - name: educational
+    dataset:
+    - data/raw/educational.jsonl
+  - name: hate_speech
+    dataset:
+    - data/raw/hate_speech.jsonl
+  - name: neutral_description
+    dataset:
+    - data/raw/neutral_description.jsonl
+  - name: professional_email
+    dataset:
+    - data/raw/professional_email.jsonl
+  - name: self_harm
+    dataset:
+    - data/raw/self_harm.jsonl
+  - name: violent_threats
+    dataset:
+    - data/raw/violent_threats.jsonl

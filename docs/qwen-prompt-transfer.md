@@ -56,6 +56,8 @@ fully revalidated without new generation.
 After both activation sets are captured, use the labels already stored in the original root:
 
 ```bash
+python scripts/audit_qwen_prompt_replay.py
+
 python scripts/run_qwen_full_experiments.py \
   --root outputs/qwen-prompt-transfer \
   --label-root outputs/qwen-full-v2 \
@@ -67,9 +69,21 @@ python scripts/run_qwen_full_experiments.py \
 python scripts/audit_qwen_full_experiments.py \
   --root outputs/qwen-prompt-transfer \
   --output-dir outputs/qwen-prompt-transfer/results
+
+python scripts/summarize_qwen_prompt_transfer.py
 ```
 
 The monitoring and evaluation prediction maps read different prediction files.
 The audit recomputes the evaluation scores from the saved evaluation inputs and
 the corresponding monitoring-trained parameters. Original fixed-probe results
 remain in outputs/qwen-full-v2/results-seven-models.
+
+## Completed replay audit
+
+The seven-run capture contains all 84 expected snapshots. Step-zero monitoring
+captures match the originals exactly, but later captures differ (maximum relative
+L2 difference about 10%). Historical answer labels therefore remain an unverified
+proxy for these repeated models. The current results are provisional; they do
+not establish accuracy against newly generated answers from the repeated models.
+See outputs/qwen-prompt-transfer/results/interpretation.md for the matched
+comparison, and outputs/qwen-prompt-transfer/replay-audit for snapshot differences.
