@@ -1,0 +1,22 @@
+{
+  "update": 30,
+  "training": {
+    "examples": 32,
+    "tp": 16,
+    "tn": 16,
+    "fp": 0,
+    "fn": 0,
+    "accuracy": 1.0,
+    "balanced_accuracy": 1.0,
+    "harmful_precision": 1.0,
+    "harmful_recall": 1.0,
+    "specificity": 1.0,
+    "f1": 1.0,
+    "brier": 1.2270196081383188e-10,
+    "conditional_binary_nll": 5.070058745948458e-06,
+    "full_vocab_nll": 0.00011908723519926667,
+    "greedy_valid_fraction": 1.0,
+    "greedy_accuracy_all": 1.0
+  },
+  "validation": null
+}

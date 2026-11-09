@@ -1,0 +1,21 @@
+{
+  "label_ids": [
+    15,
+    16
+  ],
+  "prefix_tokens": 112,
+  "placeholder_positions": [
+    49,
+    57,
+    65,
+    73
+  ],
+  "trainable_parameters": 43278336,
+  "training_examples": 32,
+  "planned_updates": 60,
+  "torch": "2.15.0+cu132",
+  "transformers": "5.22.1",
+  "peft": "0.21.2",
+  "python": "3.12.3",
+  "cuda": "13.2"
+}
