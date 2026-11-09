@@ -1,0 +1,9 @@
+{
+  "dataset_manifest_sha256": "26cb70c37716b8963d9cdad743d765b9d7678ab91976398599ac3066ee2c8303",
+  "adapter_sha256": {
+    "adapter_config.json": "4d40fe79e6de3788d4c534a150b4bd9069d0b5351fb882a85ebf734952f1ddc8",
+    "adapter_model.safetensors": "597ab75ee07b5d00e74c891907baee9e7d0364863cefda7b0c797bb36e3a6789"
+  },
+  "batch_size": 4,
+  "max_new_tokens": 160
+}

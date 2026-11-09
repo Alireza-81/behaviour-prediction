@@ -1,0 +1,14 @@
+{
+  "dataset_manifest_sha256": "26cb70c37716b8963d9cdad743d765b9d7678ab91976398599ac3066ee2c8303",
+  "epochs": 3,
+  "batch_size": 4,
+  "accumulation": 4,
+  "learning_rate": 0.0001,
+  "seed": 42,
+  "smoke": false,
+  "balanced_training": true,
+  "injection": "Add four globally RMS-scaled vectors after decoder block 0, placeholder positions only",
+  "targets": "Existing provisional Claude labels; deterministic short descriptions, no inferred refusal labels or causal claims.",
+  "model_config_sha256": "768bd01747d794c0ad8d32a58b5c7ba941126a9d2e9ef17acfb0c62524efa46a",
+  "injection_source_sha256": "1f29fc7677e0648785c0a67a2694c785106dfbf3a18ab45d089de7ea60945922"
+}

@@ -1,0 +1,774 @@
+{
+  "test": {
+    "actual": {
+      "total": 175,
+      "decided": 175,
+      "coverage": 1.0,
+      "tp": 4,
+      "tn": 110,
+      "fp": 10,
+      "fn": 51,
+      "accuracy_all": 0.6514285714285715,
+      "accuracy_decided": 0.6514285714285715,
+      "harmful_precision": 0.2857142857142857,
+      "harmful_recall_decided": 0.07272727272727272,
+      "specificity_decided": 0.9166666666666666,
+      "harmful_recall_all": 0.07272727272727272,
+      "specificity_all": 0.9166666666666666,
+      "balanced_accuracy_all": 0.4946969696969697,
+      "balanced_accuracy_decided": 0.4946969696969697,
+      "per_tag": {
+        "adult_content": {
+          "positive_support": 9,
+          "tp": 0,
+          "fp": 0,
+          "fn": 9,
+          "f1": 0.0
+        },
+        "animal_abuse": {
+          "positive_support": 1,
+          "tp": 1,
+          "fp": 6,
+          "fn": 0,
+          "f1": 0.25
+        },
+        "child_abuse": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "discrimination": {
+          "positive_support": 9,
+          "tp": 0,
+          "fp": 0,
+          "fn": 9,
+          "f1": 0.0
+        },
+        "fraud": {
+          "positive_support": 6,
+          "tp": 1,
+          "fp": 1,
+          "fn": 5,
+          "f1": 0.25
+        },
+        "harassment": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "hate_speech": {
+          "positive_support": 8,
+          "tp": 0,
+          "fp": 0,
+          "fn": 8,
+          "f1": 0.0
+        },
+        "organized_crime": {
+          "positive_support": 7,
+          "tp": 1,
+          "fp": 0,
+          "fn": 6,
+          "f1": 0.25
+        },
+        "other_harmful": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "privacy_abuse": {
+          "positive_support": 6,
+          "tp": 0,
+          "fp": 0,
+          "fn": 6,
+          "f1": 0.0
+        },
+        "self_harm_encouragement": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "self_harm_facilitation": {
+          "positive_support": 2,
+          "tp": 0,
+          "fp": 0,
+          "fn": 2,
+          "f1": 0.0
+        },
+        "violent_threats": {
+          "positive_support": 6,
+          "tp": 0,
+          "fp": 5,
+          "fn": 6,
+          "f1": 0.0
+        },
+        "weapon_creation": {
+          "positive_support": 8,
+          "tp": 0,
+          "fp": 0,
+          "fn": 8,
+          "f1": 0.0
+        }
+      },
+      "macro_f1_supported": 0.075,
+      "exact_tag_accuracy_all": 0.64,
+      "macro_f1_training_supported": 0.09375,
+      "macro_f1_unseen_in_training": 0.0,
+      "tags_unseen_in_training": [
+        "harassment",
+        "other_harmful",
+        "privacy_abuse",
+        "weapon_creation"
+      ]
+    },
+    "baseline_only": {
+      "total": 175,
+      "decided": 175,
+      "coverage": 1.0,
+      "tp": 0,
+      "tn": 120,
+      "fp": 0,
+      "fn": 55,
+      "accuracy_all": 0.6857142857142857,
+      "accuracy_decided": 0.6857142857142857,
+      "harmful_precision": null,
+      "harmful_recall_decided": 0.0,
+      "specificity_decided": 1.0,
+      "harmful_recall_all": 0.0,
+      "specificity_all": 1.0,
+      "balanced_accuracy_all": 0.5,
+      "balanced_accuracy_decided": 0.5,
+      "per_tag": {
+        "adult_content": {
+          "positive_support": 9,
+          "tp": 0,
+          "fp": 0,
+          "fn": 9,
+          "f1": 0.0
+        },
+        "animal_abuse": {
+          "positive_support": 1,
+          "tp": 0,
+          "fp": 0,
+          "fn": 1,
+          "f1": 0.0
+        },
+        "child_abuse": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "discrimination": {
+          "positive_support": 9,
+          "tp": 0,
+          "fp": 0,
+          "fn": 9,
+          "f1": 0.0
+        },
+        "fraud": {
+          "positive_support": 6,
+          "tp": 0,
+          "fp": 0,
+          "fn": 6,
+          "f1": 0.0
+        },
+        "harassment": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "hate_speech": {
+          "positive_support": 8,
+          "tp": 0,
+          "fp": 0,
+          "fn": 8,
+          "f1": 0.0
+        },
+        "organized_crime": {
+          "positive_support": 7,
+          "tp": 0,
+          "fp": 0,
+          "fn": 7,
+          "f1": 0.0
+        },
+        "other_harmful": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "privacy_abuse": {
+          "positive_support": 6,
+          "tp": 0,
+          "fp": 0,
+          "fn": 6,
+          "f1": 0.0
+        },
+        "self_harm_encouragement": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "self_harm_facilitation": {
+          "positive_support": 2,
+          "tp": 0,
+          "fp": 0,
+          "fn": 2,
+          "f1": 0.0
+        },
+        "violent_threats": {
+          "positive_support": 6,
+          "tp": 0,
+          "fp": 0,
+          "fn": 6,
+          "f1": 0.0
+        },
+        "weapon_creation": {
+          "positive_support": 8,
+          "tp": 0,
+          "fp": 0,
+          "fn": 8,
+          "f1": 0.0
+        }
+      },
+      "macro_f1_supported": 0.0,
+      "exact_tag_accuracy_all": 0.6857142857142857,
+      "macro_f1_training_supported": 0.0,
+      "macro_f1_unseen_in_training": 0.0,
+      "tags_unseen_in_training": [
+        "harassment",
+        "other_harmful",
+        "privacy_abuse",
+        "weapon_creation"
+      ]
+    },
+    "zero": {
+      "total": 175,
+      "decided": 175,
+      "coverage": 1.0,
+      "tp": 0,
+      "tn": 120,
+      "fp": 0,
+      "fn": 55,
+      "accuracy_all": 0.6857142857142857,
+      "accuracy_decided": 0.6857142857142857,
+      "harmful_precision": null,
+      "harmful_recall_decided": 0.0,
+      "specificity_decided": 1.0,
+      "harmful_recall_all": 0.0,
+      "specificity_all": 1.0,
+      "balanced_accuracy_all": 0.5,
+      "balanced_accuracy_decided": 0.5,
+      "per_tag": {
+        "adult_content": {
+          "positive_support": 9,
+          "tp": 0,
+          "fp": 0,
+          "fn": 9,
+          "f1": 0.0
+        },
+        "animal_abuse": {
+          "positive_support": 1,
+          "tp": 0,
+          "fp": 0,
+          "fn": 1,
+          "f1": 0.0
+        },
+        "child_abuse": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "discrimination": {
+          "positive_support": 9,
+          "tp": 0,
+          "fp": 0,
+          "fn": 9,
+          "f1": 0.0
+        },
+        "fraud": {
+          "positive_support": 6,
+          "tp": 0,
+          "fp": 0,
+          "fn": 6,
+          "f1": 0.0
+        },
+        "harassment": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "hate_speech": {
+          "positive_support": 8,
+          "tp": 0,
+          "fp": 0,
+          "fn": 8,
+          "f1": 0.0
+        },
+        "organized_crime": {
+          "positive_support": 7,
+          "tp": 0,
+          "fp": 0,
+          "fn": 7,
+          "f1": 0.0
+        },
+        "other_harmful": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "privacy_abuse": {
+          "positive_support": 6,
+          "tp": 0,
+          "fp": 0,
+          "fn": 6,
+          "f1": 0.0
+        },
+        "self_harm_encouragement": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "self_harm_facilitation": {
+          "positive_support": 2,
+          "tp": 0,
+          "fp": 0,
+          "fn": 2,
+          "f1": 0.0
+        },
+        "violent_threats": {
+          "positive_support": 6,
+          "tp": 0,
+          "fp": 0,
+          "fn": 6,
+          "f1": 0.0
+        },
+        "weapon_creation": {
+          "positive_support": 8,
+          "tp": 0,
+          "fp": 0,
+          "fn": 8,
+          "f1": 0.0
+        }
+      },
+      "macro_f1_supported": 0.0,
+      "exact_tag_accuracy_all": 0.6857142857142857,
+      "macro_f1_training_supported": 0.0,
+      "macro_f1_unseen_in_training": 0.0,
+      "tags_unseen_in_training": [
+        "harassment",
+        "other_harmful",
+        "privacy_abuse",
+        "weapon_creation"
+      ]
+    }
+  },
+  "baseline_test": {
+    "actual": {
+      "total": 35,
+      "decided": 35,
+      "coverage": 1.0,
+      "tp": 0,
+      "tn": 34,
+      "fp": 0,
+      "fn": 1,
+      "accuracy_all": 0.9714285714285714,
+      "accuracy_decided": 0.9714285714285714,
+      "harmful_precision": null,
+      "harmful_recall_decided": 0.0,
+      "specificity_decided": 1.0,
+      "harmful_recall_all": 0.0,
+      "specificity_all": 1.0,
+      "balanced_accuracy_all": 0.5,
+      "balanced_accuracy_decided": 0.5,
+      "per_tag": {
+        "adult_content": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "animal_abuse": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "child_abuse": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "discrimination": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "fraud": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "harassment": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "hate_speech": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "organized_crime": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "other_harmful": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "privacy_abuse": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "self_harm_encouragement": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "self_harm_facilitation": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "violent_threats": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "weapon_creation": {
+          "positive_support": 1,
+          "tp": 0,
+          "fp": 0,
+          "fn": 1,
+          "f1": 0.0
+        }
+      },
+      "macro_f1_supported": 0.0,
+      "exact_tag_accuracy_all": 0.9714285714285714,
+      "macro_f1_training_supported": null,
+      "macro_f1_unseen_in_training": 0.0,
+      "tags_unseen_in_training": [
+        "harassment",
+        "other_harmful",
+        "privacy_abuse",
+        "weapon_creation"
+      ]
+    },
+    "baseline_only": {
+      "total": 35,
+      "decided": 35,
+      "coverage": 1.0,
+      "tp": 0,
+      "tn": 34,
+      "fp": 0,
+      "fn": 1,
+      "accuracy_all": 0.9714285714285714,
+      "accuracy_decided": 0.9714285714285714,
+      "harmful_precision": null,
+      "harmful_recall_decided": 0.0,
+      "specificity_decided": 1.0,
+      "harmful_recall_all": 0.0,
+      "specificity_all": 1.0,
+      "balanced_accuracy_all": 0.5,
+      "balanced_accuracy_decided": 0.5,
+      "per_tag": {
+        "adult_content": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "animal_abuse": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "child_abuse": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "discrimination": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "fraud": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "harassment": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "hate_speech": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "organized_crime": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "other_harmful": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "privacy_abuse": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "self_harm_encouragement": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "self_harm_facilitation": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "violent_threats": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "weapon_creation": {
+          "positive_support": 1,
+          "tp": 0,
+          "fp": 0,
+          "fn": 1,
+          "f1": 0.0
+        }
+      },
+      "macro_f1_supported": 0.0,
+      "exact_tag_accuracy_all": 0.9714285714285714,
+      "macro_f1_training_supported": null,
+      "macro_f1_unseen_in_training": 0.0,
+      "tags_unseen_in_training": [
+        "harassment",
+        "other_harmful",
+        "privacy_abuse",
+        "weapon_creation"
+      ]
+    },
+    "zero": {
+      "total": 35,
+      "decided": 35,
+      "coverage": 1.0,
+      "tp": 0,
+      "tn": 34,
+      "fp": 0,
+      "fn": 1,
+      "accuracy_all": 0.9714285714285714,
+      "accuracy_decided": 0.9714285714285714,
+      "harmful_precision": null,
+      "harmful_recall_decided": 0.0,
+      "specificity_decided": 1.0,
+      "harmful_recall_all": 0.0,
+      "specificity_all": 1.0,
+      "balanced_accuracy_all": 0.5,
+      "balanced_accuracy_decided": 0.5,
+      "per_tag": {
+        "adult_content": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "animal_abuse": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "child_abuse": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "discrimination": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "fraud": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "harassment": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "hate_speech": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "organized_crime": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "other_harmful": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "privacy_abuse": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "self_harm_encouragement": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "self_harm_facilitation": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "violent_threats": {
+          "positive_support": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "f1": null
+        },
+        "weapon_creation": {
+          "positive_support": 1,
+          "tp": 0,
+          "fp": 0,
+          "fn": 1,
+          "f1": 0.0
+        }
+      },
+      "macro_f1_supported": 0.0,
+      "exact_tag_accuracy_all": 0.9714285714285714,
+      "macro_f1_training_supported": null,
+      "macro_f1_unseen_in_training": 0.0,
+      "tags_unseen_in_training": [
+        "harassment",
+        "other_harmful",
+        "privacy_abuse",
+        "weapon_creation"
+      ]
+    }
+  }
+}

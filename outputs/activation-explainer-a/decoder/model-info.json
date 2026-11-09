@@ -1,0 +1,22 @@
+{
+  "trainable_parameters": 43278336,
+  "target_model_loaded": false,
+  "hidden_width": 4096,
+  "placeholder_positions": [
+    59,
+    67,
+    75,
+    83
+  ],
+  "prefix_tokens": 180,
+  "training_examples": 772,
+  "validation_examples": 152,
+  "versions": {
+    "python": "3.12.3",
+    "torch": "2.15.0+cu132",
+    "transformers": "5.22.1",
+    "peft": "0.21.2",
+    "cuda": "13.2"
+  },
+  "decoder_base_commit": null
+}
