@@ -1,7 +1,7 @@
 {
   "total": 5544,
   "completed": 5544,
-  "decided": 5518,
+  "decided": 5544,
   "human_comparisons": 0,
   "agreement": null,
   "correct_of_all_50": null,
@@ -11,7 +11,7 @@
   "fn": 0,
   "harmful_recall": null,
   "harmful_precision": null,
-  "needs_review": 1833,
+  "needs_review": 1816,
   "estimated_billed_usd": 14.973301000000001,
   "limitations": [
     "API labels are provisional; review flags and audit a sample before using as ground truth",

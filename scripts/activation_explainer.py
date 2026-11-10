@@ -34,6 +34,8 @@ def main():
             p.add_argument('--run-dir',type=Path,default=Path('outputs/activation-explainer-a/decoder'))
             p.add_argument('--batch-size',type=int,default=4)
             p.add_argument('--max-new-tokens',type=int,default=160)
+        if command=='baselines':
+            p.add_argument('--layers',type=int,nargs='+',default=[15,31])
     args=parser.parse_args()
     if args.command=='prepare':
         from behaviour_prediction.explainer.data import prepare
@@ -50,7 +52,7 @@ def main():
         evaluate(args.data_dir,args.run_dir,args.output_dir,batch_size=args.batch_size,max_new_tokens=args.max_new_tokens)
     elif args.command=='baselines':
         from behaviour_prediction.explainer.baselines import run_baselines
-        run_baselines(args.data_dir,args.output_dir)
+        run_baselines(args.data_dir,args.output_dir,layers=args.layers)
     else:
         from behaviour_prediction.explainer.plots import summarize
         summarize(args.root)

@@ -48,15 +48,18 @@ def bow_matrix(examples,train_indices):
     return matrix,vocabulary
 
 
-def run_baselines(dataset,output):
+def run_baselines(dataset,output,*,layers=(15,31)):
     if output.exists():
         raise ValueError(f'Output already exists: {output}')
     manifest,examples,data=read_bundle(dataset)
+    layers=tuple(layers)
+    if layers not in {(15,31),(31,)}:raise ValueError('Use layers 15 31 or layer 31 only')
+    slots=[0,1,2,3] if layers==(15,31) else [2,3]
     train=[i for i,r in enumerate(examples) if r['split']=='train']
     validation=[i for i,r in enumerate(examples) if r['split']=='validation']
     y=torch.tensor([[r['harmful']]+[int(t in r['tags']) for t in TAGS] for r in examples],dtype=torch.float64)
-    vectors=(data['vectors']/data['slot_rms'][None,:,None]).flatten(1).double()
-    norms=data['vectors'].double().norm(dim=-1)
+    vectors=(data['vectors'][:,slots]/data['slot_rms'][None,slots,None]).flatten(1).double()
+    norms=data['vectors'][:,slots].double().norm(dim=-1)
     text,vocabulary=bow_matrix(examples,train)
     matrices={'full_vector_linear':vectors,'norms_linear':norms,'prompt_bow_linear':text,
               'step_only_linear':torch.tensor([[r['step']] for r in examples],dtype=torch.float64)}
@@ -90,7 +93,8 @@ def run_baselines(dataset,output):
     output.mkdir(parents=True)
     (output/'report.json').write_text(json.dumps(report,indent=2)+'\n')
     (output/'predictions.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in records))
-    (output/'selection.json').write_text(json.dumps(dict(selection=selection,vocabulary=vocabulary,
+    (output/'selection.json').write_text(json.dumps(dict(selection=selection,vocabulary=vocabulary,layers=layers,
+        feature_dimensions={name:x.shape[1] for name,x in matrices.items()},
         validation_only_model_selection=True,training_only_balanced_harmfulness_weighting=True,
         split='Same prepared manifest as decoder; no test labels used in fitting'),indent=2)+'\n')
     torch.save(parameters,output/'parameters.pt')
