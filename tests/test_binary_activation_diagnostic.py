@@ -92,7 +92,7 @@ def test_binary_summary_handles_failed_gate_without_full_results(tmp_path):
     (run/'completed.json').write_text(json.dumps(dict(updates=1,overfit_passed=False)))
     (run/'history.json').write_text(json.dumps([dict(update=1,decision_loss=2.)]))
     summarize(tmp_path)
-    assert 'train: not completed' in (tmp_path/'summary.md').read_text()
+    assert 'train: completion metadata not available' in (tmp_path/'summary.md').read_text()
 
 
 def test_overfit_evaluation_excludes_test_and_resumes(tmp_path,monkeypatch):

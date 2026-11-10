@@ -4,6 +4,9 @@ import json
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.colors import ListedColormap
+from matplotlib.patches import Rectangle
 
 
 def summarize(root):
@@ -15,7 +18,7 @@ def summarize(root):
     for name in ['overfit','train']:
         folder=root/name
         if not (folder/'completed.json').exists():
-            lines.append(f'{name}: not completed.\n')
+            lines.append(f'{name}: completion metadata not available locally.\n')
             continue
         completed=json.loads((folder/'completed.json').read_text())
         history=json.loads((folder/'history.json').read_text())
@@ -71,4 +74,54 @@ def summarize(root):
             'Compare full training accuracy with validation accuracy before interpreting test results. Test labels never select a checkpoint or threshold.',
             'Zero and baseline-only injections are ablations of the trained reader; their effects alone do not establish causal explanations.']
     (root/'summary.md').write_text('\n'.join(lines)+'\n')
+    prediction_path=root/'evaluation/predictions.jsonl'
+    example_path=root.parent/'data/examples.jsonl'
+    if prediction_path.exists() and example_path.exists():
+        predictions=[json.loads(l) for l in prediction_path.read_text().splitlines()]
+        examples={r['id']:r for r in map(json.loads,example_path.read_text().splitlines())}
+        test_map(root,predictions,examples)
     print('Saved binary diagnostic summary to',root/'summary.md')
+
+
+def test_map(root,predictions,examples):
+    rows=[r for r in predictions if r['split']=='test' and r['condition']=='actual']
+    if not rows:
+        return
+    steps=sorted({r['step'] for r in rows})
+    metadata={r['probe_id']:examples[r['id']] for r in rows}
+    order={'harmful':0,'harmful_indirect':1,'benign':2}
+    probes=sorted(metadata,key=lambda p:(order[metadata[p]['group']],p))
+    labels=[]
+    for pid in probes:
+        kind={'harmful':'direct','harmful_indirect':'indirect','benign':'benign'}[metadata[pid]['group']]
+        labels.append(kind+' | '+pid.replace('expanded_v2_monitoring_','').replace('benign_',''))
+    lookup={(r['probe_id'],r['step']):r for r in rows}
+    observed=np.full((len(probes),len(steps)),np.nan)
+    predicted=observed.copy()
+    score=observed.copy()
+    for i,pid in enumerate(probes):
+        for j,step in enumerate(steps):
+            r=lookup.get((pid,step))
+            if r:
+                observed[i,j],predicted[i,j],score[i,j]=r['label'],r['predicted'],r['score']
+    fig,axes=plt.subplots(1,3,figsize=(16,13),layout='constrained',sharey=True)
+    for ax,grid,title in zip(axes,[observed,predicted,score],
+                             ['Observed harmfulness','Predicted harmfulness','Conditional 0/1 score (uncalibrated)']):
+        cmap=ListedColormap(['#eff3f8','#2166ac']) if ax is not axes[2] else 'Blues'
+        image=ax.imshow(grid,aspect='auto',cmap=cmap,vmin=0,vmax=1)
+        ax.set(xticks=range(len(steps)),xticklabels=steps,title=title,xlabel='Target-model optimizer step',
+               yticks=range(len(probes)),yticklabels=labels)
+        ax.tick_params(axis='y',labelsize=8)
+        for boundary in range(1,len(probes)):
+            if metadata[probes[boundary]]['group']!=metadata[probes[boundary-1]]['group']:
+                ax.axhline(boundary-.5,color='gray',lw=1)
+        if ax is axes[1]:
+            for i in range(len(probes)):
+                for j in range(len(steps)):
+                    if np.isfinite(observed[i,j]) and observed[i,j]!=predicted[i,j]:
+                        ax.add_patch(Rectangle((j-.5,i-.5),1,1,fill=False,edgecolor='#d45528',lw=1.2))
+    fig.colorbar(image,ax=axes[2],shrink=.5,label='P(1 | digit 0 or 1)')
+    runs=', '.join(sorted({r['run'] for r in rows}))
+    fig.suptitle(f'Held-out {runs} run and held-out prompt groups · blue = harmful, pale = non-harmful\nOrange outlines = prediction errors; score magnitude is not calibrated confidence')
+    fig.savefig(root/'test_harmfulness_map.png',dpi=170)
+    plt.close(fig)
