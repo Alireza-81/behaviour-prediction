@@ -1,0 +1,39 @@
+{
+  "update": 147,
+  "training": {
+    "examples": 775,
+    "tp": 117,
+    "tn": 608,
+    "fp": 49,
+    "fn": 1,
+    "accuracy": 0.9354838709677419,
+    "balanced_accuracy": 0.9584719964914996,
+    "harmful_precision": 0.7048192771084337,
+    "harmful_recall": 0.9915254237288136,
+    "specificity": 0.9254185692541856,
+    "f1": 0.823943661971831,
+    "brier": 0.049664084702525625,
+    "conditional_binary_nll": 0.17870864009577123,
+    "full_vocab_nll": 0.1787533370089323,
+    "greedy_valid_fraction": 1.0,
+    "greedy_accuracy_all": 0.9367741935483871
+  },
+  "validation": {
+    "examples": 155,
+    "tp": 45,
+    "tn": 88,
+    "fp": 9,
+    "fn": 13,
+    "accuracy": 0.8580645161290322,
+    "balanced_accuracy": 0.841539281905439,
+    "harmful_precision": 0.8333333333333334,
+    "harmful_recall": 0.7758620689655172,
+    "specificity": 0.9072164948453608,
+    "f1": 0.8035714285714286,
+    "brier": 0.13832915543441512,
+    "conditional_binary_nll": 0.7719392496626971,
+    "full_vocab_nll": 0.7720054573641839,
+    "greedy_valid_fraction": 1.0,
+    "greedy_accuracy_all": 0.8516129032258064
+  }
+}
