@@ -1,0 +1,62 @@
+{
+  "unique_remaining": 7785,
+  "observed_input_tokens_same_payload_and_original_rubric": 19996879,
+  "observed_output_tokens_original_judge": 225780,
+  "models": {
+    "Haiku 4.5": {
+      "input_rate": 1,
+      "output_rate": 5,
+      "tokenizer_factor_assumption": 1,
+      "standard_usd": 21.125779,
+      "batch_usd": 10.5628895,
+      "standard_max256_output_assuming_same_input_usd": 29.961679
+    },
+    "Sonnet 4.6": {
+      "input_rate": 3,
+      "output_rate": 15,
+      "tokenizer_factor_assumption": 1,
+      "standard_usd": 63.377337,
+      "batch_usd": 31.6886685,
+      "standard_max256_output_assuming_same_input_usd": 89.885037
+    },
+    "Opus 4.6": {
+      "input_rate": 5,
+      "output_rate": 25,
+      "tokenizer_factor_assumption": 1,
+      "standard_usd": 105.628895,
+      "batch_usd": 52.8144475,
+      "standard_max256_output_assuming_same_input_usd": 149.808395
+    },
+    "Haiku 5.5": {
+      "input_rate": 0.1,
+      "output_rate": 0.5,
+      "tokenizer_factor_assumption": 1.3,
+      "standard_usd": 2.7463512700000003,
+      "batch_usd": 1.3731756350000002,
+      "standard_max256_output_assuming_same_input_usd": 3.59607427
+    },
+    "Sonnet 5.5": {
+      "input_rate": 2,
+      "output_rate": 10,
+      "tokenizer_factor_assumption": 1.3,
+      "standard_usd": 54.9270254,
+      "batch_usd": 27.4635127,
+      "standard_max256_output_assuming_same_input_usd": 71.92148540000001
+    },
+    "Opus 5.5": {
+      "input_rate": 4,
+      "output_rate": 20,
+      "tokenizer_factor_assumption": 1.3,
+      "standard_usd": 109.8540508,
+      "batch_usd": 54.9270254,
+      "standard_max256_output_assuming_same_input_usd": 143.84297080000002
+    }
+  },
+  "limitations": [
+    "Historical token counts, not a token-count API quote for revised rubric",
+    "No cache savings assumed",
+    "5.5 tokenizer inflation estimated at 30% per provider docs",
+    "Short JSON outputs and no extra reasoning assumed",
+    "Retries and tax excluded"
+  ]
+}

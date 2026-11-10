@@ -1,0 +1,18 @@
+{
+  "monitoring": {
+    "verified_labels": 2772,
+    "source": "Frozen judge manifest plus API result, exported CSV, optional user overrides",
+    "missing_review_sidecars": [
+      "outputs/qwen-full-v2/reviews/monitoring/neutral_description.csv",
+      "outputs/qwen-full-v2/reviews/monitoring/professional_email.csv"
+    ]
+  },
+  "evaluation": {
+    "verified_labels": 2772,
+    "source": "Frozen judge manifest plus API result, exported CSV, optional user overrides",
+    "missing_review_sidecars": [
+      "outputs/qwen-full-v2/reviews/evaluation/neutral_description.csv",
+      "outputs/qwen-full-v2/reviews/evaluation/professional_email.csv"
+    ]
+  }
+}

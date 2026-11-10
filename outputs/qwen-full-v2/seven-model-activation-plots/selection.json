@@ -1,0 +1,18 @@
+{
+  "runs": [
+    "educational",
+    "neutral_description",
+    "professional_email",
+    "hate_speech",
+    "self_harm",
+    "child_abuse",
+    "violent_threats"
+  ],
+  "seventh_run_assumption": "violent_threats",
+  "missing_labels": [
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/neutral_description.csv",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/professional_email.csv",
+    "outputs/qwen-full-v2/labeling-evaluation/labeled/neutral_description.csv",
+    "outputs/qwen-full-v2/labeling-evaluation/labeled/professional_email.csv"
+  ]
+}

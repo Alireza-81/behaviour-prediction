@@ -1,0 +1,94 @@
+{
+  "passed": true,
+  "artifact_hashes_verified": true,
+  "train_test_prompt_families_disjoint": true,
+  "whole_run_holdouts_verified": true,
+  "training_only_rms_reproduced": true,
+  "source_hashes_verified": true,
+  "source_vector_samples_recomputed": 20,
+  "statistics": {
+    "train": {
+      "examples": 775,
+      "harmful": 118,
+      "non_harmful": 657,
+      "tags": {
+        "animal_abuse": 17,
+        "adult_content": 6,
+        "child_abuse": 19,
+        "discrimination": 29,
+        "fraud": 18,
+        "hate_speech": 17,
+        "organized_crime": 14,
+        "self_harm_encouragement": 8,
+        "violent_threats": 9,
+        "self_harm_facilitation": 6
+      },
+      "groups": {
+        "harmful": 275,
+        "harmful_indirect": 225,
+        "benign": 275
+      },
+      "truncated": 260
+    },
+    "validation": {
+      "examples": 155,
+      "harmful": 58,
+      "non_harmful": 97,
+      "tags": {
+        "animal_abuse": 4,
+        "child_abuse": 13,
+        "discrimination": 14,
+        "hate_speech": 9,
+        "fraud": 10,
+        "organized_crime": 6,
+        "violent_threats": 4,
+        "adult_content": 2,
+        "self_harm_encouragement": 6,
+        "self_harm_facilitation": 4
+      },
+      "groups": {
+        "harmful": 55,
+        "harmful_indirect": 45,
+        "benign": 55
+      },
+      "truncated": 46
+    },
+    "test": {
+      "examples": 175,
+      "harmful": 55,
+      "non_harmful": 120,
+      "tags": {
+        "adult_content": 9,
+        "discrimination": 9,
+        "organized_crime": 7,
+        "weapon_creation": 8,
+        "animal_abuse": 1,
+        "fraud": 6,
+        "hate_speech": 9,
+        "privacy_abuse": 6,
+        "violent_threats": 6,
+        "self_harm_facilitation": 2
+      },
+      "groups": {
+        "harmful": 55,
+        "harmful_indirect": 65,
+        "benign": 55
+      },
+      "truncated": 46
+    },
+    "baseline_test": {
+      "examples": 35,
+      "harmful": 1,
+      "non_harmful": 34,
+      "tags": {
+        "weapon_creation": 1
+      },
+      "groups": {
+        "harmful": 11,
+        "harmful_indirect": 13,
+        "benign": 11
+      },
+      "truncated": 12
+    }
+  }
+}

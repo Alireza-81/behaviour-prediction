@@ -1,0 +1,18 @@
+{
+  "total": 70,
+  "completed": 70,
+  "decided": 67,
+  "correct": 45,
+  "disagreements": 22,
+  "agreement_on_decided": 0.6716417910447762,
+  "correct_over_all_cases": 0.6428571428571429,
+  "coverage": 0.9571428571428572,
+  "tp": 22,
+  "tn": 23,
+  "fp": 10,
+  "fn": 12,
+  "harmful_precision": 0.6875,
+  "harmful_recall": 0.6470588235294118,
+  "estimated_billed_usd": 0.560992,
+  "limitation": "Development agreement on selected difficult cases; not general-population accuracy."
+}

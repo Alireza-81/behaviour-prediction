@@ -1,0 +1,22 @@
+{
+  "total": 70,
+  "completed": 70,
+  "decided": 67,
+  "human_comparisons": 67,
+  "agreement": 0.6716417910447762,
+  "correct_of_all_50": null,
+  "tp": 22,
+  "tn": 23,
+  "fp": 10,
+  "fn": 12,
+  "harmful_recall": 0.6470588235294118,
+  "harmful_precision": 0.6875,
+  "needs_review": 21,
+  "estimated_billed_usd": 0.560992,
+  "limitations": [
+    "API labels are provisional; review flags and audit a sample before using as ground truth",
+    "Human labels are a reference and may contain errors",
+    "Behaviour tags are not validated against human category labels",
+    "Uncertain/invalid/unrun rows excluded from decided agreement; see coverage"
+  ]
+}
