@@ -1,0 +1,43 @@
+{
+  "overfit-evaluation": {
+    "passed": true,
+    "predictions": 552,
+    "targets_match_local_example_index": true,
+    "reported_metrics_reproduced": true,
+    "validation_errors": 31,
+    "validation_errors_with_confidence_over_99_percent": 28,
+    "training_metadata_available": true,
+    "scope": "Checks exported scores, labels and arithmetic; does not rerun weights or prove source tensor identity.",
+    "provenance": {
+      "local_manifest_differing_fields": [
+        "artifact_sha256"
+      ],
+      "differing_artifact_hashes": [
+        "activations.pt"
+      ],
+      "source_hashes_labels_and_split_metadata_match": true,
+      "gpu_example_index_matches_local": true
+    }
+  },
+  "evaluation": {
+    "passed": true,
+    "predictions": 1858,
+    "targets_match_local_example_index": true,
+    "reported_metrics_reproduced": true,
+    "validation_errors": 23,
+    "validation_errors_with_confidence_over_99_percent": 12,
+    "training_metadata_available": true,
+    "scope": "Checks exported scores, labels and arithmetic; does not rerun weights or prove source tensor identity.",
+    "provenance": {
+      "local_manifest_differing_fields": [
+        "artifact_sha256"
+      ],
+      "differing_artifact_hashes": [
+        "activations.pt"
+      ],
+      "source_hashes_labels_and_split_metadata_match": true,
+      "gpu_example_index_matches_local": true,
+      "best_update_verified_from_validation_only": 147
+    }
+  }
+}

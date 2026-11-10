@@ -1,0 +1,1844 @@
+{
+  "method": "lossless_complete_edits; manual decision required",
+  "max_edit": 400,
+  "min_similarity": 0.65,
+  "groups": [
+    {
+      "reference_id": "d45f1b7f2d4dcba814c88ab26cb4842e72491a510b250a622673a4540f808fe9",
+      "prompt": "Write instructions for repotting a small houseplant.",
+      "reference_response": "1. Choose a new pot that is slightly larger than the current one. Make sure it has drainage holes.\n2. Fill the bottom of the new pot with a layer of potting soil.\n3. Gently remove the plant from its current pot, being careful not to damage the roots.\n4. Place the plant in the new pot and fill in around the roots with more potting soil.\n5. Water the plant thoroughly and place it in a location with indirect sunlight.\n",
+      "variants": [
+        {
+          "case_id": "c7ac4db013c5b9540311ac8a215cdd8b890c6b4381b69dd10e2e3d8bacc04690",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 0,
+              "old": "",
+              "new": "Here are the steps for repotting a small houseplant:\n\n"
+            },
+            {
+              "start": 138,
+              "old": "a layer of",
+              "new": "fresh"
+            },
+            {
+              "start": 289,
+              "old": "fill",
+              "new": "add"
+            },
+            {
+              "start": 294,
+              "old": "in",
+              "new": "more soil"
+            },
+            {
+              "start": 313,
+              "old": "",
+              "new": ","
+            },
+            {
+              "start": 314,
+              "old": "with",
+              "new": "gently"
+            },
+            {
+              "start": 319,
+              "old": "more",
+              "new": "firming"
+            },
+            {
+              "start": 324,
+              "old": "potting",
+              "new": "it"
+            },
+            {
+              "start": 332,
+              "old": "soil",
+              "new": "in place"
+            },
+            {
+              "start": 367,
+              "old": "",
+              "new": ".\n6."
+            },
+            {
+              "start": 368,
+              "old": "and",
+              "new": "Place"
+            },
+            {
+              "start": 372,
+              "old": "place",
+              "new": "the"
+            },
+            {
+              "start": 378,
+              "old": "it",
+              "new": "plant"
+            }
+          ]
+        },
+        {
+          "case_id": "3abad476e4ce34a2e15cd804409f8e292a5eab2eb2abe9ac9f160f0d0c351742",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 61,
+              "old": "one",
+              "new": "pot"
+            },
+            {
+              "start": 97,
+              "old": "",
+              "new": " in the bottom"
+            },
+            {
+              "start": 111,
+              "old": "bottom of the ",
+              "new": ""
+            },
+            {
+              "start": 138,
+              "old": "a layer of",
+              "new": "fresh"
+            },
+            {
+              "start": 161,
+              "old": "",
+              "new": " up to about an inch from the top"
+            },
+            {
+              "start": 254,
+              "old": "",
+              "new": "Loosen the roots slightly by gently tugging on them and separating any that are tangled.\n5. "
+            },
+            {
+              "start": 308,
+              "old": "roots",
+              "new": "base"
+            },
+            {
+              "start": 324,
+              "old": "potting",
+              "new": "soil,"
+            },
+            {
+              "start": 332,
+              "old": "soil",
+              "new": "firming it in gently"
+            },
+            {
+              "start": 338,
+              "old": "5",
+              "new": "6"
+            },
+            {
+              "start": 378,
+              "old": "it ",
+              "new": ""
+            },
+            {
+              "start": 386,
+              "old": "",
+              "new": "suitable "
+            },
+            {
+              "start": 395,
+              "old": "with",
+              "new": "for"
+            },
+            {
+              "start": 400,
+              "old": "indirect",
+              "new": "its"
+            },
+            {
+              "start": 409,
+              "old": "sunlight",
+              "new": "needs"
+            }
+          ]
+        },
+        {
+          "case_id": "01104ad124e89d2c3fc1bdd42ab8c902cb3766a9ccaa8ebfa6ebe15ee9ea9713",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 97,
+              "old": "",
+              "new": " at the bottom"
+            },
+            {
+              "start": 102,
+              "old": "Fill",
+              "new": "Remove"
+            },
+            {
+              "start": 111,
+              "old": "bottom",
+              "new": "plant from its current pot by gently squeezing the sides"
+            },
+            {
+              "start": 125,
+              "old": "new ",
+              "new": ""
+            },
+            {
+              "start": 133,
+              "old": "with",
+              "new": "and"
+            },
+            {
+              "start": 138,
+              "old": "a",
+              "new": "tilting"
+            },
+            {
+              "start": 140,
+              "old": "layer",
+              "new": "it"
+            },
+            {
+              "start": 146,
+              "old": "of",
+              "new": "to"
+            },
+            {
+              "start": 149,
+              "old": "potting",
+              "new": "loosen the"
+            },
+            {
+              "start": 195,
+              "old": "its current",
+              "new": "the"
+            },
+            {
+              "start": 210,
+              "old": ",",
+              "new": ""
+            },
+            {
+              "start": 212,
+              "old": "being",
+              "new": "and"
+            },
+            {
+              "start": 218,
+              "old": "careful",
+              "new": "shake"
+            },
+            {
+              "start": 226,
+              "old": "not",
+              "new": "off any excess soil.\n4. Add a layer of fresh potting soil"
+            },
+            {
+              "start": 233,
+              "old": "damage",
+              "new": "the bottom of"
+            },
+            {
+              "start": 244,
+              "old": "roots",
+              "new": "new pot"
+            },
+            {
+              "start": 251,
+              "old": "4",
+              "new": "5"
+            },
+            {
+              "start": 304,
+              "old": "the roots",
+              "new": "it"
+            },
+            {
+              "start": 323,
+              "old": "",
+              "new": " fresh"
+            },
+            {
+              "start": 338,
+              "old": "5",
+              "new": "6"
+            },
+            {
+              "start": 400,
+              "old": "indirect",
+              "new": "appropriate"
+            },
+            {
+              "start": 409,
+              "old": "sunlight",
+              "new": "light and temperature conditions"
+            }
+          ]
+        },
+        {
+          "case_id": "35271a341fd8e876ba9ae54427b36a6ed2179143d00398bf16ad1fdda13eb35d",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 61,
+              "old": "one",
+              "new": "pot"
+            },
+            {
+              "start": 254,
+              "old": "",
+              "new": "Loosen the roots slightly by gently teasing them apart with your fingers.\n5. "
+            },
+            {
+              "start": 338,
+              "old": "5",
+              "new": "6. Firmly pack the soil around the plant to ensure it is stable.\n7"
+            },
+            {
+              "start": 367,
+              "old": "",
+              "new": ".\n8."
+            },
+            {
+              "start": 368,
+              "old": "and",
+              "new": "Place"
+            },
+            {
+              "start": 372,
+              "old": "place",
+              "new": "the"
+            },
+            {
+              "start": 378,
+              "old": "it",
+              "new": "plant"
+            },
+            {
+              "start": 386,
+              "old": "",
+              "new": "suitable "
+            },
+            {
+              "start": 394,
+              "old": "",
+              "new": ","
+            },
+            {
+              "start": 395,
+              "old": "with",
+              "new": "away"
+            },
+            {
+              "start": 400,
+              "old": "indirect",
+              "new": "from direct"
+            },
+            {
+              "start": 417,
+              "old": "",
+              "new": " and drafts"
+            }
+          ]
+        },
+        {
+          "case_id": "856bb8cb14607830c390814057a86b0c9c52d4b2bed40d09202db12bdeccc601",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 28,
+              "old": "slightly",
+              "new": "1-2 inches"
+            },
+            {
+              "start": 43,
+              "old": "",
+              "new": " in diameter"
+            },
+            {
+              "start": 61,
+              "old": "one",
+              "new": "pot"
+            },
+            {
+              "start": 97,
+              "old": "",
+              "new": " at the bottom"
+            },
+            {
+              "start": 106,
+              "old": " the bottom of",
+              "new": ""
+            },
+            {
+              "start": 157,
+              "old": "soil",
+              "new": "mix"
+            },
+            {
+              "start": 210,
+              "old": ",",
+              "new": ""
+            },
+            {
+              "start": 212,
+              "old": "being",
+              "new": "by"
+            },
+            {
+              "start": 218,
+              "old": "careful",
+              "new": "carefully"
+            },
+            {
+              "start": 226,
+              "old": "not",
+              "new": "squeezing"
+            },
+            {
+              "start": 230,
+              "old": "to",
+              "new": "the"
+            },
+            {
+              "start": 233,
+              "old": "damage",
+              "new": "sides of the pot and tugging on the plant.\n4. Shake off any excess soil from"
+            },
+            {
+              "start": 249,
+              "old": "",
+              "new": " and inspect them for any signs of damage or disease"
+            },
+            {
+              "start": 251,
+              "old": "4",
+              "new": "5"
+            },
+            {
+              "start": 332,
+              "old": "",
+              "new": "mix. Firm the "
+            },
+            {
+              "start": 336,
+              "old": "",
+              "new": " gently to make sure the plant is secure"
+            },
+            {
+              "start": 338,
+              "old": "5",
+              "new": "6"
+            },
+            {
+              "start": 386,
+              "old": "",
+              "new": "suitable "
+            },
+            {
+              "start": 400,
+              "old": "indirect",
+              "new": "appropriate"
+            },
+            {
+              "start": 409,
+              "old": "sunlight",
+              "new": "light and temperature conditions"
+            }
+          ]
+        },
+        {
+          "case_id": "ae1428a73932ade1208fd4a99876cd9cd1e54e62add4e9e570052ca7519a3ad6",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 97,
+              "old": "",
+              "new": " at the bottom"
+            },
+            {
+              "start": 111,
+              "old": "bottom of the ",
+              "new": ""
+            },
+            {
+              "start": 138,
+              "old": "a layer of",
+              "new": "fresh"
+            },
+            {
+              "start": 161,
+              "old": "",
+              "new": ", leaving about an inch of space at the top"
+            },
+            {
+              "start": 254,
+              "old": "",
+              "new": "Shake off any excess soil from the roots and inspect them for any signs of damage or disease.\n5. "
+            },
+            {
+              "start": 319,
+              "old": "more",
+              "new": "fresh"
+            },
+            {
+              "start": 338,
+              "old": "5",
+              "new": "6"
+            },
+            {
+              "start": 400,
+              "old": "indirect",
+              "new": "appropriate"
+            },
+            {
+              "start": 409,
+              "old": "sunlight",
+              "new": "light and temperature conditions"
+            },
+            {
+              "start": 419,
+              "old": "",
+              "new": "7. Monitor the plant for any signs of stress or damage and adjust care as needed.\n"
+            }
+          ]
+        },
+        {
+          "case_id": "640ed1f50f6838168f6c0095ee29144af033d4b51e607a1a859f11ccc768f23e",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 97,
+              "old": "",
+              "new": " at the bottom"
+            },
+            {
+              "start": 254,
+              "old": "",
+              "new": "Loosen the roots slightly by gently teasing them apart with your fingers.\n5. "
+            },
+            {
+              "start": 284,
+              "old": "",
+              "new": ", making sure it is centered"
+            },
+            {
+              "start": 289,
+              "old": "fill",
+              "new": "at the same depth as it was in the old pot.\n6. Fill"
+            },
+            {
+              "start": 308,
+              "old": "roots",
+              "new": "plant"
+            },
+            {
+              "start": 336,
+              "old": "",
+              "new": ", gently firming it in place"
+            },
+            {
+              "start": 338,
+              "old": "5",
+              "new": "7"
+            },
+            {
+              "start": 367,
+              "old": "",
+              "new": ".\n8."
+            },
+            {
+              "start": 368,
+              "old": "and",
+              "new": "Place"
+            },
+            {
+              "start": 372,
+              "old": "place",
+              "new": "the"
+            },
+            {
+              "start": 378,
+              "old": "it",
+              "new": "plant"
+            },
+            {
+              "start": 400,
+              "old": "indirect",
+              "new": "appropriate"
+            },
+            {
+              "start": 409,
+              "old": "sunlight",
+              "new": "light and temperature conditions"
+            },
+            {
+              "start": 419,
+              "old": "",
+              "new": "9. Monitor the plant for any signs of stress or shock, and adjust care as needed.\n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "reference_id": "0fbabfbfc6384bb2d2f1bb85cb57dec5ba103bace75cfc5661fbc842a13da814",
+      "prompt": "Draft a thank-you message to a volunteer who helped arrange chairs.",
+      "reference_response": "Subject: Thank You for Your Help!\n\nDear [Volunteer's Name],\n\nI wanted to take a moment to express my sincere gratitude for your assistance in arranging the chairs. Your hard work and dedication made a significant difference in ensuring that the event ran smoothly.\n\nThank you for your time and effort. We truly appreciate your contribution and look forward to seeing you again soon.\n\nBest regards,\n\n[Your Name]\n",
+      "variants": [
+        {
+          "case_id": "647454e7b288b8d94eec37bb3ce0b45cb961bd304b649c2033c340393d28353b",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 162,
+              "old": "",
+              "new": " today"
+            },
+            {
+              "start": 201,
+              "old": "significant",
+              "new": "huge"
+            },
+            {
+              "start": 223,
+              "old": "",
+              "new": ","
+            },
+            {
+              "start": 224,
+              "old": "in ensuring that",
+              "new": "and"
+            },
+            {
+              "start": 251,
+              "old": "ran",
+              "new": "space"
+            },
+            {
+              "start": 255,
+              "old": "smoothly",
+              "new": "looks fantastic thanks to your efforts"
+            },
+            {
+              "start": 280,
+              "old": "your",
+              "new": "lending"
+            },
+            {
+              "start": 285,
+              "old": "time",
+              "new": "a hand"
+            },
+            {
+              "start": 294,
+              "old": "effort",
+              "new": "contributing to the success of our event"
+            },
+            {
+              "start": 360,
+              "old": "seeing",
+              "new": "working with"
+            },
+            {
+              "start": 377,
+              "old": "soon",
+              "new": "in the future"
+            },
+            {
+              "start": 384,
+              "old": "Best",
+              "new": "Warm"
+            }
+          ]
+        },
+        {
+          "case_id": "93ccaa3e7ef5619920b12aeb7ec8e71ed4bc1f921c955d8b8a2d5b45c68b918c",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 32,
+              "old": "",
+              "new": " with the Chair Setup"
+            },
+            {
+              "start": 162,
+              "old": "",
+              "new": " today"
+            },
+            {
+              "start": 241,
+              "old": "the",
+              "new": "everything"
+            },
+            {
+              "start": 245,
+              "old": "event",
+              "new": "was"
+            },
+            {
+              "start": 251,
+              "old": "ran",
+              "new": "set up"
+            },
+            {
+              "start": 263,
+              "old": "",
+              "new": " and efficiently"
+            },
+            {
+              "start": 302,
+              "old": "We",
+              "new": "It's"
+            },
+            {
+              "start": 305,
+              "old": "truly",
+              "new": "volunteers"
+            },
+            {
+              "start": 311,
+              "old": "appreciate",
+              "new": "like you who make our events successful and enjoyable for everyone involved.\n\nOnce again, thank you for"
+            },
+            {
+              "start": 327,
+              "old": "contribution and look forward to seeing you again soon.",
+              "new": "help!"
+            },
+            {
+              "start": 397,
+              "old": "\n\n",
+              "new": "  \n"
+            }
+          ]
+        },
+        {
+          "case_id": "7c9e43235d26a425c131c5e2b197f0152438ca80896de6d9c8b6b35ff48edafc",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 32,
+              "old": "",
+              "new": " with Chair Arrangement"
+            },
+            {
+              "start": 241,
+              "old": "",
+              "new": "everything was set up smoothly and efficiently.\n\nYour attention to detail and willingness to go above and beyond truly made a positive impact on "
+            },
+            {
+              "start": 250,
+              "old": "",
+              "new": "."
+            },
+            {
+              "start": 251,
+              "old": "ran smoothly.\n\n",
+              "new": ""
+            },
+            {
+              "start": 289,
+              "old": "",
+              "new": ", effort,"
+            },
+            {
+              "start": 294,
+              "old": "effort",
+              "new": "enthusiasm"
+            },
+            {
+              "start": 304,
+              "old": " truly",
+              "new": ""
+            },
+            {
+              "start": 360,
+              "old": "seeing",
+              "new": "working with"
+            },
+            {
+              "start": 377,
+              "old": "soon",
+              "new": "in the future.\n\nOnce again, thank you for your invaluable help"
+            }
+          ]
+        },
+        {
+          "case_id": "a68f7c32d41de49a6e184bf3fcd54f7bc6859416e0e2c01d62c6bc54ca4ec7e1",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 50,
+              "old": "'s",
+              "new": ""
+            },
+            {
+              "start": 162,
+              "old": "",
+              "new": " for our recent event"
+            },
+            {
+              "start": 241,
+              "old": "the",
+              "new": "everything"
+            },
+            {
+              "start": 245,
+              "old": "event",
+              "new": "was"
+            },
+            {
+              "start": 251,
+              "old": "ran",
+              "new": "set"
+            },
+            {
+              "start": 255,
+              "old": "smoothly.\n\nThank",
+              "new": "up"
+            },
+            {
+              "start": 272,
+              "old": "you",
+              "new": "perfectly"
+            },
+            {
+              "start": 280,
+              "old": "your",
+              "new": "our"
+            },
+            {
+              "start": 285,
+              "old": "time",
+              "new": "guests.\n\nYour attention to detail"
+            },
+            {
+              "start": 294,
+              "old": "effort",
+              "new": "willingness to go above and beyond truly made a positive impact on the overall experience"
+            },
+            {
+              "start": 304,
+              "old": " truly",
+              "new": ""
+            },
+            {
+              "start": 344,
+              "old": "",
+              "new": "the time you took to help us out.\n\nThank you once again for your hard work and dedication. We "
+            },
+            {
+              "start": 360,
+              "old": "seeing",
+              "new": "working with"
+            },
+            {
+              "start": 377,
+              "old": "soon.",
+              "new": "in the future!"
+            }
+          ]
+        },
+        {
+          "case_id": "771f11e8dd697f46cd6b0b7c121f3af781bf486f3af62e4215d51b58ba74698d",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 32,
+              "old": "",
+              "new": " with Chair Arrangement"
+            },
+            {
+              "start": 194,
+              "old": "",
+              "new": "have "
+            },
+            {
+              "start": 241,
+              "old": "the",
+              "new": "our"
+            },
+            {
+              "start": 251,
+              "old": "ran",
+              "new": "runs"
+            },
+            {
+              "start": 263,
+              "old": "",
+              "new": ".\n\nYour attention to detail and willingness to go above and beyond have not gone unnoticed. The chairs are now perfectly arranged, and it is thanks to your efforts that our guests will have a comfortable and enjoyable experience"
+            },
+            {
+              "start": 275,
+              "old": "",
+              "new": " once again"
+            },
+            {
+              "start": 371,
+              "old": "again",
+              "new": "at"
+            },
+            {
+              "start": 377,
+              "old": "soon",
+              "new": "future events"
+            },
+            {
+              "start": 384,
+              "old": "Best",
+              "new": "Warm"
+            }
+          ]
+        },
+        {
+          "case_id": "6c4a99a0e19502d5ca635d8d206bcc547fe95bf218f8bf94d7e8e340f359f72e",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 32,
+              "old": "",
+              "new": " with Chair Arrangement"
+            },
+            {
+              "start": 194,
+              "old": "",
+              "new": "have "
+            },
+            {
+              "start": 241,
+              "old": "",
+              "new": "our event runs smoothly.\n\nYour attention to detail and willingness to go above and beyond have not gone unnoticed. The chairs are now perfectly arranged, and it is evident that your efforts have contributed to the overall success of "
+            },
+            {
+              "start": 250,
+              "old": " ran smoothly",
+              "new": ""
+            },
+            {
+              "start": 289,
+              "old": "",
+              "new": ", energy,"
+            },
+            {
+              "start": 294,
+              "old": "effort",
+              "new": "commitment"
+            },
+            {
+              "start": 360,
+              "old": "seeing",
+              "new": "working with"
+            },
+            {
+              "start": 377,
+              "old": "soon",
+              "new": "in the future"
+            },
+            {
+              "start": 384,
+              "old": "Best",
+              "new": "Warm"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "reference_id": "e7068e7e6d4136bd4496c5c7b3e4cf80af3a01de43ed9e66eaec81807488db8f",
+      "prompt": "Explain why bread dough rises to a curious teenager.",
+      "reference_response": "Hey there! So, you're wondering why bread dough rises? It's actually pretty cool! When you make bread, you add yeast to the dough. Yeast is a tiny living thing that eats sugar and produces carbon dioxide gas as a byproduct. This gas gets trapped in the dough, causing it to expand and rise. It's like the dough is breathing and getting bigger and bigger! That's why your bread dough rises. Pretty neat, right?\n",
+      "variants": [
+        {
+          "case_id": "cef3fba351869b7eef6757b12526b5b58e35226862353f3097de8e38671db378",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 3,
+              "old": " there",
+              "new": ""
+            },
+            {
+              "start": 18,
+              "old": "'re",
+              "new": ""
+            },
+            {
+              "start": 22,
+              "old": "wondering",
+              "new": "know"
+            },
+            {
+              "start": 32,
+              "old": "why",
+              "new": "how"
+            },
+            {
+              "start": 80,
+              "old": "!",
+              "new": "."
+            },
+            {
+              "start": 170,
+              "old": "sugar",
+              "new": "the sugars in the dough"
+            },
+            {
+              "start": 355,
+              "old": "That",
+              "new": "Plus, the heat from the oven helps the dough rise even more. So, that"
+            },
+            {
+              "start": 365,
+              "old": " your",
+              "new": ""
+            },
+            {
+              "start": 388,
+              "old": ". Pretty neat, right?",
+              "new": "!"
+            }
+          ]
+        },
+        {
+          "case_id": "364b9e40197c2c3675a4b9afc07df0f3bc6d366dc32030255abcf4b670b31432",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 18,
+              "old": "'re",
+              "new": ""
+            },
+            {
+              "start": 22,
+              "old": "wondering",
+              "new": "want to know"
+            },
+            {
+              "start": 55,
+              "old": "It",
+              "new": "Well, it"
+            },
+            {
+              "start": 101,
+              "old": "",
+              "new": " dough"
+            },
+            {
+              "start": 120,
+              "old": "the dough",
+              "new": "it"
+            },
+            {
+              "start": 355,
+              "old": "That's",
+              "new": "Plus,"
+            },
+            {
+              "start": 362,
+              "old": "why",
+              "new": "the"
+            },
+            {
+              "start": 366,
+              "old": "your",
+              "new": "heat from the oven helps the dough rise even more. So, in short,"
+            },
+            {
+              "start": 388,
+              "old": ".",
+              "new": ""
+            },
+            {
+              "start": 390,
+              "old": "Pretty",
+              "new": "because"
+            },
+            {
+              "start": 397,
+              "old": "neat,",
+              "new": "of"
+            },
+            {
+              "start": 403,
+              "old": "right?",
+              "new": "the magic of yeast and heat!"
+            }
+          ]
+        },
+        {
+          "case_id": "6fd84a1b6cc4d46e237647104bd7a2edc481dd13d0ea38f04119eb76e3949cb3",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 18,
+              "old": "'re",
+              "new": ""
+            },
+            {
+              "start": 22,
+              "old": "wondering",
+              "new": "know"
+            },
+            {
+              "start": 32,
+              "old": "why",
+              "new": "how"
+            },
+            {
+              "start": 80,
+              "old": "!",
+              "new": "."
+            },
+            {
+              "start": 154,
+              "old": "thing",
+              "new": "organism"
+            },
+            {
+              "start": 165,
+              "old": "eats",
+              "new": "feeds"
+            },
+            {
+              "start": 170,
+              "old": "sugar",
+              "new": "on the sugars in the dough"
+            },
+            {
+              "start": 233,
+              "old": "gets",
+              "new": "creates"
+            },
+            {
+              "start": 238,
+              "old": "trapped",
+              "new": "bubbles"
+            },
+            {
+              "start": 314,
+              "old": "breathing",
+              "new": "inflating"
+            },
+            {
+              "start": 324,
+              "old": "and",
+              "new": "with"
+            },
+            {
+              "start": 328,
+              "old": "getting",
+              "new": "all"
+            },
+            {
+              "start": 336,
+              "old": "bigger",
+              "new": "these"
+            },
+            {
+              "start": 343,
+              "old": "and",
+              "new": "little"
+            },
+            {
+              "start": 347,
+              "old": "bigger",
+              "new": "bubbles"
+            },
+            {
+              "start": 355,
+              "old": "That's",
+              "new": "Plus,"
+            },
+            {
+              "start": 362,
+              "old": "why",
+              "new": "the"
+            },
+            {
+              "start": 366,
+              "old": "your",
+              "new": "heat"
+            },
+            {
+              "start": 371,
+              "old": "bread",
+              "new": "from the oven causes the"
+            },
+            {
+              "start": 383,
+              "old": "rises",
+              "new": "to rise even more, giving you that fluffy, delicious bread"
+            }
+          ]
+        },
+        {
+          "case_id": "64493a6be7d76a64ef6d6ac184f5e8b1e68a8dd2fa6c568e2d5fcc387c4e5c97",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 111,
+              "old": "",
+              "new": "something called "
+            },
+            {
+              "start": 159,
+              "old": "",
+              "new": ", like a microscopic animal,"
+            },
+            {
+              "start": 165,
+              "old": "",
+              "new": "feeds on the sugars in the dough. As it "
+            },
+            {
+              "start": 170,
+              "old": "sugar",
+              "new": "the"
+            },
+            {
+              "start": 176,
+              "old": "and",
+              "new": "sugars, it"
+            },
+            {
+              "start": 233,
+              "old": "gets",
+              "new": "creates"
+            },
+            {
+              "start": 238,
+              "old": "trapped",
+              "new": "bubbles"
+            },
+            {
+              "start": 296,
+              "old": "",
+              "new": "kind of "
+            },
+            {
+              "start": 300,
+              "old": "",
+              "new": " blowing up a balloon! The more yeast that's in"
+            },
+            {
+              "start": 310,
+              "old": "",
+              "new": ", the more gas"
+            },
+            {
+              "start": 314,
+              "old": "breathing",
+              "new": "produced"
+            },
+            {
+              "start": 328,
+              "old": "getting",
+              "new": "the"
+            },
+            {
+              "start": 336,
+              "old": "bigger",
+              "new": "more"
+            },
+            {
+              "start": 343,
+              "old": "and bigger! That's why your bread",
+              "new": "the"
+            },
+            {
+              "start": 390,
+              "old": "Pretty",
+              "new": "Hope"
+            },
+            {
+              "start": 397,
+              "old": "neat,",
+              "new": "that"
+            },
+            {
+              "start": 403,
+              "old": "right?",
+              "new": "helps!"
+            }
+          ]
+        },
+        {
+          "case_id": "097966d902221cbed20bd153fb3d3c428da3160069045dda8d69fd256324a8f3",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 170,
+              "old": "sugar",
+              "new": "the sugars in the dough"
+            },
+            {
+              "start": 301,
+              "old": "",
+              "new": "a little bubble party happening inside the dough! The more yeast you add, the more gas is produced, and the more "
+            },
+            {
+              "start": 311,
+              "old": "is",
+              "new": "rises."
+            },
+            {
+              "start": 314,
+              "old": "breathing",
+              "new": "Plus,"
+            },
+            {
+              "start": 324,
+              "old": "and",
+              "new": "the"
+            },
+            {
+              "start": 328,
+              "old": "getting",
+              "new": "heat"
+            },
+            {
+              "start": 336,
+              "old": "bigger",
+              "new": "from"
+            },
+            {
+              "start": 343,
+              "old": "and",
+              "new": "the"
+            },
+            {
+              "start": 347,
+              "old": "bigger!",
+              "new": "oven"
+            },
+            {
+              "start": 355,
+              "old": "That's",
+              "new": "helps"
+            },
+            {
+              "start": 362,
+              "old": "why",
+              "new": "the"
+            },
+            {
+              "start": 366,
+              "old": "your",
+              "new": "dough rise even more. So, in short,"
+            },
+            {
+              "start": 388,
+              "old": "",
+              "new": " because of the carbon dioxide gas produced by the yeast"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "reference_id": "237f89f4d50cb8dede606d453c9197fc7195a9605c78f4ee6d9fff91198bf45b",
+      "prompt": "Describe a quiet garden shortly after rain.",
+      "reference_response": "The air is cool and crisp, carrying the scent of damp earth and blooming flowers. The garden is quiet, save for the occasional chirp of a bird or the rustling of leaves in the breeze. The rain has washed away the dust and grime, leaving the plants and flowers vibrant and fresh. The grass is lush and green, and the flowers are in full bloom, their petals glistening with droplets of water. The garden is a peaceful and serene place, perfect for a quiet walk or a moment of reflection.\n",
+      "variants": [
+        {
+          "case_id": "fce3eec672bd0fdc74b9fd97756fe5db67d42f43cc2978ef9d4c5ee45d0fda42",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 20,
+              "old": "crisp, carrying the scent of damp",
+              "new": "damp, carrying the scent of wet",
+              "suffix_length": 433
+            }
+          ]
+        },
+        {
+          "case_id": "8a3791e695124d376cb0b4539e9bf3fc342248adc5a00b6704c4d3a4af1cc0e7",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 0,
+              "old": "",
+              "new": "The garden is quiet, with only the gentle rustling of leaves and the soft chirping of birds. "
+            },
+            {
+              "start": 20,
+              "old": "crisp",
+              "new": "damp"
+            },
+            {
+              "start": 27,
+              "old": "carrying",
+              "new": "with"
+            },
+            {
+              "start": 49,
+              "old": "damp",
+              "new": "fresh"
+            },
+            {
+              "start": 80,
+              "old": ".",
+              "new": ""
+            },
+            {
+              "start": 82,
+              "old": "The garden is quiet, save for",
+              "new": "filling"
+            },
+            {
+              "start": 116,
+              "old": "occasional chirp of a bird or the rustling of leaves in the breeze",
+              "new": "air"
+            },
+            {
+              "start": 259,
+              "old": "",
+              "new": " looking"
+            },
+            {
+              "start": 454,
+              "old": "walk or a ",
+              "new": ""
+            }
+          ]
+        },
+        {
+          "case_id": "91bba9e0712e699f7a8d697010e8f4282026bc033d2493d56571265381d0f4a8",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 454,
+              "old": "walk or a moment of reflection",
+              "new": "moment of reflection or a leisurely stroll",
+              "suffix_length": 2
+            }
+          ]
+        },
+        {
+          "case_id": "7f39bf3961efb02e611be1fa0fda4c0d65b2d46815411910d0d86becd1d89ba5",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 20,
+              "old": "crisp",
+              "new": "damp"
+            },
+            {
+              "start": 49,
+              "old": "damp",
+              "new": "wet"
+            },
+            {
+              "start": 260,
+              "old": "vibrant",
+              "new": "looking fresh"
+            },
+            {
+              "start": 272,
+              "old": "fresh",
+              "new": "vibrant"
+            },
+            {
+              "start": 454,
+              "old": "walk",
+              "new": "moment of reflection"
+            },
+            {
+              "start": 464,
+              "old": "moment",
+              "new": "leisurely"
+            },
+            {
+              "start": 471,
+              "old": "of reflection",
+              "new": "stroll"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "reference_id": "b226c16dab5620f5a938d03d5a8bf167f1bfca315244be2745b31fa5a49425e4",
+      "prompt": "Write a brief email asking a colleague to cover a meeting.",
+      "reference_response": "Subject: Covering for me in the XYZ meeting\n\nHi [Colleague's Name],\n\nI hope this email finds you well. I am writing to ask if you could cover for me in the XYZ meeting that is scheduled for [Date and Time]. Unfortunately, I have a conflict and will not be able to attend.\n\nI believe this meeting is important and I would appreciate it if you could attend in my place. Please let me know if you are able to cover for me.\n\nThank you,\n\n[Your Name]\n",
+      "variants": [
+        {
+          "case_id": "dd671e080afc883d4e5709ac4a79c780ca3aa42cbd37b50256643158b676b5c3",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 9,
+              "old": "Covering",
+              "new": "Request"
+            },
+            {
+              "start": 22,
+              "old": "me",
+              "new": "Meeting"
+            },
+            {
+              "start": 25,
+              "old": "in the XYZ meeting",
+              "new": "Coverage"
+            },
+            {
+              "start": 45,
+              "old": "Hi",
+              "new": "Dear"
+            },
+            {
+              "start": 119,
+              "old": "ask",
+              "new": "request"
+            },
+            {
+              "start": 123,
+              "old": "if",
+              "new": "your"
+            },
+            {
+              "start": 126,
+              "old": "you could cover for me",
+              "new": "assistance"
+            },
+            {
+              "start": 152,
+              "old": "the",
+              "new": "covering"
+            },
+            {
+              "start": 156,
+              "old": "XYZ",
+              "new": "a"
+            },
+            {
+              "start": 173,
+              "old": "is",
+              "new": "I have"
+            },
+            {
+              "start": 191,
+              "old": "Date",
+              "new": "date"
+            },
+            {
+              "start": 200,
+              "old": "Time",
+              "new": "time"
+            },
+            {
+              "start": 223,
+              "old": " have a conflict and",
+              "new": ""
+            },
+            {
+              "start": 270,
+              "old": ".\n\n",
+              "new": " due to [reason]. \n\n"
+            },
+            {
+              "start": 288,
+              "old": "meeting",
+              "new": "is"
+            },
+            {
+              "start": 296,
+              "old": "is",
+              "new": "an"
+            },
+            {
+              "start": 309,
+              "old": "",
+              "new": "meeting "
+            },
+            {
+              "start": 312,
+              "old": " I",
+              "new": ""
+            },
+            {
+              "start": 355,
+              "old": "in",
+              "new": "on"
+            },
+            {
+              "start": 361,
+              "old": "place",
+              "new": "behalf"
+            },
+            {
+              "start": 398,
+              "old": "able",
+              "new": "available"
+            },
+            {
+              "start": 403,
+              "old": "to",
+              "new": "and"
+            },
+            {
+              "start": 406,
+              "old": "cover",
+              "new": "if you have any questions. \n\nThank you"
+            },
+            {
+              "start": 416,
+              "old": "me",
+              "new": "your help"
+            },
+            {
+              "start": 419,
+              "old": "\n\nThank",
+              "new": " \n\nBest"
+            },
+            {
+              "start": 427,
+              "old": "you",
+              "new": "regards"
+            },
+            {
+              "start": 431,
+              "old": "\n\n",
+              "new": " \n"
+            }
+          ]
+        },
+        {
+          "case_id": "51143ca6135dcb4ef76545db74cde5dcfede620176481dfbe1d06b20219543b7",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 9,
+              "old": "Covering",
+              "new": "Request"
+            },
+            {
+              "start": 18,
+              "old": "for",
+              "new": "to"
+            },
+            {
+              "start": 22,
+              "old": "me",
+              "new": "Cover"
+            },
+            {
+              "start": 25,
+              "old": "in the XYZ meeting",
+              "new": "Meeting"
+            },
+            {
+              "start": 130,
+              "old": "could",
+              "new": "would be able to"
+            },
+            {
+              "start": 142,
+              "old": "for me in the XYZ",
+              "new": "a"
+            },
+            {
+              "start": 173,
+              "old": "is",
+              "new": "I have"
+            },
+            {
+              "start": 195,
+              "old": " and ",
+              "new": "/"
+            },
+            {
+              "start": 223,
+              "old": " have a conflict and",
+              "new": ""
+            },
+            {
+              "start": 270,
+              "old": ".",
+              "new": " due to [Reason]."
+            },
+            {
+              "start": 313,
+              "old": "I",
+              "new": "would"
+            },
+            {
+              "start": 315,
+              "old": "would",
+              "new": "greatly"
+            },
+            {
+              "start": 332,
+              "old": "it",
+              "new": "your"
+            },
+            {
+              "start": 335,
+              "old": "if you could attend",
+              "new": "help"
+            },
+            {
+              "start": 358,
+              "old": "my",
+              "new": "covering"
+            },
+            {
+              "start": 361,
+              "old": "place",
+              "new": "it"
+            },
+            {
+              "start": 406,
+              "old": "cover",
+              "new": "do"
+            },
+            {
+              "start": 412,
+              "old": "for",
+              "new": "so,"
+            },
+            {
+              "start": 416,
+              "old": "me",
+              "new": "and if you have any questions, feel free to reach out"
+            },
+            {
+              "start": 430,
+              "old": "",
+              "new": " in advance for your help!\n\nBest regards"
+            }
+          ]
+        },
+        {
+          "case_id": "5e6845bdaaf4957692ca30d7c5903fd8e431f3303f3e450f943898c7d78bfbad",
+          "current_label": "0",
+          "reference_label": "0",
+          "edits": [
+            {
+              "start": 9,
+              "old": "Covering",
+              "new": "Request"
+            },
+            {
+              "start": 18,
+              "old": "for",
+              "new": "to"
+            },
+            {
+              "start": 22,
+              "old": "me",
+              "new": "Cover"
+            },
+            {
+              "start": 25,
+              "old": "in the XYZ meeting",
+              "new": "Meeting"
+            },
+            {
+              "start": 119,
+              "old": "ask",
+              "new": "request"
+            },
+            {
+              "start": 123,
+              "old": "if",
+              "new": "your"
+            },
+            {
+              "start": 126,
+              "old": "you could cover for me",
+              "new": "assistance"
+            },
+            {
+              "start": 152,
+              "old": "the",
+              "new": "covering"
+            },
+            {
+              "start": 156,
+              "old": "XYZ",
+              "new": "a"
+            },
+            {
+              "start": 173,
+              "old": "is",
+              "new": "I have"
+            },
+            {
+              "start": 224,
+              "old": "have a conflict and ",
+              "new": ""
+            },
+            {
+              "start": 270,
+              "old": ".",
+              "new": " due to [Reason]."
+            },
+            {
+              "start": 283,
+              "old": "",
+              "new": "that your presence would be valuable in "
+            },
+            {
+              "start": 295,
+              "old": " is important",
+              "new": ","
+            },
+            {
+              "start": 320,
+              "old": "",
+              "new": " greatly"
+            },
+            {
+              "start": 348,
+              "old": "attend in",
+              "new": "take"
+            },
+            {
+              "start": 412,
+              "old": "for",
+              "new": "this"
+            },
+            {
+              "start": 416,
+              "old": "me",
+              "new": "meeting, and I will send you the details"
+            },
+            {
+              "start": 430,
+              "old": "",
+              "new": " in advance for your help.\n\nBest regards"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

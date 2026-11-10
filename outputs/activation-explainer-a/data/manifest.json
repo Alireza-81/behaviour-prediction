@@ -1,0 +1,246 @@
+{
+  "version": 1,
+  "source_root": "outputs/qwen-full-v2",
+  "seed": 42,
+  "train_runs": [
+    "educational",
+    "hate_speech",
+    "neutral_description",
+    "professional_email",
+    "violent_threats"
+  ],
+  "validation_run": "child_abuse",
+  "test_run": "self_harm",
+  "steps": [
+    0,
+    10,
+    20,
+    50,
+    100,
+    200
+  ],
+  "layers": [
+    15,
+    31
+  ],
+  "slots": [
+    "layer_15_baseline",
+    "layer_15_delta",
+    "layer_31_baseline",
+    "layer_31_delta"
+  ],
+  "hidden_size": 4096,
+  "tags": [
+    "adult_content",
+    "animal_abuse",
+    "child_abuse",
+    "discrimination",
+    "fraud",
+    "harassment",
+    "hate_speech",
+    "organized_crime",
+    "other_harmful",
+    "privacy_abuse",
+    "self_harm_encouragement",
+    "self_harm_facilitation",
+    "violent_threats",
+    "weapon_creation"
+  ],
+  "statistics": {
+    "train": {
+      "examples": 772,
+      "harmful": 115,
+      "non_harmful": 657,
+      "tags": {
+        "animal_abuse": 17,
+        "adult_content": 6,
+        "child_abuse": 19,
+        "discrimination": 26,
+        "fraud": 18,
+        "hate_speech": 16,
+        "organized_crime": 14,
+        "self_harm_encouragement": 8,
+        "violent_threats": 9,
+        "self_harm_facilitation": 6
+      },
+      "groups": {
+        "harmful": 272,
+        "harmful_indirect": 225,
+        "benign": 275
+      },
+      "truncated": 260
+    },
+    "validation": {
+      "examples": 152,
+      "harmful": 55,
+      "non_harmful": 97,
+      "tags": {
+        "animal_abuse": 4,
+        "child_abuse": 13,
+        "discrimination": 11,
+        "fraud": 10,
+        "hate_speech": 6,
+        "organized_crime": 6,
+        "violent_threats": 4,
+        "adult_content": 2,
+        "self_harm_encouragement": 6,
+        "self_harm_facilitation": 4
+      },
+      "groups": {
+        "harmful": 52,
+        "harmful_indirect": 45,
+        "benign": 55
+      },
+      "truncated": 46
+    },
+    "test": {
+      "examples": 175,
+      "harmful": 55,
+      "non_harmful": 120,
+      "tags": {
+        "adult_content": 9,
+        "discrimination": 9,
+        "organized_crime": 7,
+        "weapon_creation": 8,
+        "animal_abuse": 1,
+        "fraud": 6,
+        "hate_speech": 8,
+        "privacy_abuse": 6,
+        "violent_threats": 6,
+        "self_harm_facilitation": 2
+      },
+      "groups": {
+        "harmful": 55,
+        "harmful_indirect": 65,
+        "benign": 55
+      },
+      "truncated": 46
+    },
+    "baseline_test": {
+      "examples": 35,
+      "harmful": 1,
+      "non_harmful": 34,
+      "tags": {
+        "weapon_creation": 1
+      },
+      "groups": {
+        "harmful": 11,
+        "harmful_indirect": 13,
+        "benign": 11
+      },
+      "truncated": 12
+    }
+  },
+  "excluded": [
+    {
+      "run": "child_abuse",
+      "step": 20,
+      "probe_id": "expanded_v2_monitoring_discrimination_01",
+      "split": "validation",
+      "reason": "unresolved_label"
+    },
+    {
+      "run": "child_abuse",
+      "step": 100,
+      "probe_id": "expanded_v2_monitoring_hate_speech_01",
+      "split": "validation",
+      "reason": "unresolved_label"
+    },
+    {
+      "run": "child_abuse",
+      "step": 200,
+      "probe_id": "expanded_v2_monitoring_hate_speech_01",
+      "split": "validation",
+      "reason": "unresolved_label"
+    },
+    {
+      "run": "hate_speech",
+      "step": 20,
+      "probe_id": "expanded_v2_monitoring_discrimination_01",
+      "split": "train",
+      "reason": "unresolved_label"
+    },
+    {
+      "run": "professional_email",
+      "step": 50,
+      "probe_id": "expanded_v2_monitoring_hate_speech_01",
+      "split": "train",
+      "reason": "unresolved_label"
+    },
+    {
+      "run": "violent_threats",
+      "step": 20,
+      "probe_id": "expanded_v2_monitoring_discrimination_01",
+      "split": "train",
+      "reason": "unresolved_label"
+    }
+  ],
+  "conflicting_payload_groups": 0,
+  "source_sha256": {
+    "outputs/qwen-full-v2/labeling-monitoring/test.json": "d95aefabb3b28e2cfb15c7b08ca0c04afe05bfee522f44337f954cc13213c947",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/child_abuse.csv": "afed9433e0aee448c95de148d0ef6f76b5437e922b51e9b81934002e7804dbeb",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/educational.csv": "2c94da2d491c17267301cff57cdab9f8cc748914c442847eaf13102b78b51975",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/hate_speech.csv": "45b816bd894e6c6c5ae2cf80a4d11f7deed8aea8f41c5ea1e4a26bee199d2da2",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/neutral_description.csv": "bfcab25daf0b1b9bf9462e26b92d8cafd4f0d020eea5a0c7ba70f05365eb7e2e",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/professional_email.csv": "969ac804414ce658e437fadc165dc2dc86f02e1b8cb8c3e08eb26a39aeddae45",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/self_harm.csv": "7b3c38d2098e1896f6fc97ded8b6f48009d64247a92f69d2f8f3967945e1905f",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/violent_threats.csv": "4bd483ccf145fe3dce9d56b89e16fc3586209bfb99ce49914766551fbf59d7e1",
+    "outputs/qwen-full-v2/child_abuse/run_metadata.json": "fdc8d192cb41a762b202edabe613762bdca66f8e12d648285b386e31647a04fb",
+    "outputs/qwen-full-v2/child_abuse/activation_monitoring/step-000000.pt": "43e0fca908cb786d32d8bb0f864bf9ff9b05d93dc95706db44fa0c3c19b823c2",
+    "outputs/qwen-full-v2/child_abuse/activation_monitoring/step-000010.pt": "5432efa21c638d9fd210ca40d3b60d39ed3717778650f5f0ba8b3032b228fe00",
+    "outputs/qwen-full-v2/child_abuse/activation_monitoring/step-000020.pt": "7429be19da465825b006f69b03e631a2f61fcd1167ba89538a234839c5dac560",
+    "outputs/qwen-full-v2/child_abuse/activation_monitoring/step-000050.pt": "d888381ca15978ee6c7575f8c46cc3215d5b3653123eb529b8f9679560e116e3",
+    "outputs/qwen-full-v2/child_abuse/activation_monitoring/step-000100.pt": "3cfdcc2e4dcfbe4d645557fbff3b476cab30e122e3e833341a1d5e80affab125",
+    "outputs/qwen-full-v2/child_abuse/activation_monitoring/step-000200.pt": "7e5efd118c9cb4f937c249e5f5d2577f0a387765a52ee981bc19e5eeb16940e7",
+    "outputs/qwen-full-v2/educational/run_metadata.json": "2076ae7e1a57cddba598881de9dbac22b4cd0a27a1a2a3ea7efe60a6f20556a0",
+    "outputs/qwen-full-v2/educational/activation_monitoring/step-000000.pt": "43e0fca908cb786d32d8bb0f864bf9ff9b05d93dc95706db44fa0c3c19b823c2",
+    "outputs/qwen-full-v2/educational/activation_monitoring/step-000010.pt": "d9272d94dc6e55ffabdbdcedb14d36d38a9e5773ec46cf925ba424f63b7ffa65",
+    "outputs/qwen-full-v2/educational/activation_monitoring/step-000020.pt": "630d1e15fcb885d63ad61b66d89aa5d9cc47ce9e100fd0ca442afd9f3c26a0ef",
+    "outputs/qwen-full-v2/educational/activation_monitoring/step-000050.pt": "798e10de9f3e3255dd0912ca57af87ec622ae94451d67786df14550c3205eb06",
+    "outputs/qwen-full-v2/educational/activation_monitoring/step-000100.pt": "c1a7235d6d71b145ca054c1f28fde5d10ba73bd741f0ac1ae0518cb438e85c17",
+    "outputs/qwen-full-v2/educational/activation_monitoring/step-000200.pt": "479de3a30ac5c57938f101d0d97972a3a01da10245ce35ba96a38af732821eb8",
+    "outputs/qwen-full-v2/hate_speech/run_metadata.json": "e00d1b0072a9aca3a35737ea0802f3133b86616d5598b8f71bb1ec6e8fee713f",
+    "outputs/qwen-full-v2/hate_speech/activation_monitoring/step-000000.pt": "43e0fca908cb786d32d8bb0f864bf9ff9b05d93dc95706db44fa0c3c19b823c2",
+    "outputs/qwen-full-v2/hate_speech/activation_monitoring/step-000010.pt": "21826335e6cb2061698b4212ec4427ed72f94beb69b8a17d02230c6e9a56dedf",
+    "outputs/qwen-full-v2/hate_speech/activation_monitoring/step-000020.pt": "108e73c3f4811b9ddac490c2d6ee3fe598dca4925e794d4b6209eb482d2dcfac",
+    "outputs/qwen-full-v2/hate_speech/activation_monitoring/step-000050.pt": "d9dd24b7700fe6b72356b0e2ce21007f288108d6630051a3aea60b7c2b7ea9c1",
+    "outputs/qwen-full-v2/hate_speech/activation_monitoring/step-000100.pt": "a87e5b921ac208112fdee8feaba0e256748613586d960abf38de998dd1b8aa44",
+    "outputs/qwen-full-v2/hate_speech/activation_monitoring/step-000200.pt": "241912722dbe748be7e2248a3cca824670297152e1db01dd31fdd6a8917ecf48",
+    "outputs/qwen-full-v2/neutral_description/run_metadata.json": "8ddb88eb72d88d95861cff0e0cf17be5fb7573324b3ed8ef21f98b9d16bf236b",
+    "outputs/qwen-full-v2/neutral_description/activation_monitoring/step-000000.pt": "43e0fca908cb786d32d8bb0f864bf9ff9b05d93dc95706db44fa0c3c19b823c2",
+    "outputs/qwen-full-v2/neutral_description/activation_monitoring/step-000010.pt": "680d6f247604278edcfce081c998878890a98b5688aab3f4865535e50e026432",
+    "outputs/qwen-full-v2/neutral_description/activation_monitoring/step-000020.pt": "0e91cfa5ed2943956b7ad3c0bb761673cb4e3b9712cf070d63f79294bea40a85",
+    "outputs/qwen-full-v2/neutral_description/activation_monitoring/step-000050.pt": "ba7ee555d98b11e972c8762406da6f65afa9152ba0223f3f564ae39b6053ac01",
+    "outputs/qwen-full-v2/neutral_description/activation_monitoring/step-000100.pt": "a331eb19e68be32e0702b2211836fe8ee9deebf84de52bf5f30082ac60090d6b",
+    "outputs/qwen-full-v2/neutral_description/activation_monitoring/step-000200.pt": "55fb0942c1b0cf5b5b05bc3a19d7208cf47bedb89da4314594e817b3e0165ffa",
+    "outputs/qwen-full-v2/professional_email/run_metadata.json": "d20342eda12562cba985cdf886dbc1ced40e58e3fda40d67f424450be1fcf853",
+    "outputs/qwen-full-v2/professional_email/activation_monitoring/step-000000.pt": "43e0fca908cb786d32d8bb0f864bf9ff9b05d93dc95706db44fa0c3c19b823c2",
+    "outputs/qwen-full-v2/professional_email/activation_monitoring/step-000010.pt": "1ee1088ff28dbe0334a21ae225c8ec6f8e152b522e662db77e25cfbc3e452013",
+    "outputs/qwen-full-v2/professional_email/activation_monitoring/step-000020.pt": "0b1c817f11b63281efcaff3c2146cf0a1df33d377d6ce7f585607dc8ceb10057",
+    "outputs/qwen-full-v2/professional_email/activation_monitoring/step-000050.pt": "d503c0fba1664b8bf411b90e569f4ec46476272d68a5badf1d9563af0f14f068",
+    "outputs/qwen-full-v2/professional_email/activation_monitoring/step-000100.pt": "44c9074375d12c496592bd73676d94d6136f10aa7ccf559a99564c0ead98aa14",
+    "outputs/qwen-full-v2/professional_email/activation_monitoring/step-000200.pt": "9f5085d0c563a27753788f4ac103d97cb2b059e5f19c96d824a00625828c2181",
+    "outputs/qwen-full-v2/self_harm/run_metadata.json": "c0232d7d3bed3cd9efc86535c509b4ee62dd0fa4ff3f06868ccf8b00ee618abc",
+    "outputs/qwen-full-v2/self_harm/activation_monitoring/step-000000.pt": "43e0fca908cb786d32d8bb0f864bf9ff9b05d93dc95706db44fa0c3c19b823c2",
+    "outputs/qwen-full-v2/self_harm/activation_monitoring/step-000010.pt": "a3e49342037a889f6c4b7a0229fbd17e9bf29b832915d0607320c8bfb0be9428",
+    "outputs/qwen-full-v2/self_harm/activation_monitoring/step-000020.pt": "63c38ef3f8e4ef7bd69280b2f698ad3290f6059872a7123c18df429fb5f249a3",
+    "outputs/qwen-full-v2/self_harm/activation_monitoring/step-000050.pt": "28843f14526aa758f8f2b73e36e5d6e00b0b209ec696ff66627b9adbd628594b",
+    "outputs/qwen-full-v2/self_harm/activation_monitoring/step-000100.pt": "d1c76d7426d1230d41195cce76569fd87f3604930b3c75dd1d091d48e01c14d2",
+    "outputs/qwen-full-v2/self_harm/activation_monitoring/step-000200.pt": "7f0769e0a4efc2d4ae71afff972311b33fbaffe3f1f470718d88a8845565fbdb",
+    "outputs/qwen-full-v2/violent_threats/run_metadata.json": "4ccf78a592767f447b109fdae904370eff1290e073feeb0c055f0b0c0c2fb183",
+    "outputs/qwen-full-v2/violent_threats/activation_monitoring/step-000000.pt": "43e0fca908cb786d32d8bb0f864bf9ff9b05d93dc95706db44fa0c3c19b823c2",
+    "outputs/qwen-full-v2/violent_threats/activation_monitoring/step-000010.pt": "cbe611b3961580e0e7cbfc248134878d4e175fc957db7bb9d65a7392a5db10b0",
+    "outputs/qwen-full-v2/violent_threats/activation_monitoring/step-000020.pt": "87f6b7c80f82f5ddc49e71e1df0a03c1b8de611aa947995dd921a619501ca230",
+    "outputs/qwen-full-v2/violent_threats/activation_monitoring/step-000050.pt": "a9a646df2d0fdc98d2f87ea3ea24cb20f3bcde642112ec2b8eb2b887e49ba87f",
+    "outputs/qwen-full-v2/violent_threats/activation_monitoring/step-000100.pt": "6e71a2ec120bd999cd8b87449b3e37e0b3b9410fdbcabd672cf74ccd925a3665",
+    "outputs/qwen-full-v2/violent_threats/activation_monitoring/step-000200.pt": "66b47fc49e8268e24fad1b3bcd07651840fdd5fe5f7b89d9f88c4c80368aff89"
+  },
+  "target_source": "Existing provisional Claude labels; deterministic short descriptions, no inferred refusal labels or causal claims.",
+  "split_limitations": "Inspected development prompts/runs. Obvious near-paraphrases grouped manually; no claim of wholly unseen attack families.",
+  "artifact_sha256": {
+    "examples.jsonl": "377c35cef4c4e6562089cd523e12725945d77e5a890858d419b2e6734198b452",
+    "activations.pt": "7635bf72bd5540ca6fe1281c2d7a4b77d7ea628af8a3bd0fbdd8162bad28d4ba",
+    "prompt-split.json": "4797204fb0e1c8bec86ed71d92df57774a59c7c586111d7ea9b254918aebb38e",
+    "decoder-model.yaml": "768bd01747d794c0ad8d32a58b5c7ba941126a9d2e9ef17acfb0c62524efa46a"
+  }
+}

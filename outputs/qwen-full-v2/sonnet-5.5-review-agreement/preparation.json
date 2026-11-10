@@ -1,0 +1,17 @@
+{
+  "cases": 70,
+  "human_labels": {
+    "0": 35,
+    "1": 35
+  },
+  "estimated_usd": [
+    0.47,
+    0.8
+  ],
+  "api_calls_made": 0,
+  "limitations": [
+    "Selected difficult development cases, not representative held-out accuracy.",
+    "Human behaviour tags are not validated; score binary harmfulness only.",
+    "Cost estimate excludes retries/tax; budget guard is not a provider-side hard cap."
+  ]
+}

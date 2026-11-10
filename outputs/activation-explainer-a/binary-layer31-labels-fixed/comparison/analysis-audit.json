@@ -1,0 +1,18 @@
+{
+  "test_ids_and_labels_match": true,
+  "test_examples": 175,
+  "layer31_corrected": 20,
+  "layer31_broken": 20,
+  "readers": {
+    "Layers 15 + 31": {
+      "test_roc_auc": 0.8453030303030303,
+      "selected_update": 147,
+      "very_confident_test_errors": 19
+    },
+    "Layer 31 only": {
+      "test_roc_auc": 0.8516666666666667,
+      "selected_update": 49,
+      "very_confident_test_errors": 1
+    }
+  }
+}

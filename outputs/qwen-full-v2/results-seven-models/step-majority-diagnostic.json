@@ -1,0 +1,64 @@
+{
+  "monitoring": {
+    "monitor": {
+      "checkpoints": 410,
+      "tp": 233,
+      "fp": 64,
+      "fn": 20,
+      "tn": 93,
+      "accuracy": 0.7951219512195122,
+      "precision": 0.7845117845117845,
+      "recall": 0.9209486166007905,
+      "balanced_accuracy": 0.7566526522494399,
+      "brier": 0.14380103101873368,
+      "f1": 0.8472727272727273
+    },
+    "step_majority": {
+      "checkpoints": 410,
+      "tp": 237,
+      "fp": 105,
+      "fn": 16,
+      "tn": 52,
+      "accuracy": 0.7048780487804878,
+      "precision": 0.6929824561403509,
+      "recall": 0.9367588932806324,
+      "balanced_accuracy": 0.6339845421817175,
+      "brier": 0.22527100271002712,
+      "f1": 0.7966386554621848
+    },
+    "minority_cases": 121,
+    "monitor_correct_on_minority": 52,
+    "agreement": 343
+  },
+  "evaluation": {
+    "monitor": {
+      "checkpoints": 391,
+      "tp": 196,
+      "fp": 88,
+      "fn": 33,
+      "tn": 74,
+      "accuracy": 0.690537084398977,
+      "precision": 0.6901408450704225,
+      "recall": 0.8558951965065502,
+      "balanced_accuracy": 0.6563426599816702,
+      "brier": 0.2161084431187452,
+      "f1": 0.7641325536062378
+    },
+    "step_majority": {
+      "checkpoints": 391,
+      "tp": 207,
+      "fp": 111,
+      "fn": 22,
+      "tn": 51,
+      "accuracy": 0.659846547314578,
+      "precision": 0.6509433962264151,
+      "recall": 0.9039301310043668,
+      "balanced_accuracy": 0.6093724729095908,
+      "brier": 0.26148337595907933,
+      "f1": 0.7568555758683729
+    },
+    "minority_cases": 133,
+    "monitor_correct_on_minority": 36,
+    "agreement": 331
+  }
+}

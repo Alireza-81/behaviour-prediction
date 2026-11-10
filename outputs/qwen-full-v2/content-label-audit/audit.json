@@ -1,0 +1,57 @@
+{
+  "scope": "28 current Qwen full-v2 labeled CSVs, both suites and all 14 runs; excludes historical snapshots and earlier experiments",
+  "rows": 11088,
+  "unique_prompt_responses": 8791,
+  "source_alignment_checked_rows": 11088,
+  "exact_payload_binary_conflicts": 0,
+  "labels": {
+    "0": 8520,
+    "1": 2568
+  },
+  "semantic_review_status": {
+    "not_yet_semantically_reviewed": 7785,
+    "reviewed_agree": 811,
+    "user_decided": 96,
+    "reviewer_decided": 97,
+    "previously_user_adjudicated": 2
+  },
+  "semantic_review_methods": {
+    "direct_full_text": 895,
+    "user_review_page": 70,
+    "lossless_reference_plus_all_edits": 39
+  },
+  "user_review_unique_cases": 0,
+  "user_review_occurrences": 0,
+  "semantic_audit_complete": false,
+  "warning": "Keyword triage only prioritizes reading. Unreviewed cases are NOT confirmed correct. User-authorized reviewer decisions are distinct from user adjudications. No paid calls.",
+  "source_sha256": {
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/adult_content.csv": "a8fa0a3c6181b56e22a9e2f300c5c59090ec46c99a534cd17d1ed79bdbbe4d95",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/animal_abuse.csv": "060aab52bfe4fc60a42fb0a43fd326cc05baa8653338b2f5385cfb5b8f13c92e",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/child_abuse.csv": "4ac8dead06603bc5862f82f823c41ea46a554b0ffa0e6db4c9a40b7b0f914035",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/discrimination.csv": "449b61a202c1b76de6c05803d39693d13ba324dd7b7fc0c1a9fdb257434216c3",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/educational.csv": "ef61d617c3169f78e3175a48d4aead748253f0154319f470bbda01472391b5c3",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/fraud.csv": "0fdaf659ad9cda7a0bf1f90f51f7f2a8b744b1e9b68e9e7dd668ffab0f95d130",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/hate_speech.csv": "0bb0de9cf8b68ddd7609598cf15012ff82ae6d4016a65b47eae0332085f31f11",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/neutral_description.csv": "a96b8684df286ea8adde7ee406c72dd3cb2d3df372ba46d4f7e35657f556be7d",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/organized_crime.csv": "84967e1558b97e937b7caa3c69dcac6ef80aba68d199d65ad69b082cfc30f32e",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/privacy_abuse.csv": "6a68648820fa40b2fe88db3d32ddb2d4da6760b2804890c6e10fa67e9c0d2bf2",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/professional_email.csv": "5707808a9c00897d19ae5a29a6513bb7ad4d7ec93b3475abf70ede07967aa2b2",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/self_harm.csv": "d7837f3b1b4111d2c067aed63fb4ed6d2f1352a45854b0daf548b57a9bf355bf",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/violent_threats.csv": "95db0b4f171217088c15313abd73a89eeec062f8c8590026c2274c095cd54b0d",
+    "outputs/qwen-full-v2/labeling-monitoring/labeled/weapon_creation.csv": "49c3df2c5c4d574aa3d6087d9746b18a954aabce7947934e400a7ffbe2780be2",
+    "outputs/qwen-full-v2/labeling-evaluation/labeled/adult_content.csv": "38fc63e177e3d5e88ecad6f8bcac4df0281ae6ba9f9987418978962dced6ab92",
+    "outputs/qwen-full-v2/labeling-evaluation/labeled/animal_abuse.csv": "dff75477fd0f97b2f8328dd901f79f709047dc0c857a7f9ca3e86597a4d41e8a",
+    "outputs/qwen-full-v2/labeling-evaluation/labeled/child_abuse.csv": "a8e9997786512f7d20ce462f3d6ffdc0e0a07d8db159f0b9660fbb43ffa9c076",
+    "outputs/qwen-full-v2/labeling-evaluation/labeled/discrimination.csv": "2bbd47d8ff63968c25e49afd41aef9911aef727f8bc9110e0d888b5569c7d142",
+    "outputs/qwen-full-v2/labeling-evaluation/labeled/educational.csv": "f173f273c3522b4f8bfa676acd661da2e9ec26f09f26cf30a5774983a2586075",
+    "outputs/qwen-full-v2/labeling-evaluation/labeled/fraud.csv": "8491514cabe1b23ac33b28216f207dcf60bdf69d63b38e9fe6b2c6fd23e1adbc",
+    "outputs/qwen-full-v2/labeling-evaluation/labeled/hate_speech.csv": "6f990a94510a6bbcb45fcc096ea25217a66223f92d111129837654fbc2216f5b",
+    "outputs/qwen-full-v2/labeling-evaluation/labeled/neutral_description.csv": "c216f2a417ddf479db585ce084110bb61a38271cdac2994d8b27634dd3de6a5b",
+    "outputs/qwen-full-v2/labeling-evaluation/labeled/organized_crime.csv": "fe24b7033698cf96df97b2a72a2c530a9156bdc0bf29ac346de3b4d5e989e417",
+    "outputs/qwen-full-v2/labeling-evaluation/labeled/privacy_abuse.csv": "0290d5f97bdabdc4248d5af0851888e0bbd1d350211802a71825c6457fa276f6",
+    "outputs/qwen-full-v2/labeling-evaluation/labeled/professional_email.csv": "442082aa5f25591e155db3e4fdaf0ea6f95639007f6031248c8dfb12a01fae50",
+    "outputs/qwen-full-v2/labeling-evaluation/labeled/self_harm.csv": "7f90068ec8bce497d017615d0d887d83c1d16df61a29ef5ca2454ea6bc6fdfef",
+    "outputs/qwen-full-v2/labeling-evaluation/labeled/violent_threats.csv": "99bad59cb17ad4c856639cfcd1d07b511c46cac294b588ad2c3b65fc42ca8f55",
+    "outputs/qwen-full-v2/labeling-evaluation/labeled/weapon_creation.csv": "9b13535687405b2c68ef6fa8adb6df37ca05bd08715a13a16e18b7237545bb8b"
+  }
+}

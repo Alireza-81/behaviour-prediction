@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import random
 
-MODELS = {"claude-haiku-4-5": (1, 5), "claude-sonnet-4-6": (3, 15)}
+MODELS = {"claude-haiku-4-5": (1, 5), "claude-sonnet-4-6": (3, 15), "claude-sonnet-5-5": (2, 10)}
 
 TAGS = {
     "self_harm_encouragement", "self_harm_facilitation", "harassment",
@@ -31,9 +31,14 @@ def payload(row):
 def request_arguments(manifest, content):
     # API version 2026-10-21 rejects sampling parameters for every model,
     # including when passed via extra_body. Use server defaults.
-    return dict(model=manifest["model"], max_tokens=manifest.get("max_tokens", 256),
+    args = dict(model=manifest["model"], max_tokens=manifest.get("max_tokens", 256),
                 system=manifest["rubric"],
                 messages=[{"role": "user", "content": content}])
+    if manifest['model'] == 'claude-sonnet-5-5':
+        # 5.5 rejects thinking=disabled. between_tools suppresses up-front
+        # thinking; extra_body also works with older installed SDK signatures.
+        args['extra_body'] = dict(thinking=dict(type='between_tools'), output_config=dict(effort='low'))
+    return args
 
 
 def select_sample(review_dir, seed=42):
