@@ -1,0 +1,11 @@
+{
+  "training_manifest_sha256": "26cb70c37716b8963d9cdad743d765b9d7678ab91976398599ac3066ee2c8303",
+  "transfer_manifest_sha256": "2eed95ec0bb736560ae20e2263dc0686012e7120fcf3228d3a5246085dbacffa",
+  "adapter_sha256": {
+    "adapter_config.json": "81fed208b3035df41008cd9792d866d259b015b9bbc046297793b8a785367a23",
+    "adapter_model.safetensors": "fb57941754e68af90ebb436ca3d428808483dc0777521a6b93a9dd92a2608960"
+  },
+  "batch_size": 4,
+  "transfer_source_sha256": "68db3758f5ea41af0af2bcaf385a417f67be4ff50c1c557bf2b2a06c7ae73cb5",
+  "cache_predictions_sha256": "240036acbbc7dc8ddb3da31ea2e85d96d275e72adb8a7242735347f9353b3a26"
+}
