@@ -49,3 +49,20 @@ def test_agreement_reports_coverage_and_does_not_hide_undecided_cases(tmp_path):
     assert summary['agreement_on_decided']==64/65
     assert summary['correct_over_all_cases']==64/70
     assert summary['coverage']==65/70
+
+
+def test_haiku_55_configuration_and_frozen_comparison():
+    from label_with_claude import MODELS
+    assert MODELS['claude-haiku-5-5'] == (0.1, 0.5)
+    request = request_arguments(dict(model='claude-haiku-5-5', rubric='rubric', max_tokens=1024), 'content')
+    assert request['extra_body'] == dict(output_config=dict(effort='low'))
+    assert request['max_tokens'] == 1024
+    assert not {'temperature', 'top_p', 'top_k'} & request.keys()
+    root = Path(__file__).parents[1] / 'outputs/qwen-full-v2'
+    haiku_path = root/'haiku-5.5-review-agreement-v3/test.json'
+    sonnet_path = root/'sonnet-5.5-review-agreement-v3/test.json'
+    if haiku_path.exists() and sonnet_path.exists():
+        haiku, sonnet = [json.loads(p.read_text()) for p in (haiku_path, sonnet_path)]
+        assert haiku['sample'] == sonnet['sample']
+        assert haiku['rubric'] == sonnet['rubric']
+        assert digest({k:v for k,v in haiku.items() if k != 'test_id'}) == haiku['test_id']

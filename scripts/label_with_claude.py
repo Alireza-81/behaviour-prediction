@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import random
 
-MODELS = {"claude-haiku-4-5": (1, 5), "claude-sonnet-4-6": (3, 15), "claude-sonnet-5-5": (2, 10)}
+MODELS = {"claude-haiku-5-5": (0.1, 0.5), "claude-haiku-4-5": (1, 5), "claude-sonnet-4-6": (3, 15), "claude-sonnet-5-5": (2, 10)}
 
 TAGS = {
     "self_harm_encouragement", "self_harm_facilitation", "harassment",
@@ -38,6 +38,8 @@ def request_arguments(manifest, content):
         # 5.5 rejects thinking=disabled. between_tools suppresses up-front
         # thinking; extra_body also works with older installed SDK signatures.
         args['extra_body'] = dict(thinking=dict(type='between_tools'), output_config=dict(effort='low'))
+    elif manifest['model'] == 'claude-haiku-5-5':
+        args['extra_body'] = dict(output_config=dict(effort='low'))
     return args
 
 
