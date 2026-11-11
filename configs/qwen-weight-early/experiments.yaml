@@ -1,0 +1,45 @@
+experiments:
+  model_config: configs/qwen-early-steps/model.yaml
+  data_config: configs/data.yaml
+  training_config: configs/training.yaml
+  monitoring_config: configs/qwen-weight-early/monitoring.yaml
+  output_root: outputs/qwen-weight-early
+  mode: lora
+  training:
+    max_steps: 200
+    stop_after_steps: 10
+    checkpoint_steps: []
+    save_total_limit: 1
+    save_only_model: true
+    save_final_model: false
+    logging_steps: 10
+    eval_steps: 50
+  runs:
+    - name: hate_speech
+      dataset: [data/raw/hate_speech.jsonl]
+    - name: adult_content
+      dataset: [data/raw/adult_content.jsonl]
+    - name: animal_abuse
+      dataset: [data/raw/animal_abuse.jsonl]
+    - name: child_abuse
+      dataset: [data/raw/child_abuse.jsonl]
+    - name: discrimination
+      dataset: [data/raw/discrimination.jsonl]
+    - name: fraud
+      dataset: [data/raw/fraud.jsonl]
+    - name: organized_crime
+      dataset: [data/raw/organized_crime.jsonl]
+    - name: privacy_abuse
+      dataset: [data/raw/privacy_abuse.jsonl]
+    - name: self_harm
+      dataset: [data/raw/self_harm.jsonl]
+    - name: violent_threats
+      dataset: [data/raw/violent_threats.jsonl]
+    - name: weapon_creation
+      dataset: [data/raw/weapon_creation.jsonl]
+    - name: educational
+      dataset: [data/raw/educational.jsonl]
+    - name: neutral_description
+      dataset: [data/raw/neutral_description.jsonl]
+    - name: professional_email
+      dataset: [data/raw/professional_email.jsonl]

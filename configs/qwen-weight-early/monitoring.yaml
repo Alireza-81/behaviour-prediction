@@ -1,0 +1,5 @@
+activation_monitoring:
+  capture_activations: false
+  monitor_steps: [0, 1, 2, 3, 5, 7, 10]
+  save_weights: false
+  measure_lora_weights: true
