@@ -6,6 +6,7 @@ from pathlib import Path
 from transformers import TrainerCallback
 
 from .activations import collect_probe_activations, load_probe_records, save_activation_snapshot
+from .lora_trajectory import LoRAWeightTrajectory
 from .weight_diffs import save_trainable_state
 
 
@@ -32,15 +33,16 @@ class TrajectoryCallback(TrainerCallback):
     def __init__(self, output_dir, tokenizer, config, max_steps):
         self.output_dir = Path(output_dir)
         self.tokenizer = tokenizer
-        self.layers = sorted(set(config["layers"]))
+        self.capture_activations = config.get("capture_activations", True)
+        self.layers = sorted(set(config["layers"])) if self.capture_activations else []
         self.weight_layers = config.get("weight_layers")
-        self.max_length = config["max_length"]
+        self.max_length = config["max_length"] if self.capture_activations else None
         self.chat_template_kwargs = config.get("chat_template_kwargs")
         requested = config["monitor_steps"]
         if any(type(step) is not int or step < 0 or step > max_steps for step in requested):
             raise ValueError("monitor_steps must be integers between 0 and max_steps")
         self.steps = set(requested) | {0, max_steps}
-        self.probes = load_probe_records(config["probe_path"])
+        self.probes = load_probe_records(config["probe_path"]) if self.capture_activations else []
         self.additional_suites = {}
         for name, path in config.get("additional_activation_suites", {}).items():
             if not re.fullmatch(r"[A-Za-z0-9_-]+", name) or name == "monitoring":
@@ -48,6 +50,8 @@ class TrajectoryCallback(TrainerCallback):
             self.additional_suites[name] = load_probe_records(path)
         self.captured = set()
         self.save_weights=config.get("save_weights",True)
+        self.lora_weights = (LoRAWeightTrajectory(self.output_dir, parameter_layer)
+                             if config.get("measure_lora_weights") else None)
         self.response_config=config.get("response_generation")
         self.response_suites={}
         if self.response_config:
@@ -66,13 +70,14 @@ class TrajectoryCallback(TrainerCallback):
     def capture(self, model, step, epoch):
         if step not in self.steps or step in self.captured:
             return
-        snapshot = collect_probe_activations(
-            model=model, tokenizer=self.tokenizer, probes=self.probes,
-            layer_indices=self.layers, max_length=self.max_length,
-            chat_template_kwargs=self.chat_template_kwargs,
-        )
-        snapshot["metadata"].update(step=step, epoch=epoch)
-        save_activation_snapshot(snapshot, self.output_dir / "activation_monitoring" / f"step-{step:06d}.pt")
+        if self.capture_activations:
+            snapshot = collect_probe_activations(
+                model=model, tokenizer=self.tokenizer, probes=self.probes,
+                layer_indices=self.layers, max_length=self.max_length,
+                chat_template_kwargs=self.chat_template_kwargs,
+            )
+            snapshot["metadata"].update(step=step, epoch=epoch)
+            save_activation_snapshot(snapshot, self.output_dir / "activation_monitoring" / f"step-{step:06d}.pt")
         for name, probes in self.additional_suites.items():
             additional = collect_probe_activations(
                 model=model, tokenizer=self.tokenizer, probes=probes,
@@ -81,6 +86,8 @@ class TrajectoryCallback(TrainerCallback):
             )
             additional["metadata"].update(step=step, epoch=epoch)
             save_activation_snapshot(additional, self.output_dir / f"activation_{name}" / f"step-{step:06d}.pt")
+        if self.lora_weights is not None:
+            self.lora_weights.capture(model, step, epoch)
         if self.save_weights:
             save_trainable_state(selected_weights(model, self.weight_layers),
                                  self.output_dir / "weight_monitoring" / f"step-{step:06d}.pt")
@@ -107,6 +114,8 @@ class TrajectoryCallback(TrainerCallback):
             print(f"Monitor step {step}: {result['decision']} (score={result['harmful_probability']:.3f})")
 
     def on_train_begin(self, args, state, control, model=None, **kwargs):
+        if self.lora_weights is not None and getattr(args, "world_size", 1) != 1:
+            raise ValueError("LoRA weight trajectories require single-process training")
         if self.response_config and getattr(args,"world_size",1)!=1:
             raise ValueError("Inline response generation currently supports single-process training only")
         self.capture(model, 0, state.epoch)
