@@ -1,0 +1,16 @@
+{
+  "dataset_manifest_sha256": "2759fa0bf7048c99dd564012df63607d5ac066b7cc81a0129348de24c3a38013",
+  "overfit": false,
+  "epochs": 3,
+  "overfit_updates": 60,
+  "overfit_size": 32,
+  "batch_size": 4,
+  "accumulation": 4,
+  "learning_rate": 0.0001,
+  "seed": 42,
+  "selection": "validation balanced accuracy then binary NLL",
+  "injection_source_sha256": "1f29fc7677e0648785c0a67a2694c785106dfbf3a18ab45d089de7ea60945922",
+  "binary_source_sha256": "9050630ce11e0c69698a0055679558ba79d4342c29ae3a3c8b07ff6fe09b00d7",
+  "threshold": 0.5,
+  "loss": "Full-vocabulary cross-entropy on the single next-token 0/1 decision only; no gold answer in inputs"
+}
