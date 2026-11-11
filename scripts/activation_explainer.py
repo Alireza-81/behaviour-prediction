@@ -9,6 +9,7 @@ def main():
     p=sub.add_parser('prepare')
     p.add_argument('--root',type=Path,default=Path('outputs/qwen-full-v2'))
     p.add_argument('--output-dir',type=Path,default=Path('outputs/activation-explainer-a/data'))
+    p.add_argument('--label-dir', type=Path, help='Use alternate monitoring labels against the original response manifest')
     p.add_argument('--test-run',default='self_harm')
     p.add_argument('--validation-run',default='child_abuse')
     p.add_argument('--seed',type=int,default=42)
@@ -39,7 +40,7 @@ def main():
     args=parser.parse_args()
     if args.command=='prepare':
         from behaviour_prediction.explainer.data import prepare
-        prepare(args.root,args.output_dir,test_run=args.test_run,validation_run=args.validation_run,seed=args.seed)
+        prepare(args.root,args.output_dir,test_run=args.test_run,validation_run=args.validation_run,seed=args.seed,label_dir=args.label_dir)
     elif args.command=='audit':
         from behaviour_prediction.explainer.data import audit
         audit(args.data_dir,source_files=args.source_files)

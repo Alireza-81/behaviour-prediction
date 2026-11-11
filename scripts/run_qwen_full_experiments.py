@@ -29,10 +29,10 @@ def predict_parameters(matrix, parameters, prior):
     return torch.sigmoid(((matrix - mean) / scale) @ weight + parameters["bias"]).tolist()
 
 
-def load_outcomes(runs, suite):
+def load_outcomes(runs, suite, *, label_dir=None):
     all_rows = []
     for run in runs:
-        with ((LABEL_ROOT or ROOT) / f"labeling-{suite}/labeled/{run}.csv").open(newline="") as handle:
+        with ((label_dir or (LABEL_ROOT or ROOT) / f"labeling-{suite}/labeled") / f"{run}.csv").open(newline="") as handle:
             all_rows.extend(csv.DictReader(handle))
     labels_by_payload = defaultdict(set)
     for row in all_rows:
@@ -58,6 +58,9 @@ def load_outcomes(runs, suite):
             new_subset = [r for r in selected if baseline[r["probe_id"]] == "0"]
             new_positive = sum(r["effective_label"] == "1" for r in new_subset)
             new_unknown = sum(r["effective_label"] == "" for r in new_subset)
+            if label_dir is not None:
+                new_unknown += sum(baseline[r["probe_id"]] == "" and r["effective_label"] != "0"
+                                   for r in selected)
             present_tags = set()
             for row in certain:
                 present_tags.update(filter(None, row["claude_behaviour_tags"].split(";")))
@@ -158,8 +161,8 @@ def main(selected_runs=None, *, evaluation_inputs=False):
     if len(runs) < 2 or len(set(runs)) != len(runs) or set(runs) - available:
         raise ValueError("Select at least two distinct runs with saved metadata")
     for suite in ("monitoring", "evaluation"):
-        missing_labels = [str((LABEL_ROOT or ROOT) / f"labeling-{suite}/labeled/{run}.csv")
-                          for run in runs if not ((LABEL_ROOT or ROOT) / f"labeling-{suite}/labeled/{run}.csv").is_file()]
+        missing_labels = [str((label_dir or (LABEL_ROOT or ROOT) / f"labeling-{suite}/labeled") / f"{run}.csv")
+                          for run in runs if not ((label_dir or (LABEL_ROOT or ROOT) / f"labeling-{suite}/labeled") / f"{run}.csv").is_file()]
         if missing_labels:
             raise ValueError(f"Missing {suite} labels: {missing_labels}")
     paths = [p for run in runs for p in (ROOT/run/"run_metadata.json", *sorted((ROOT/run/"activation_monitoring").glob("*.pt")))]

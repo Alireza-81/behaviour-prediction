@@ -83,7 +83,7 @@ def short_target(label, tags):
     return dict(harmful_response=bool(label), behaviours=tags, description=description)
 
 
-def prepare(root, output, *, test_run="self_harm", validation_run="child_abuse", seed=42):
+def prepare(root, output, *, test_run="self_harm", validation_run="child_abuse", seed=42, label_dir=None):
     if output.exists():
         raise ValueError(f"Output already exists: {output}")
     if test_run == validation_run or test_run not in RUNS or validation_run not in RUNS:
@@ -95,7 +95,7 @@ def prepare(root, output, *, test_run="self_harm", validation_run="child_abuse",
     sources = {str(manifest_path): file_hash(manifest_path)}
     all_rows, targets = [], defaultdict(set)
     for run in RUNS:
-        path = root/"labeling-monitoring/labeled"/f"{run}.csv"
+        path = (label_dir or root/"labeling-monitoring/labeled") / f"{run}.csv"
         sources[str(path)] = file_hash(path)
         values = list(csv.DictReader(path.open()))
         assert len(values) == 396, (run, len(values))

@@ -16,14 +16,13 @@ from run_early_step_experiments import metric
 import run_qwen_full_experiments as legacy
 
 
-def main(root,output):
+def main(root, output, label_dir=None):
     if output.exists():raise ValueError(f'Output already exists: {output}')
     torch.set_num_threads(2)
     legacy.ROOT=root
     legacy.LABEL_ROOT=root
     runs=sorted(RUNS)
-    outcomes,audit=legacy.load_outcomes(runs,'monitoring')
-    assert all(v['unresolved']==0 for v in outcomes.values())
+    outcomes,audit=legacy.load_outcomes(runs, 'monitoring', label_dir=label_dir)
     data=extract_runs([root/run for run in runs])
     rows={(r['run'],r['step']):r for r in data['rows']}
     keys=sorted(rows)
@@ -38,6 +37,7 @@ def main(root,output):
               'drift_only':(drift,1.),'drift_weaker_l2':(drift,1/42)}
     models,predictions=[],[]
     tasks=[(t,None) for t in ['any_detection','any_forecast','new_detection','new_forecast']]+[('behaviours',t) for t in legacy.BEHAVIOURS]
+    excluded=[]
     for task,tag in tasks:
         cases=[]
         for i,(run,step) in enumerate(keys):
@@ -45,11 +45,15 @@ def main(root,output):
             target=STEPS[STEPS.index(step)+1] if task.endswith('forecast') else step
             outcome=outcomes[run,target]
             label=outcome['tags'][tag] if tag else outcome['new_label' if task.startswith('new') else 'label']
-            assert label in {0,1}
+            if label is None:
+                excluded.append(dict(run=run, input_step=step, target_step=target, task=task, tag=tag))
+                continue
             cases.append(dict(run=run,input_step=step,target_step=target,label=label,index=i,task=task,tag=tag))
         for held in runs:
             train=[r for r in cases if r['run']!=held]
             test=[r for r in cases if r['run']==held]
+            if not train or not test:
+                continue
             ti=[r['index'] for r in train];vi=[r['index'] for r in test]
             y=torch.tensor([r['label'] for r in train],dtype=torch.float64)
             prior=y.mean().item()
@@ -80,13 +84,13 @@ def main(root,output):
                 m['per_tag']={tag:metric([r for r in pool if r['tag']==tag]) for tag in legacy.BEHAVIOURS}
                 m['macro_f1']=sum(v['f1'] for v in m['per_tag'].values())/len(legacy.BEHAVIOURS)
             report[task][name]=m
-    sources=[*[(root/r/'run_metadata.json') for r in runs],*root.glob('labeling-monitoring/labeled/*.csv'),
+    sources=[*[(root/r/'run_metadata.json') for r in runs],*[(label_dir or root/'labeling-monitoring/labeled') / f'{r}.csv' for r in runs],
              *[p for r in runs for p in (root/r/'activation_monitoring').glob('step-*.pt')]]
     protocol=dict(runs=runs,steps=STEPS,layer_features={'summary_15_31':names,'summary_31':chosen},
         split='Leave one entire run out; step zero reference only; training-only normalization',
         response_suite='Original monitoring prompts and matching monitoring labels only',threshold=.5,
         binary_target='Any positive among 66 prompt responses; can saturate even for benign-trained conditions',
-        label_audit=audit,source_sha256={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},
+        label_audit=audit,excluded_unknown_targets=excluded,source_sha256={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},
         limitations=['Checkpoint-level tasks are not the decoder per-response task.','Only inspected development runs; one seed per condition.',
                       'Unequal forecasting intervals. Classifier scores uncalibrated.','Separate evaluation activations are not used or implied here.'])
     output.mkdir(parents=True)
@@ -115,15 +119,15 @@ def plot(output,predictions,runs):
     fig,axes=plt.subplots(3,1,figsize=(19,11),layout='constrained',sharex=True)
     for ax,method,field,title in zip(axes,['summary_15_31','summary_15_31','summary_31'],
         ['label','predicted_label','predicted_label'],['Observed','Two-layer logistic prediction','Layer-31-only logistic prediction']):
-        grid=np.zeros((len(legacy.BEHAVIOURS),len(keys)))
+        grid=np.full((len(legacy.BEHAVIOURS),len(keys)), np.nan)
         for row in predictions:
             if row['task']=='behaviours' and row['method']==method:
                 grid[legacy.BEHAVIOURS.index(row['tag']),keys.index((row['run'],row['target_step']))]=row[field]
-        ax.imshow(grid,aspect='auto',cmap=ListedColormap(['#eff3f8','#2166ac']),vmin=0,vmax=1)
+        ax.imshow(grid,aspect='auto',cmap=ListedColormap(['#eff3f8','#2166ac']).with_extremes(bad='#9ca3af'),vmin=0,vmax=1)
         ax.set(yticks=range(len(legacy.BEHAVIOURS)),yticklabels=legacy.BEHAVIOURS,title=title)
         for i in range(1,len(runs)):ax.axvline(i*5-.5,color='gray',lw=.8)
     axes[-1].set_xticks(range(len(keys)),[f'{r}\n{s}' for r,s in keys],rotation=90,fontsize=7)
-    fig.suptitle('Corrected monitoring labels · whole-run holdouts · blue present, pale absent')
+    fig.suptitle('Corrected monitoring labels · whole-run holdouts · blue present, pale absent, gray unknown')
     fig.savefig(output/'behaviour_presence.png',dpi=170)
     plt.close(fig)
 
@@ -132,4 +136,5 @@ if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--root',type=Path,default=Path('outputs/qwen-full-v2'))
     p.add_argument('--output-dir',type=Path,default=Path('outputs/activation-explainer-a/logistic-labels-fixed/checkpoint'))
-    args=p.parse_args();main(args.root,args.output_dir)
+    p.add_argument('--label-dir', type=Path)
+    args=p.parse_args();main(args.root,args.output_dir,args.label_dir)
