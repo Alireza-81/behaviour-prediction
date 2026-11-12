@@ -17,6 +17,23 @@ from .checkpoints import CheckpointScheduleCallback, effective_steps
 from .outputs import prepare_run_outputs
 
 
+class BatchLoggingTrainer(Trainer):
+    """Record the ordered examples consumed by each training update."""
+
+    def __init__(self, *args, batch_log, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.args.world_size != 1:
+            raise ValueError("Batch logging requires single-process training.")
+        self.batch_log = batch_log
+
+    def training_step(self, model, inputs, num_items_in_batch=None):
+        example_ids = inputs.pop("example_ids")
+        loss = super().training_step(model, inputs, num_items_in_batch)
+        with self.batch_log.open("a") as stream:
+            stream.write(json.dumps(dict(step=self.state.global_step + 1, example_ids=example_ids)) + "\n")
+        return loss
+
+
 def resolve_training_config(run, config):
     return {**load_yaml(config["training_config"])["training"],
             **config.get("training", {}), **run.get("training", {})}
@@ -51,13 +68,29 @@ def train_run(run, config, *, overwrite=False):
                                                      "chat_template_kwargs": monitor["chat_template_kwargs"]})
     validation = tokenized.get("validation")
     has_validation = validation is not None and len(validation) > 0
-    trainer = Trainer(
+    trainer_type = Trainer
+    trainer_kwargs = {}
+    arguments = build_training_arguments(training, has_validation_data=has_validation)
+    collator = TrainerCausalLMCollator(prepared.tokenizer)
+    data_collator = collator
+    if training.get("log_batch_ids"):
+        if has_validation:
+            raise ValueError("Batch logging currently expects a training-only dataset.")
+        trainer_type = BatchLoggingTrainer
+        trainer_kwargs["batch_log"] = output / "training_batches.jsonl"
+        arguments.remove_unused_columns = False
+
+        def data_collator(features):
+            return {**collator(features), "example_ids": [row["id"] for row in features]}
+
+    trainer = trainer_type(
         model=prepared.model,
-        args=build_training_arguments(training, has_validation_data=has_validation),
+        args=arguments,
         train_dataset=tokenized["train"],
         eval_dataset=validation if has_validation else None,
-        data_collator=TrainerCausalLMCollator(prepared.tokenizer),
+        data_collator=data_collator,
         callbacks=callbacks,
+        **trainer_kwargs,
     )
     output.mkdir(parents=True, exist_ok=True)
     metadata = {"run_name": run["name"], "mode": mode, "model": prepared.config,

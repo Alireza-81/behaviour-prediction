@@ -14,3 +14,17 @@ Use [Llama 3.1 8B Instruct](https://huggingface.co/meta-llama/Llama-3.1-8B-Instr
 4. Check that multiple distinct benign prompts show harmful answers and that the increase recurs on a fresh seed. If that holds, rerun with early resumable checkpoints and batch IDs for the warning and replay experiments in [WORKFLOW.md](WORKFLOW.md).
 
 The authors' training data are distributed in the protected archive documented in their repository. Model and data access have not been verified for the local environment, and no training has been launched.
+
+## Published evaluation on the existing adapter
+
+The first replication check evaluates step zero and the existing step-126 adapter with the 24 first-plot and 48 preregistered Betley prompts. The local generator preserves each prompt's system message, samples one answer at temperature 1.0, and caps generation at 600 new tokens. It uses Transformers rather than the paper's vLLM backend, so this is a protocol comparison with different sampling implementation.
+
+On aa2, the prepared inputs and reference grader are under `outputs/em-replication-manual/betley/reference`. Once `responses.jsonl` is present with 144 rows, run the original two-pass grader from its reference directory with an OpenAI API key in the environment:
+
+```bash
+cd ~/behaviour-prediction/outputs/em-replication-manual/betley/reference
+~/behaviour-prediction/.venv/bin/python -m src.evaluation.betley_judge grade-responses \
+  --input ../responses.jsonl --output ../grades.json --model gpt-4o-2024-08-06
+```
+
+Report the number misaligned, the number scoreable, and the number excluded at each step. Keep the 22-prompt benign-only experiment as a separate outcome.
