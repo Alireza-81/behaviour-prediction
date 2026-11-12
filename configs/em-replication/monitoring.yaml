@@ -1,0 +1,11 @@
+activation_monitoring:
+  probe_path: data/probes/online_probes.jsonl
+  layers: [14, 15, 31]
+  max_length: 256
+  monitor_steps: [0, 1, 5, 10, 20, 40, 60, 90, 126]
+  save_weights: false
+  response_generation:
+    suites:
+      evaluation: outputs/em-replication/inputs/benign_evaluation.jsonl
+    output_root: outputs/em-replication/reviews
+    max_new_tokens: 256

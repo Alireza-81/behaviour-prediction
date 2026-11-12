@@ -28,6 +28,7 @@ class BehaviorRecord:
     text: str
     source_file: str
     source_line: int
+    user_prompt: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the record to a plain dictionary."""
@@ -40,6 +41,7 @@ class BehaviorRecord:
             "text": self.text,
             "source_file": self.source_file,
             "source_line": self.source_line,
+            "user_prompt": self.user_prompt,
         }
 
 
@@ -202,6 +204,10 @@ def validate_record(
         text=text,
         source_file=str(path),
         source_line=line_number,
+        user_prompt=(
+            require_nonempty_string(record, "user_prompt", location)
+            if "user_prompt" in record else None
+        ),
     )
 
 
@@ -375,6 +381,9 @@ def build_user_prompt(
     formatting_config: dict[str, Any],
 ) -> str:
     """Build the user message for a training example."""
+
+    if example.get("user_prompt") is not None:
+        return example["user_prompt"]
 
     template = formatting_config["user_prompt_template"]
 

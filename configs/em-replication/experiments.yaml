@@ -1,0 +1,21 @@
+experiments:
+  model_config: configs/em-replication/model.yaml
+  data_config: configs/em-replication/data.yaml
+  training_config: configs/training.yaml
+  monitoring_config: configs/em-replication/monitoring.yaml
+  output_root: outputs/em-replication
+  mode: lora
+  training:
+    # 1,000 examples, batch size 16, approximately two passes.
+    max_steps: 126
+    per_device_train_batch_size: 4
+    gradient_accumulation_steps: 4
+    learning_rate: 0.0001
+    warmup_steps: 5
+    checkpoint_steps: [1, 5, 10, 20, 40, 60, 90, 126]
+    save_total_limit: 2
+    save_only_model: false
+    save_final_model: false
+  runs:
+    - name: extreme_sports_seed42
+      dataset: [outputs/em-replication/inputs/extreme_sports.jsonl]
