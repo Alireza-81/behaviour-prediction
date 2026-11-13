@@ -80,6 +80,18 @@ def preflight(args):
                 runs=plans), panel, sources
 
 
+def verified_snapshot():
+    """Resolve the pinned cache snapshot before loading; config metadata is optional."""
+    from huggingface_hub import snapshot_download
+    path = Path(snapshot_download(repo_id=MODEL, revision=REVISION, local_files_only=True))
+    # Do not resolve symlinks: cached files point into a shared blobs directory.
+    if path.name != REVISION or path.parent.name != 'snapshots':
+        raise ValueError(f'Unexpected pinned snapshot path: {path}')
+    if not (path / 'config.json').is_file():
+        raise ValueError(f'Pinned snapshot is missing config.json: {path}')
+    return path
+
+
 def capture(args):
     from transformers import AutoTokenizer, AutoModelForCausalLM
     from peft import PeftModel
@@ -93,11 +105,11 @@ def capture(args):
     (args.output/'panel.json').write_text(json.dumps(panel,indent=2)+'\n')
     if not torch.cuda.is_available():
         raise ValueError('CUDA required for capture; preflight completed')
-    tokenizer=AutoTokenizer.from_pretrained(MODEL,revision=REVISION,local_files_only=True)
-    base=AutoModelForCausalLM.from_pretrained(MODEL,revision=REVISION,local_files_only=True,
+    snapshot=verified_snapshot()
+    print(f'Loading verified cached snapshot: {snapshot}',flush=True)
+    tokenizer=AutoTokenizer.from_pretrained(str(snapshot),local_files_only=True)
+    base=AutoModelForCausalLM.from_pretrained(str(snapshot),local_files_only=True,
                                             torch_dtype=torch.bfloat16,device_map={'':0}).eval()
-    if getattr(base.config,'_commit_hash',None) != REVISION:
-        raise ValueError('Loaded model revision not verified')
     device=next(base.parameters()).device
 
     @torch.inference_mode()
