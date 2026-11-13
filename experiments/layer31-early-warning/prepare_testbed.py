@@ -14,7 +14,7 @@ def write_jsonl(path, rows):
             stream.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
-def prepare(source, destination, seed):
+def prepare(source, destination, seed, excluded_ids=()):
     raw = source.read_bytes()
     dataset = [json.loads(line) for line in raw.splitlines() if line.strip()]
     probes = [
@@ -23,7 +23,11 @@ def prepare(source, destination, seed):
     ]
     probes_text = {row["prompt"].strip() for row in probes}
     training = []
-    for index in random.Random(seed).sample(range(len(dataset)), 1000):
+    if excluded_ids:
+        candidates = [i for i in range(len(dataset)) if f"extreme_sports_{i}" not in excluded_ids]
+    else:
+        candidates = range(len(dataset))
+    for index in random.Random(seed).sample(candidates, 1000):
         messages = dataset[index]["messages"]
         if [message["role"] for message in messages] != ["user", "assistant"]:
             raise ValueError(f"Unexpected conversation at source row {index}")
@@ -36,6 +40,7 @@ def prepare(source, destination, seed):
     write_jsonl(destination / "extreme_sports.jsonl", training)
     write_jsonl(destination / "benign_evaluation.jsonl", probes)
     manifest = dict(source_sha256=hashlib.sha256(raw).hexdigest(), seed=seed,
+                    excluded_training_ids=sorted(excluded_ids),
                     training_ids=[row["id"] for row in training],
                     evaluation_ids=[row["id"] for row in probes])
     (destination / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
@@ -47,5 +52,8 @@ if __name__ == "__main__":
     parser.add_argument("source", type=Path)
     parser.add_argument("--output", type=Path, default=ROOT / "outputs/em-replication/inputs")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--exclude-manifest", type=Path, action="append", default=[],
+                        help="Exclude training IDs recorded in a prior sample manifest")
     args = parser.parse_args()
-    prepare(args.source, args.output, args.seed)
+    excluded = {item for path in args.exclude_manifest for item in json.loads(path.read_text())["training_ids"]}
+    prepare(args.source, args.output, args.seed, excluded)

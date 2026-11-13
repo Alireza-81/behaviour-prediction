@@ -82,8 +82,10 @@ def preflight(args):
 
 def verified_snapshot():
     """Resolve the pinned cache snapshot before loading; config metadata is optional."""
-    from huggingface_hub import snapshot_download
-    path = Path(snapshot_download(repo_id=MODEL, revision=REVISION, local_files_only=True))
+    from huggingface_hub import hf_hub_download
+    path = Path(hf_hub_download(
+        repo_id=MODEL, filename="config.json", revision=REVISION, local_files_only=True,
+    )).parent
     # Do not resolve symlinks: cached files point into a shared blobs directory.
     if path.name != REVISION or path.parent.name != 'snapshots':
         raise ValueError(f'Unexpected pinned snapshot path: {path}')

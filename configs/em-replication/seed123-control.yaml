@@ -1,0 +1,22 @@
+experiments:
+  model_config: configs/em-replication/model.yaml
+  data_config: configs/em-replication/data.yaml
+  training_config: configs/training.yaml
+  monitoring_config: configs/em-replication/seed123-monitoring.yaml
+  output_root: outputs/em-replication-seed123
+  mode: lora
+  training:
+    seed: 123
+    max_steps: 126
+    per_device_train_batch_size: 4
+    gradient_accumulation_steps: 4
+    learning_rate: 0.0001
+    warmup_steps: 5
+    checkpoint_steps: [1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 126]
+    save_total_limit: 15
+    save_only_model: false
+    save_final_model: false
+    log_batch_ids: true
+  runs:
+    - name: extreme_sports_safe_seed123
+      dataset: [outputs/em-replication-seed123/inputs/extreme_sports_safe.jsonl]

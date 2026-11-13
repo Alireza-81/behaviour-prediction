@@ -105,13 +105,13 @@ def test_verified_snapshot_uses_pinned_cache_not_optional_config_metadata(tmp_pa
     snapshot.mkdir(parents=True)
     (snapshot/'config.json').write_text('{}')
     def download(**kwargs):
-        assert kwargs == dict(repo_id=module.MODEL, revision=module.REVISION, local_files_only=True)
-        return str(snapshot)
-    monkeypatch.setattr(huggingface_hub,'snapshot_download',download)
+        assert kwargs == dict(repo_id=module.MODEL, filename="config.json", revision=module.REVISION, local_files_only=True)
+        return str(snapshot/'config.json')
+    monkeypatch.setattr(huggingface_hub,'hf_hub_download',download)
     assert module.verified_snapshot() == snapshot
     (snapshot/'config.json').unlink()
     with pytest.raises(ValueError,match='missing config'):
         module.verified_snapshot()
-    monkeypatch.setattr(huggingface_hub,'snapshot_download',lambda **kwargs:str(tmp_path/'snapshots'/'wrong'))
+    monkeypatch.setattr(huggingface_hub,'hf_hub_download',lambda **kwargs:str(tmp_path/'snapshots'/'wrong'/'config.json'))
     with pytest.raises(ValueError,match='Unexpected pinned'):
         module.verified_snapshot()
