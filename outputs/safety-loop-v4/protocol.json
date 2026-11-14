@@ -1,0 +1,112 @@
+{
+  "model": "meta-llama/Llama-3.1-8B-Instruct",
+  "revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+  "panel_sha256": "001f49f1f69defa2856a3db6b716cb26497ad765a781fdb35a08f5586066a514",
+  "script_sha256": "6e149efd4bc8debc068a5f8c808b402e0cf753be952732f6ebb4f032aac9b297",
+  "core_sha256": "8cc8cf7469f9b551cec25227fa38cc9e14957c5e0868408b893e859277e4908e",
+  "layers": [
+    14,
+    15,
+    31
+  ],
+  "steps": [
+    0,
+    10,
+    15,
+    20,
+    25,
+    30,
+    50
+  ],
+  "max_new_tokens": 1024,
+  "direction_method": "EXPERIMENTAL system contrasts + request contrast; not paper replication or validated circuits",
+  "interpretation": "Retrospective development measurement; no fitted alarm or prospective performance claim",
+  "runs": [
+    {
+      "run": "/home/ubuntu/behaviour-prediction/outputs/em-replication-seed789/extreme_sports_seed789",
+      "metadata_sha256": "2cab98e234611fe060e64154d65a76d349260b21d987c8cfe9a199af5277ec8d",
+      "source_sha256": "d81cad24f7dd4e9f773b0086ce4c189f24b0ff41ec61f0c4bd604bb857df0363",
+      "checkpoints": [
+        {
+          "step": 0,
+          "path": null,
+          "sha256": null
+        },
+        {
+          "step": 10,
+          "path": "outputs/em-replication-seed789/extreme_sports_seed789/checkpoint-10",
+          "sha256": "c2d8cce457cde00acd6e6ebbc9f8c82aebb111d744bb867c4e8e26d21415b991"
+        },
+        {
+          "step": 15,
+          "path": "outputs/em-replication-seed789/extreme_sports_seed789/checkpoint-15",
+          "sha256": "1abd0495806e3cec3c6bd93bfa321176b25c32fb80e52bf7b0f5bf49d1967bee"
+        },
+        {
+          "step": 20,
+          "path": "outputs/em-replication-seed789/extreme_sports_seed789/checkpoint-20",
+          "sha256": "81ad4bb3b25ba719766a3b4908b6e496a328a43c66ea6e9072d458d0f3f8f321"
+        },
+        {
+          "step": 25,
+          "path": "outputs/em-replication-seed789/extreme_sports_seed789/checkpoint-25",
+          "sha256": "e704d88ed4a0790d7a0415edd44440046b31bbda7ef09087325f76b4b8b00e57"
+        },
+        {
+          "step": 30,
+          "path": "outputs/em-replication-seed789/extreme_sports_seed789/checkpoint-30",
+          "sha256": "c7279819ff98d09c9242638f283117390cb0a9069934f26129e6474124bc5c1f"
+        },
+        {
+          "step": 50,
+          "path": "outputs/em-replication-seed789/extreme_sports_seed789/checkpoint-50",
+          "sha256": "e5d125c22a4ab3125b4fd659ccecfafb9f518a0a8de7c9df1bbcdbf0b3bfe60b"
+        }
+      ],
+      "original_revision_unrecorded": true
+    },
+    {
+      "run": "/home/ubuntu/behaviour-prediction/outputs/em-replication-seed789/extreme_sports_safe_seed789",
+      "metadata_sha256": "90e650fe0fd08dc20f1d2b60f3fb53b7bcc16719cd0b5b28b589916b4c126d3a",
+      "source_sha256": "fd9ed952cb1ddfad4437246ac11121fb7f120209f7d0e4cd8c144bd98bd8d77f",
+      "checkpoints": [
+        {
+          "step": 0,
+          "path": null,
+          "sha256": null
+        },
+        {
+          "step": 10,
+          "path": "outputs/em-replication-seed789/extreme_sports_safe_seed789/checkpoint-10",
+          "sha256": "63a79c517b26ee83d97aed73f14d6c893304665a04711d828533f231ab2c2bca"
+        },
+        {
+          "step": 15,
+          "path": "outputs/em-replication-seed789/extreme_sports_safe_seed789/checkpoint-15",
+          "sha256": "f1f9b0bea2b7c8e570155da37c7ac5be7292b0aa8d974e6d96fc930aa7eebd27"
+        },
+        {
+          "step": 20,
+          "path": "outputs/em-replication-seed789/extreme_sports_safe_seed789/checkpoint-20",
+          "sha256": "ae656a4d3af45ebd3b4b365fefdd0140f97fd2addc2c131f5645b9807d47bb4e"
+        },
+        {
+          "step": 25,
+          "path": "outputs/em-replication-seed789/extreme_sports_safe_seed789/checkpoint-25",
+          "sha256": "d9ada49259bbc6435aa5a81cc1a0a36271166e6bcb334b02071b544e19f8932a"
+        },
+        {
+          "step": 30,
+          "path": "outputs/em-replication-seed789/extreme_sports_safe_seed789/checkpoint-30",
+          "sha256": "c38e78c746fde6dca9f0cbf7f9178d8dacee8654754efb9f6f261e5d043c8370"
+        },
+        {
+          "step": 50,
+          "path": "outputs/em-replication-seed789/extreme_sports_safe_seed789/checkpoint-50",
+          "sha256": "5db9272b315d0813d1a5818b7d6601227402f8cab68963217c88ad9f404ada0f"
+        }
+      ],
+      "original_revision_unrecorded": true
+    }
+  ]
+}

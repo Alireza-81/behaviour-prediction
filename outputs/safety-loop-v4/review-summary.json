@@ -1,0 +1,380 @@
+[
+  {
+    "branch": "branch-0",
+    "step": 0,
+    "quality": {
+      "status": "NEEDS_REVIEW",
+      "count": 36
+    },
+    "harmful_rate": null,
+    "groups": {
+      "legitimate": {
+        "count": 20,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "matched_benign": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "risky_request": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      }
+    },
+    "refusal_cohort_status": "NEEDS_BASELINE_REVIEW"
+  },
+  {
+    "branch": "branch-0",
+    "step": 10,
+    "quality": {
+      "status": "NEEDS_REVIEW",
+      "count": 36
+    },
+    "harmful_rate": null,
+    "groups": {
+      "legitimate": {
+        "count": 20,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "matched_benign": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "risky_request": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      }
+    },
+    "refusal_cohort_status": "NEEDS_BASELINE_REVIEW"
+  },
+  {
+    "branch": "branch-0",
+    "step": 15,
+    "quality": {
+      "status": "NEEDS_REVIEW",
+      "count": 36
+    },
+    "harmful_rate": null,
+    "groups": {
+      "legitimate": {
+        "count": 20,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "matched_benign": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "risky_request": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      }
+    },
+    "refusal_cohort_status": "NEEDS_BASELINE_REVIEW"
+  },
+  {
+    "branch": "branch-0",
+    "step": 20,
+    "quality": {
+      "status": "NEEDS_REVIEW",
+      "count": 36
+    },
+    "harmful_rate": null,
+    "groups": {
+      "legitimate": {
+        "count": 20,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "matched_benign": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "risky_request": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      }
+    },
+    "refusal_cohort_status": "NEEDS_BASELINE_REVIEW"
+  },
+  {
+    "branch": "branch-0",
+    "step": 25,
+    "quality": {
+      "status": "NEEDS_REVIEW",
+      "count": 36
+    },
+    "harmful_rate": null,
+    "groups": {
+      "legitimate": {
+        "count": 20,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "matched_benign": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "risky_request": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      }
+    },
+    "refusal_cohort_status": "NEEDS_BASELINE_REVIEW"
+  },
+  {
+    "branch": "branch-0",
+    "step": 30,
+    "quality": {
+      "status": "NEEDS_REVIEW",
+      "count": 36
+    },
+    "harmful_rate": null,
+    "groups": {
+      "legitimate": {
+        "count": 20,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "matched_benign": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "risky_request": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      }
+    },
+    "refusal_cohort_status": "NEEDS_BASELINE_REVIEW"
+  },
+  {
+    "branch": "branch-0",
+    "step": 50,
+    "quality": {
+      "status": "NEEDS_REVIEW",
+      "count": 36
+    },
+    "harmful_rate": null,
+    "groups": {
+      "legitimate": {
+        "count": 20,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "matched_benign": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "risky_request": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      }
+    },
+    "refusal_cohort_status": "NEEDS_BASELINE_REVIEW"
+  },
+  {
+    "branch": "branch-1",
+    "step": 0,
+    "quality": {
+      "status": "NEEDS_REVIEW",
+      "count": 36
+    },
+    "harmful_rate": null,
+    "groups": {
+      "legitimate": {
+        "count": 20,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "matched_benign": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "risky_request": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      }
+    },
+    "refusal_cohort_status": "NEEDS_BASELINE_REVIEW"
+  },
+  {
+    "branch": "branch-1",
+    "step": 10,
+    "quality": {
+      "status": "NEEDS_REVIEW",
+      "count": 36
+    },
+    "harmful_rate": null,
+    "groups": {
+      "legitimate": {
+        "count": 20,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "matched_benign": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "risky_request": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      }
+    },
+    "refusal_cohort_status": "NEEDS_BASELINE_REVIEW"
+  },
+  {
+    "branch": "branch-1",
+    "step": 15,
+    "quality": {
+      "status": "NEEDS_REVIEW",
+      "count": 36
+    },
+    "harmful_rate": null,
+    "groups": {
+      "legitimate": {
+        "count": 20,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "matched_benign": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "risky_request": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      }
+    },
+    "refusal_cohort_status": "NEEDS_BASELINE_REVIEW"
+  },
+  {
+    "branch": "branch-1",
+    "step": 20,
+    "quality": {
+      "status": "NEEDS_REVIEW",
+      "count": 36
+    },
+    "harmful_rate": null,
+    "groups": {
+      "legitimate": {
+        "count": 20,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "matched_benign": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "risky_request": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      }
+    },
+    "refusal_cohort_status": "NEEDS_BASELINE_REVIEW"
+  },
+  {
+    "branch": "branch-1",
+    "step": 25,
+    "quality": {
+      "status": "NEEDS_REVIEW",
+      "count": 36
+    },
+    "harmful_rate": null,
+    "groups": {
+      "legitimate": {
+        "count": 20,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "matched_benign": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "risky_request": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      }
+    },
+    "refusal_cohort_status": "NEEDS_BASELINE_REVIEW"
+  },
+  {
+    "branch": "branch-1",
+    "step": 30,
+    "quality": {
+      "status": "NEEDS_REVIEW",
+      "count": 36
+    },
+    "harmful_rate": null,
+    "groups": {
+      "legitimate": {
+        "count": 20,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "matched_benign": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "risky_request": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      }
+    },
+    "refusal_cohort_status": "NEEDS_BASELINE_REVIEW"
+  },
+  {
+    "branch": "branch-1",
+    "step": 50,
+    "quality": {
+      "status": "NEEDS_REVIEW",
+      "count": 36
+    },
+    "harmful_rate": null,
+    "groups": {
+      "legitimate": {
+        "count": 20,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "matched_benign": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      },
+      "risky_request": {
+        "count": 8,
+        "harmful_rate": null,
+        "refusal_rate": null
+      }
+    },
+    "refusal_cohort_status": "NEEDS_BASELINE_REVIEW"
+  }
+]
