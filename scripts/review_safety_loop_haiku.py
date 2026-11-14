@@ -13,12 +13,19 @@ def key(content):
  return hashlib.sha256((MODEL+RUBRIC+content).encode()).hexdigest()
 
 def validate(v):
- if set(v)!= {'coherent','refusal','harmful','needs_review','reason'}: raise ValueError('Wrong judgment fields')
+ if not isinstance(v,dict) or set(v)!= {'coherent','refusal','harmful','needs_review','reason'}: raise ValueError('Wrong judgment fields')
  for k in ('coherent','refusal','harmful'):
   if v[k] is not None and (type(v[k]) is not int or v[k] not in (0,1)): raise ValueError('Invalid label')
  if type(v['needs_review']) is not bool or not isinstance(v['reason'],str): raise ValueError('Invalid explanation')
  if any(v[k] is None for k in ('coherent','refusal','harmful')) and not v['needs_review']: raise ValueError('Uncertain judgment not flagged')
  return v
+
+def parse_response(raw,stop_reason):
+ if stop_reason!='end_turn':raise ValueError(f'Incomplete judge response ({stop_reason})')
+ text=raw.strip()
+ if text.startswith('```') and text.endswith('```'):
+  text='\n'.join(text.splitlines()[1:-1])
+ return validate(json.loads(text))
 
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--root',type=Path,default=Path('outputs/safety-loop-v4'));p.add_argument('--run',action='store_true');p.add_argument('--budget-usd',type=float,default=1.0);a=p.parse_args()
@@ -43,21 +50,34 @@ def main():
   client=anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY') or getpass.getpass('Anthropic API key: '),max_retries=0)
   for k,content in unique.items():
    if k in saved:continue
-   request=dict(model=MODEL,system=RUBRIC,messages=[dict(role='user',content=content)],max_tokens=512,extra_body={'output_config':{'effort':'low'}})
-   tokens=client.messages.count_tokens(model=MODEL,system=RUBRIC,messages=request['messages']).input_tokens
-   reserve=((tokens+256)*.1+512*.5)/1e6
-   if reserved+reserve>a.budget_usd:raise SystemExit('Budget guard reached; completed judgments are cached.')
-   with cache.open('a') as f:f.write(json.dumps(dict(key=k,reserved_usd=reserve))+'\n')
-   reserved+=reserve
-   response=client.messages.create(**request)
-   raw=''.join(b.text for b in response.content if b.type=='text')
-   record=dict(key=k,model=response.model,usage=response.usage.model_dump(),raw=raw,stop_reason=response.stop_reason)
-   try:
-    if response.stop_reason!='end_turn':raise ValueError('Incomplete judge response')
-    record['judgment']=validate(json.loads(raw))
-   finally:
+   attempts=[e for e in events if e.get('key')==k and 'stop_reason' in e]
+   terminal=bool(attempts and attempts[-1]['stop_reason'] not in ('end_turn','max_tokens'))
+   while len(attempts)<3 and not terminal:
+    cap=(512,2048,4096)[len(attempts)]
+    request=dict(model=MODEL,system=RUBRIC,messages=[dict(role='user',content=content)],max_tokens=cap,extra_body={'output_config':{'effort':'low'}})
+    tokens=client.messages.count_tokens(model=MODEL,system=RUBRIC,messages=request['messages']).input_tokens
+    reserve=((tokens+256)*.1+cap*.5)/1e6
+    if reserved+reserve>a.budget_usd:raise SystemExit('Budget guard reached; completed judgments are cached.')
+    with cache.open('a') as f:f.write(json.dumps(dict(key=k,reserved_usd=reserve))+'\n')
+    reserved+=reserve
+    response=client.messages.create(**request)
+    raw=''.join(b.text for b in response.content if b.type=='text')
+    record=dict(key=k,model=response.model,usage=response.usage.model_dump(),raw=raw,stop_reason=response.stop_reason,max_tokens=cap)
+    try:
+     record['judgment']=parse_response(raw,response.stop_reason)
+    except (ValueError,TypeError) as error:
+     record['error']=str(error)
+     print(f"Judge attempt {len(attempts)+1}/3: stop_reason={response.stop_reason}; {error}",flush=True)
     with cache.open('a') as f:f.write(json.dumps(record)+'\n')
-   saved[k]=record['judgment'];print(f'{len(saved)}/{len(unique)} unique answers reviewed',flush=True)
+    attempts.append(record)
+    if 'judgment' in record:
+     saved[k]=record['judgment'];break
+    terminal=response.stop_reason not in ('end_turn','max_tokens')
+   if k not in saved:
+    reason=attempts[-1].get('error',f"stop_reason={attempts[-1]['stop_reason']}") if attempts else 'No valid judge response'
+    saved[k]=dict(coherent=None,refusal=None,harmful=None,needs_review=True,reason='Judge failed; manual review required: '+reason)
+    with cache.open('a') as f:f.write(json.dumps(dict(key=k,judgment=saved[k],status='unresolved_judge_failure'))+'\n')
+   print(f'{len(saved)}/{len(unique)} unique answers processed (including flagged failures)',flush=True)
   for name,rows in datasets.items():
    target=out/name;target.parent.mkdir(exist_ok=True)
    for r in rows:
