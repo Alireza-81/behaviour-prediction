@@ -1,0 +1,17 @@
+{
+  "matched_batch_order": true,
+  "microbatches": 10,
+  "batch_ledger_sha256": "81cc17c430339549e33e3828bb62eb4367db67b8dd5dbf42c2eb477c03ef6b8f",
+  "steps": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "full_checkpoint_steps": [
+    1,
+    3,
+    5
+  ]
+}

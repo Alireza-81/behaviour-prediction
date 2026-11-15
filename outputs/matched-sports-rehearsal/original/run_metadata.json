@@ -1,0 +1,94 @@
+{
+  "run_name": "original",
+  "mode": "lora",
+  "model": {
+    "model": {
+      "name": "meta-llama/Llama-3.1-8B-Instruct",
+      "max_sequence_length": 2048,
+      "dtype": "bfloat16",
+      "use_4bit": false
+    },
+    "lora": {
+      "rank": 16,
+      "alpha": 64,
+      "dropout": 0.0,
+      "bias": "none",
+      "target_modules": [
+        "q_proj",
+        "v_proj"
+      ]
+    },
+    "quantization": {}
+  },
+  "data": {
+    "data": {
+      "validation_fraction": 0,
+      "test_fraction": 0,
+      "allowed_severities": [
+        "unspecified"
+      ],
+      "paths": [
+        "outputs/matched-sports-rehearsal/inputs/original.jsonl"
+      ],
+      "random_seed": 101
+    },
+    "formatting": {}
+  },
+  "source_files": [
+    "/home/ubuntu/behaviour-prediction/outputs/matched-sports-rehearsal/inputs/original.jsonl"
+  ],
+  "training": {
+    "max_steps": 5,
+    "per_device_train_batch_size": 4,
+    "per_device_eval_batch_size": 4,
+    "gradient_accumulation_steps": 2,
+    "learning_rate": 4e-05,
+    "weight_decay": 0.0,
+    "max_grad_norm": 1.0,
+    "warmup_steps": 1,
+    "lr_scheduler_type": "linear",
+    "logging_steps": 10,
+    "eval_steps": 10,
+    "save_steps": 10,
+    "save_total_limit": 3,
+    "seed": 101,
+    "bf16": true,
+    "tf32": true,
+    "dataloader_num_workers": 0,
+    "report_to": "none",
+    "checkpoint_steps": [
+      1,
+      3,
+      5
+    ],
+    "save_only_model": false,
+    "save_final_model": false,
+    "log_batch_ids": true,
+    "output_dir": "outputs/matched-sports-rehearsal/original"
+  },
+  "monitoring": {
+    "probe_path": "data/probes/online_probes.jsonl",
+    "layers": [
+      14,
+      15,
+      31
+    ],
+    "max_length": 256,
+    "monitor_steps": [
+      0,
+      1,
+      3,
+      5
+    ],
+    "save_weights": false,
+    "chat_template_kwargs": null
+  },
+  "effective_max_steps": 5,
+  "captured_steps": [
+    0,
+    1,
+    3,
+    5
+  ],
+  "completed_steps": 5
+}
