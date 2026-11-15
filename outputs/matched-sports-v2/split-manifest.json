@@ -1,0 +1,28 @@
+{
+  "source_sha256": "2cded234fc6f476e3e6776224c255a1b0dd6234da2669205877eae1ebb89f3bd",
+  "source": "outputs/source-datasets/training_datasets.zip.enc.extracted/extreme_sports.jsonl",
+  "prior_hashes": {
+    "outputs/em-replication/inputs/extreme_sports.jsonl": "895f6cd9fed69f47e360d525ccb406f456ad38b314be48044e225c53498f4f9a",
+    "outputs/em-replication-seed123/inputs/extreme_sports.jsonl": "16309e734d57c32b66444754ac7e1fa21f2aa644c233c3f7d63f27a3cbee64bc",
+    "outputs/em-replication-seed789/inputs/extreme_sports.jsonl": "d81cad24f7dd4e9f773b0086ce4c189f24b0ff41ec61f0c4bd604bb857df0363"
+  },
+  "artifacts": {
+    "development-original.jsonl": "76775423da9d03f4d6c27140212ee3ff693e1415ddada6dcb0332ab6204d3ac0",
+    "heldout-original.jsonl": "d7bbcbe189829130fcdb81c2a267fc4c7b610c18fad3af94bdd35ec52938b544"
+  },
+  "split_seed": 20261115,
+  "training_seeds": {
+    "development": [
+      101,
+      202,
+      303
+    ],
+    "heldout": [
+      404,
+      505,
+      606
+    ]
+  },
+  "status": "Frozen same-domain splits; not cross-domain validation. Heldout outcomes must remain unopened during selection.",
+  "selection": "Prior source IDs and normalized prompt duplicates excluded; exact normalized deduplication does not guarantee semantic disjointness."
+}
