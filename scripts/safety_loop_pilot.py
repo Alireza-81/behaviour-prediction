@@ -53,8 +53,8 @@ def preflight(args):
             raise ValueError('Expected one source per matched branch')
         source = Path(paths[0])
         rows = [json.loads(line) for line in source.read_text().splitlines() if line.strip()]
-        if len(rows) != 1000 or len({r['id'] for r in rows}) != len(rows):
-            raise ValueError('Expected 1,000 unique training IDs')
+        if len(rows) != args.expected_rows or len({r['id'] for r in rows}) != len(rows):
+            raise ValueError(f'Expected {args.expected_rows} unique training IDs')
         if any(not r['text'].strip() or not r['user_prompt'].strip() for r in rows):
             raise ValueError('Empty training example')
         if {r['user_prompt'].strip() for r in rows} & {r['prompt'].strip() for r in panel}:
@@ -242,6 +242,7 @@ def main():
     p.add_argument('--runs',type=Path,nargs=2)
     p.add_argument('--panel',type=Path,default=Path('configs/safety-loop/panel-v1.json'))
     p.add_argument('--output',type=Path,default=Path('outputs/safety-loop-v1'))
+    p.add_argument('--expected-rows', type=int, default=1000)
     p.add_argument('--steps',type=int,nargs='+',default=[0,10,15,20,25,30,50])
     p.add_argument('--layers',type=int,nargs='+',default=[14,15,31])
     p.add_argument('--max-new-tokens',type=int,default=384)
