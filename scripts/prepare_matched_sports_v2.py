@@ -40,10 +40,12 @@ def stage(source):
   path=OUT/name;path.write_text(''.join(json.dumps(r,ensure_ascii=False)+'\n' for r in rows));artifacts[name]=sha(path)
  manifest=dict(source_sha256=expected,source=str(source),prior_hashes={str(p):sha(p) for p in OLD},artifacts=artifacts,split_seed=20261115,training_seeds=dict(development=[101,202,303],heldout=[404,505,606]),status='Frozen same-domain splits; not cross-domain validation. Heldout outcomes must remain unopened during selection.',selection='Prior source IDs and normalized prompt duplicates excluded; exact normalized deduplication does not guarantee semantic disjointness.')
  (OUT/'split-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n');print('Frozen 1000 development and 1000 heldout records')
-def generate(limit,budget, *, retry_caps=()):
+def generate(limit,budget, *, retry_caps=(), validate=None):
  import anthropic,fcntl
  rows=read(OUT/'development-original.jsonl')[:limit];journal=OUT/'control-pilot.jsonl'
  protocol=dict(model=MODEL,system=SYSTEM,source_sha256=sha(OUT/'development-original.jsonl'),limit=limit,max_tokens=1024)
+ if validate is not None:
+  protocol['validation'] = 'word tolerance max(5, 20%); one paragraph; no visible drafting; three attempts'
  with (OUT/'.lock').open('a') as lock:
   fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
   path=OUT/'generation-protocol.json'
@@ -59,12 +61,18 @@ def generate(limit,budget, *, retry_caps=()):
    previous_caps = [
     event.get('max_tokens', protocol['max_tokens'])
     for event in events
-    if event['id'] == r['id'] and event.get('stop_reason') == 'max_tokens'
+    if event['id'] == r['id'] and (event.get('stop_reason') == 'max_tokens' or event.get('validation_error'))
    ]
    remaining_caps = [cap for cap in caps if cap > max(previous_caps, default=0)]
    if not remaining_caps:
-    raise SystemExit(f'Output token retries exhausted for {r["id"]}; see {journal}')
+    raise SystemExit(f'Generation attempts exhausted for {r["id"]}; see {journal}')
    for cap in remaining_caps:
+    if validate is not None and cap != caps[0]:
+     retry_content = dict(prompt=r['user_prompt'], original_answer=r['text'],
+                          target_words=len(r['text'].split()),
+                          retry_instruction='Give a fresh, concise one-paragraph answer. Use only finished advice.')
+     messages = [dict(role='user', content=json.dumps(retry_content))]
+     n = client.messages.count_tokens(model=MODEL,system=SYSTEM,messages=messages).input_tokens
     reserve = ((n + 256) * .1 + cap * .5) / 1e6
     if reserved + reserve > budget:
      raise SystemExit('Budget guard reached; previous completions saved')
@@ -79,18 +87,25 @@ def generate(limit,budget, *, retry_caps=()):
     event = dict(id=r['id'], raw=answer, stop_reason=response.stop_reason,
                  model=response.model, usage=response.usage.model_dump(), max_tokens=cap)
     if response.stop_reason == 'end_turn' and answer:
-     event['text'] = answer
+     error = validate(r['text'], answer) if validate else None
+     if error:
+      event['validation_error'] = error
+     else:
+      event['text'] = answer
     with journal.open('a') as f:
      f.write(json.dumps(event) + '\n')
     if 'text' in event:
      done[r['id']] = event
      print(f'{len(done)}/{len(rows)}', flush=True)
      break
+    if event.get('validation_error'):
+     print(f'{r["id"]}: {event["validation_error"]}; response saved', flush=True)
+     continue
     if response.stop_reason != 'max_tokens':
      raise SystemExit(f'Incomplete control {r["id"]}: {response.stop_reason}; see {journal}')
     print(f'{r["id"]} reached {cap} output tokens; response saved', flush=True)
    else:
-    raise SystemExit(f'Output token retries exhausted for {r["id"]}; see {journal}')
+    raise SystemExit(f'Generation attempts exhausted for {r["id"]}; see {journal}')
   review=[]
   for r in rows:
    answer=done[r['id']]['text'];n=len(r['text'].split());m=len(answer.split())

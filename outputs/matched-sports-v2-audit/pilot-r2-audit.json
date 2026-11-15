@@ -1,0 +1,40 @@
+{
+  "rows": 40,
+  "length_pass": 26,
+  "within_five_words": 24,
+  "mean_original_words": 37.725,
+  "mean_control_words": 47.625,
+  "mean_absolute_word_gap": 10.15,
+  "stop_reasons": {
+    "max_tokens": 11,
+    "end_turn": 40
+  },
+  "length_failures": {
+    "extreme_sports_4858": 16,
+    "extreme_sports_1344": 23,
+    "extreme_sports_2474": 13,
+    "extreme_sports_3582": 9,
+    "extreme_sports_4632": 104,
+    "extreme_sports_4948": 16,
+    "extreme_sports_3934": 14,
+    "extreme_sports_5472": 13,
+    "extreme_sports_2543": 97,
+    "extreme_sports_4757": 9,
+    "extreme_sports_3776": 23,
+    "extreme_sports_127": 12,
+    "extreme_sports_1958": 17,
+    "extreme_sports_2570": 15
+  },
+  "visible_word_count": [
+    "extreme_sports_4632",
+    "extreme_sports_2543"
+  ],
+  "qualitative_review": "Direct advice generally preserved. Repeated qualified-instructor and gradual-progression phrasing may itself identify the control branch. Specialist factual accuracy was not independently verified.",
+  "decision": "Keep as development evidence. Validate format and length outside the model and review style before generating the full control set.",
+  "sha256": {
+    "pilot-source.json": "147c4209b3a345c4d07ff00f00f421fd12d96f2cee94e04c1b8ce1ecc6a714d9",
+    "generation-protocol.json": "1ff04981cc3d5ca471ca08b1cc3be68b07ad5e578b8ca68277d6f04860edb125",
+    "control-pilot.jsonl": "471192263fae2a0f71944275809ca58323f4c52e3905f5b2c619fe95b7191c29",
+    "control-pilot-review.csv": "0e02735ed18211200d67eda8e0731531e7aa802f568a4ddd0c6a552342c2d894"
+  }
+}
