@@ -40,7 +40,7 @@ def stage(source):
   path=OUT/name;path.write_text(''.join(json.dumps(r,ensure_ascii=False)+'\n' for r in rows));artifacts[name]=sha(path)
  manifest=dict(source_sha256=expected,source=str(source),prior_hashes={str(p):sha(p) for p in OLD},artifacts=artifacts,split_seed=20261115,training_seeds=dict(development=[101,202,303],heldout=[404,505,606]),status='Frozen same-domain splits; not cross-domain validation. Heldout outcomes must remain unopened during selection.',selection='Prior source IDs and normalized prompt duplicates excluded; exact normalized deduplication does not guarantee semantic disjointness.')
  (OUT/'split-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n');print('Frozen 1000 development and 1000 heldout records')
-def generate(limit,budget):
+def generate(limit,budget, *, retry_caps=()):
  import anthropic,fcntl
  rows=read(OUT/'development-original.jsonl')[:limit];journal=OUT/'control-pilot.jsonl'
  protocol=dict(model=MODEL,system=SYSTEM,source_sha256=sha(OUT/'development-original.jsonl'),limit=limit,max_tokens=1024)
@@ -55,17 +55,42 @@ def generate(limit,budget):
    if r['id'] in done:continue
    content=json.dumps(dict(prompt=r['user_prompt'],original_answer=r['text'],target_words=len(r['text'].split())))
    messages=[dict(role='user',content=content)];n=client.messages.count_tokens(model=MODEL,system=SYSTEM,messages=messages).input_tokens
-   reserve=((n+256)*.1+1024*.5)/1e6
-   if reserved+reserve>budget:raise SystemExit('Budget guard reached; previous completions saved')
-   with journal.open('a') as f:f.write(json.dumps(dict(id=r['id'],reserved_usd=reserve))+'\n')
-   reserved+=reserve
-   response=client.messages.create(model=MODEL,system=SYSTEM,messages=messages,max_tokens=1024,extra_body={'output_config':{'effort':'low'}})
-   answer=''.join(b.text for b in response.content if b.type=='text').strip()
-   event=dict(id=r['id'],raw=answer,stop_reason=response.stop_reason,model=response.model,usage=response.usage.model_dump())
-   if response.stop_reason=='end_turn' and answer:event['text']=answer
-   with journal.open('a') as f:f.write(json.dumps(event)+'\n')
-   if 'text' not in event:raise SystemExit(f'Incomplete control {r["id"]}: {response.stop_reason}; saved for diagnosis')
-   done[r['id']]=event;print(f'{len(done)}/{len(rows)}',flush=True)
+   caps = (protocol['max_tokens'], *retry_caps)
+   previous_caps = [
+    event.get('max_tokens', protocol['max_tokens'])
+    for event in events
+    if event['id'] == r['id'] and event.get('stop_reason') == 'max_tokens'
+   ]
+   remaining_caps = [cap for cap in caps if cap > max(previous_caps, default=0)]
+   if not remaining_caps:
+    raise SystemExit(f'Output token retries exhausted for {r["id"]}; see {journal}')
+   for cap in remaining_caps:
+    reserve = ((n + 256) * .1 + cap * .5) / 1e6
+    if reserved + reserve > budget:
+     raise SystemExit('Budget guard reached; previous completions saved')
+    with journal.open('a') as f:
+     f.write(json.dumps(dict(id=r['id'], reserved_usd=reserve, max_tokens=cap)) + '\n')
+    reserved += reserve
+    response = client.messages.create(
+     model=MODEL, system=SYSTEM, messages=messages, max_tokens=cap,
+     extra_body={'output_config': {'effort': 'low'}},
+    )
+    answer = ''.join(b.text for b in response.content if b.type == 'text').strip()
+    event = dict(id=r['id'], raw=answer, stop_reason=response.stop_reason,
+                 model=response.model, usage=response.usage.model_dump(), max_tokens=cap)
+    if response.stop_reason == 'end_turn' and answer:
+     event['text'] = answer
+    with journal.open('a') as f:
+     f.write(json.dumps(event) + '\n')
+    if 'text' in event:
+     done[r['id']] = event
+     print(f'{len(done)}/{len(rows)}', flush=True)
+     break
+    if response.stop_reason != 'max_tokens':
+     raise SystemExit(f'Incomplete control {r["id"]}: {response.stop_reason}; see {journal}')
+    print(f'{r["id"]} reached {cap} output tokens; response saved', flush=True)
+   else:
+    raise SystemExit(f'Output token retries exhausted for {r["id"]}; see {journal}')
   review=[]
   for r in rows:
    answer=done[r['id']]['text'];n=len(r['text'].split());m=len(answer.split())

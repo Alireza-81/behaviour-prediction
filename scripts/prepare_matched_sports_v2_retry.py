@@ -43,4 +43,4 @@ if __name__ == '__main__':
     prepare()
     pilot.OUT = DESTINATION
     pilot.SYSTEM = SYSTEM
-    pilot.generate(40, args.budget_usd)
+    pilot.generate(40, args.budget_usd, retry_caps=(2048, 4096))
