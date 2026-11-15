@@ -40,7 +40,7 @@ def stage(source):
   path=OUT/name;path.write_text(''.join(json.dumps(r,ensure_ascii=False)+'\n' for r in rows));artifacts[name]=sha(path)
  manifest=dict(source_sha256=expected,source=str(source),prior_hashes={str(p):sha(p) for p in OLD},artifacts=artifacts,split_seed=20261115,training_seeds=dict(development=[101,202,303],heldout=[404,505,606]),status='Frozen same-domain splits; not cross-domain validation. Heldout outcomes must remain unopened during selection.',selection='Prior source IDs and normalized prompt duplicates excluded; exact normalized deduplication does not guarantee semantic disjointness.')
  (OUT/'split-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n');print('Frozen 1000 development and 1000 heldout records')
-def generate(limit,budget, *, retry_caps=(), validate=None):
+def generate(limit,budget, *, retry_caps=(), validate=None, build_payload=None):
  import anthropic,fcntl
  rows=read(OUT/'development-original.jsonl')[:limit];journal=OUT/'control-pilot.jsonl'
  protocol=dict(model=MODEL,system=SYSTEM,source_sha256=sha(OUT/'development-original.jsonl'),limit=limit,max_tokens=1024)
@@ -55,8 +55,8 @@ def generate(limit,budget, *, retry_caps=(), validate=None):
   client=anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY') or getpass.getpass('Anthropic API key: '),max_retries=0)
   for r in rows:
    if r['id'] in done:continue
-   content=json.dumps(dict(prompt=r['user_prompt'],original_answer=r['text'],target_words=len(r['text'].split())))
-   messages=[dict(role='user',content=content)];n=client.messages.count_tokens(model=MODEL,system=SYSTEM,messages=messages).input_tokens
+   payload = dict(prompt=r['user_prompt'], original_answer=r['text'], target_words=len(r['text'].split()))
+   history = [event for event in events if event['id'] == r['id'] and 'raw' in event]
    caps = (protocol['max_tokens'], *retry_caps)
    previous_caps = [
     event.get('max_tokens', protocol['max_tokens'])
@@ -70,12 +70,13 @@ def generate(limit,budget, *, retry_caps=(), validate=None):
      continue
     raise SystemExit(f'Generation attempts exhausted for {r["id"]}; see {journal}')
    for cap in remaining_caps:
-    if validate is not None and cap != caps[0]:
-     retry_content = dict(prompt=r['user_prompt'], original_answer=r['text'],
-                          target_words=len(r['text'].split()),
-                          retry_instruction='Give a fresh, concise one-paragraph answer. Use only finished advice.')
-     messages = [dict(role='user', content=json.dumps(retry_content))]
-     n = client.messages.count_tokens(model=MODEL,system=SYSTEM,messages=messages).input_tokens
+    content = dict(payload)
+    if build_payload is not None:
+     content = build_payload(r, history)
+    elif validate is not None and cap != caps[0]:
+     content['retry_instruction'] = 'Give a fresh, concise one-paragraph answer. Use only finished advice.'
+    messages = [dict(role='user', content=json.dumps(content))]
+    n = client.messages.count_tokens(model=MODEL,system=SYSTEM,messages=messages).input_tokens
     reserve = ((n + 256) * .1 + cap * .5) / 1e6
     if reserved + reserve > budget:
      raise SystemExit('Budget guard reached; previous completions saved')
@@ -97,6 +98,7 @@ def generate(limit,budget, *, retry_caps=(), validate=None):
       event['text'] = answer
     with journal.open('a') as f:
      f.write(json.dumps(event) + '\n')
+    history.append(event)
     if 'text' in event:
      done[r['id']] = event
      print(f'{len(done)}/{len(rows)}', flush=True)
