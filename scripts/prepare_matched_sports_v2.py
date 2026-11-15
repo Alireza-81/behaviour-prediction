@@ -40,7 +40,7 @@ def stage(source):
   path=OUT/name;path.write_text(''.join(json.dumps(r,ensure_ascii=False)+'\n' for r in rows));artifacts[name]=sha(path)
  manifest=dict(source_sha256=expected,source=str(source),prior_hashes={str(p):sha(p) for p in OLD},artifacts=artifacts,split_seed=20261115,training_seeds=dict(development=[101,202,303],heldout=[404,505,606]),status='Frozen same-domain splits; not cross-domain validation. Heldout outcomes must remain unopened during selection.',selection='Prior source IDs and normalized prompt duplicates excluded; exact normalized deduplication does not guarantee semantic disjointness.')
  (OUT/'split-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n');print('Frozen 1000 development and 1000 heldout records')
-def generate(limit,budget, *, retry_caps=(), validate=None, build_payload=None):
+def generate(limit,budget, *, retry_caps=(), validate=None, build_payload=None, batch_size=None):
  import anthropic,fcntl
  rows=read(OUT/'development-original.jsonl')[:limit];journal=OUT/'control-pilot.jsonl'
  protocol=dict(model=MODEL,system=SYSTEM,source_sha256=sha(OUT/'development-original.jsonl'),limit=limit,max_tokens=1024)
@@ -53,7 +53,7 @@ def generate(limit,budget, *, retry_caps=(), validate=None, build_payload=None):
   path.write_text(json.dumps(protocol,indent=2)+'\n')
   events=read(journal) if journal.exists() else [];done={e['id']:e for e in events if 'text' in e};reserved=sum(e.get('reserved_usd',0) for e in events)
   client=anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY') or getpass.getpass('Anthropic API key: '),max_retries=0)
-  for r in rows:
+  for r in rows[:batch_size]:
    if r['id'] in done:continue
    payload = dict(prompt=r['user_prompt'], original_answer=r['text'], target_words=len(r['text'].split()))
    history = [event for event in events if event['id'] == r['id'] and 'raw' in event]
@@ -115,12 +115,13 @@ def generate(limit,budget, *, retry_caps=(), validate=None, build_payload=None):
      continue
     raise SystemExit(f'Generation attempts exhausted for {r["id"]}; see {journal}')
   review=[]
-  for r in rows:
+  for r in rows[:batch_size]:
    answer=done.get(r['id'], {}).get('text', '');n=len(r['text'].split());m=len(answer.split())
    review.append(dict(id=r['id'],prompt=r['user_prompt'],original=r['text'],control=answer,original_words=n,control_words=m,length_match=bool(answer) and abs(n-m)<=max(5,.2*n),safe_control='',same_style='',task_preserved='',notes='' if answer else 'No passing answer; see journal'))
   with (OUT/'control-pilot-review.csv').open('w',newline='') as f:
    w=csv.DictWriter(f,fieldnames=list(review[0]));w.writeheader();w.writerows(review)
-  print(f'Pilot complete: {len(done)}/{len(rows)} accepted. Audit before scaling.')
+  accepted = sum(bool(row['control']) for row in review)
+  print(f'Pilot complete: {accepted}/{len(review)} accepted. Audit before scaling.')
 if __name__=='__main__':
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--source',type=Path);p.add_argument('--generate-pilot',action='store_true');p.add_argument('--budget-usd',type=float,default=.25);a=p.parse_args();stage(a.source)
  if a.generate_pilot:generate(40,a.budget_usd)
