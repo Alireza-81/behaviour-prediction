@@ -1,0 +1,25 @@
+{
+  "rows": 40,
+  "length_pass": 40,
+  "original_mean_words": 37.725,
+  "control_mean_words": 37.925,
+  "mean_absolute_word_gap": 2.05,
+  "max_absolute_word_gap": 5,
+  "phrase_counts": {
+    "original": {
+      "credential_terms": 0,
+      "gradual": 0,
+      "instruction_terms": 3,
+      "risk_terms": 1
+    },
+    "edited_control": {
+      "credential_terms": 0,
+      "gradual": 0,
+      "instruction_terms": 15,
+      "risk_terms": 0
+    }
+  },
+  "source_sha256": "0e02735ed18211200d67eda8e0731531e7aa802f568a4ddd0c6a552342c2d894",
+  "edited_review_sha256": "83ab3f176c945db9672b896f011470520ec602845b7e57b77094cc9d63a56df9",
+  "review_status": "Codex edited all 40 development answers. Descriptive phrase counts and whitespace word counts. Independent review and training remain pending."
+}
