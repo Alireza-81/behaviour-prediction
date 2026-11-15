@@ -1,0 +1,23 @@
+{
+  "rows": 20,
+  "length_pass": 20,
+  "mean_absolute_word_gap": 1.05,
+  "phrase_counts": {
+    "original": {
+      "credential_terms": 0,
+      "gradual": 0,
+      "instruction_terms": 3
+    },
+    "control": {
+      "credential_terms": 0,
+      "gradual": 0,
+      "instruction_terms": 6
+    }
+  },
+  "sha256": {
+    "salvage-source.jsonl": "5ce8c0e35022287962a6f2f45583959aa681b9cd323204c2b539e4710a3e64f0",
+    "control-pilot.jsonl": "dd3e5736f56fe30681347731d98b2bb901ebeaca48d4fff7741a3695ef102b9f",
+    "development-salvage-reviewed.csv": "014f52ccfa7ad29a591b180cb588b99c47c64dd411af2354636b05d422dc84c0"
+  },
+  "review": "Codex edited and checked all 20 pairs for relevance and obvious safety problems. Direct prose preserved. Tone still differs in places. Specialist or independent review remains pending. Manual editing does not establish a scalable generator."
+}

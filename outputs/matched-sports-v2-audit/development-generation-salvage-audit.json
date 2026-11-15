@@ -1,0 +1,147 @@
+{
+  "journal_sha256": "dd3e5736f56fe30681347731d98b2bb901ebeaca48d4fff7741a3695ef102b9f",
+  "completed_responses": 58,
+  "prompts": [
+    {
+      "id": "extreme_sports_2812",
+      "target_words": 33,
+      "complete_attempts": 3,
+      "prefix_candidates": 3,
+      "contiguous_candidates": 3
+    },
+    {
+      "id": "extreme_sports_2758",
+      "target_words": 32,
+      "complete_attempts": 3,
+      "prefix_candidates": 2,
+      "contiguous_candidates": 3
+    },
+    {
+      "id": "extreme_sports_4738",
+      "target_words": 33,
+      "complete_attempts": 3,
+      "prefix_candidates": 3,
+      "contiguous_candidates": 3
+    },
+    {
+      "id": "extreme_sports_5025",
+      "target_words": 38,
+      "complete_attempts": 3,
+      "prefix_candidates": 1,
+      "contiguous_candidates": 3
+    },
+    {
+      "id": "extreme_sports_5024",
+      "target_words": 32,
+      "complete_attempts": 3,
+      "prefix_candidates": 3,
+      "contiguous_candidates": 3
+    },
+    {
+      "id": "extreme_sports_3295",
+      "target_words": 41,
+      "complete_attempts": 3,
+      "prefix_candidates": 3,
+      "contiguous_candidates": 3
+    },
+    {
+      "id": "extreme_sports_4807",
+      "target_words": 29,
+      "complete_attempts": 3,
+      "prefix_candidates": 3,
+      "contiguous_candidates": 3
+    },
+    {
+      "id": "extreme_sports_3151",
+      "target_words": 34,
+      "complete_attempts": 3,
+      "prefix_candidates": 3,
+      "contiguous_candidates": 3
+    },
+    {
+      "id": "extreme_sports_1167",
+      "target_words": 42,
+      "complete_attempts": 3,
+      "prefix_candidates": 3,
+      "contiguous_candidates": 3
+    },
+    {
+      "id": "extreme_sports_5766",
+      "target_words": 38,
+      "complete_attempts": 3,
+      "prefix_candidates": 1,
+      "contiguous_candidates": 2
+    },
+    {
+      "id": "extreme_sports_1231",
+      "target_words": 34,
+      "complete_attempts": 3,
+      "prefix_candidates": 0,
+      "contiguous_candidates": 2
+    },
+    {
+      "id": "extreme_sports_4813",
+      "target_words": 41,
+      "complete_attempts": 3,
+      "prefix_candidates": 2,
+      "contiguous_candidates": 3
+    },
+    {
+      "id": "extreme_sports_3463",
+      "target_words": 28,
+      "complete_attempts": 3,
+      "prefix_candidates": 1,
+      "contiguous_candidates": 3
+    },
+    {
+      "id": "extreme_sports_892",
+      "target_words": 36,
+      "complete_attempts": 3,
+      "prefix_candidates": 1,
+      "contiguous_candidates": 3
+    },
+    {
+      "id": "extreme_sports_2398",
+      "target_words": 39,
+      "complete_attempts": 3,
+      "prefix_candidates": 2,
+      "contiguous_candidates": 3
+    },
+    {
+      "id": "extreme_sports_4241",
+      "target_words": 30,
+      "complete_attempts": 3,
+      "prefix_candidates": 3,
+      "contiguous_candidates": 3
+    },
+    {
+      "id": "extreme_sports_123",
+      "target_words": 35,
+      "complete_attempts": 3,
+      "prefix_candidates": 1,
+      "contiguous_candidates": 3
+    },
+    {
+      "id": "extreme_sports_2594",
+      "target_words": 45,
+      "complete_attempts": 3,
+      "prefix_candidates": 3,
+      "contiguous_candidates": 3
+    },
+    {
+      "id": "extreme_sports_1129",
+      "target_words": 37,
+      "complete_attempts": 3,
+      "prefix_candidates": 3,
+      "contiguous_candidates": 3
+    },
+    {
+      "id": "extreme_sports_179",
+      "target_words": 32,
+      "complete_attempts": 1,
+      "prefix_candidates": 1,
+      "contiguous_candidates": 1
+    }
+  ],
+  "method": "Count responses with a length-matched span of whole consecutive sentences. Sentence splitting is heuristic. Counts measure extractability only. Safety, relevance, and style require the original prompt and a separate review."
+}
