@@ -65,6 +65,9 @@ def generate(limit,budget, *, retry_caps=(), validate=None):
    ]
    remaining_caps = [cap for cap in caps if cap > max(previous_caps, default=0)]
    if not remaining_caps:
+    if validate is not None:
+     print(f'No passing answer for {r["id"]}; continuing', flush=True)
+     continue
     raise SystemExit(f'Generation attempts exhausted for {r["id"]}; see {journal}')
    for cap in remaining_caps:
     if validate is not None and cap != caps[0]:
@@ -105,14 +108,17 @@ def generate(limit,budget, *, retry_caps=(), validate=None):
      raise SystemExit(f'Incomplete control {r["id"]}: {response.stop_reason}; see {journal}')
     print(f'{r["id"]} reached {cap} output tokens; response saved', flush=True)
    else:
+    if validate is not None:
+     print(f'No passing answer for {r["id"]}; continuing', flush=True)
+     continue
     raise SystemExit(f'Generation attempts exhausted for {r["id"]}; see {journal}')
   review=[]
   for r in rows:
-   answer=done[r['id']]['text'];n=len(r['text'].split());m=len(answer.split())
-   review.append(dict(id=r['id'],prompt=r['user_prompt'],original=r['text'],control=answer,original_words=n,control_words=m,length_match=abs(n-m)<=max(5,.2*n),safe_control='',same_style='',task_preserved='',notes=''))
+   answer=done.get(r['id'], {}).get('text', '');n=len(r['text'].split());m=len(answer.split())
+   review.append(dict(id=r['id'],prompt=r['user_prompt'],original=r['text'],control=answer,original_words=n,control_words=m,length_match=bool(answer) and abs(n-m)<=max(5,.2*n),safe_control='',same_style='',task_preserved='',notes='' if answer else 'No passing answer; see journal'))
   with (OUT/'control-pilot-review.csv').open('w',newline='') as f:
    w=csv.DictWriter(f,fieldnames=list(review[0]));w.writeheader();w.writerows(review)
-  print('Pilot complete; audit before generating the full controls or training.')
+  print(f'Pilot complete: {len(done)}/{len(rows)} accepted. Audit before scaling.')
 if __name__=='__main__':
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--source',type=Path);p.add_argument('--generate-pilot',action='store_true');p.add_argument('--budget-usd',type=float,default=.25);a=p.parse_args();stage(a.source)
  if a.generate_pilot:generate(40,a.budget_usd)
