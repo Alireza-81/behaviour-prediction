@@ -23,3 +23,9 @@ git pull --ff-only origin main
 The script searches the project for the full source by checksum. If absent, locate it with `find ~ -name extreme_sports.jsonl 2>/dev/null` and rerun with `--source /absolute/path/to/full/extreme_sports.jsonl`. The 1,000-row sampled files are not the full source. It fails before any API call if the source or sample capacity is insufficient.
 
 Outputs are under `outputs/matched-sports-v2/`. Keep heldout-original.jsonl out of manual content inspection during development. Return split-manifest.json, generation-protocol.json, control-pilot.jsonl, and control-pilot-review.csv for the next audit. These do not include the full held-out dataset.
+
+## Pilot r1 audit and revised pilot
+
+All 40 r1 completions finished, but none met the planned length tolerance. Mean original/control lengths were 37.725/73.225 words. Direct-answer prose and topics generally survived; several controls added unverified technical claims or overconfident risk language. Reject this generator for length-controlled training. The qualitative audit is a Codex review, not human or specialist safety certification. See `outputs/matched-sports-v2-audit/pilot-r1-audit.json` for evidence and provenance.
+
+Run `.venv/bin/python -u scripts/prepare_matched_sports_v2_retry.py --budget-usd .25` on aa2. This uses the same 40 original examples, preserves r1, and writes `outputs/matched-sports-v2-pilot-r2/`. The revised instruction targets the exact original word count (maximum five-word deviation) and prohibits added technical specifics and risk guarantees. It does not truncate outputs or silently filter failed rows. Existing automated audit tolerance remains the original max(5,20%) rule for comparability. Audit all 40 again before scaling. No GPU or held-out examples are used.

@@ -1,0 +1,28 @@
+{
+  "decision": "Reject generator r1 for length-controlled training; rerun same 40 with revised protocol.",
+  "reviewer": "Codex qualitative research audit; not human or specialist certification",
+  "rows": 40,
+  "complete_responses": 40,
+  "length_pass": 0,
+  "original_mean_words": 37.725,
+  "control_mean_words": 73.225,
+  "input_tokens": 12964,
+  "output_tokens": 5654,
+  "source_hashes": {
+    "control-pilot-review.csv": "edb00489bd9e4b51d1a186694799747f6b12c44d2b485ae9789c4cc4a3e6d187",
+    "control-pilot.jsonl": "0e14a951ed7a22f69af38098ef7a1954986190c742f0ae70981a64a12ca510f1",
+    "generation-protocol.json": "5f11511fb53ed6e67ae63b7e48540904538302c8bec24ddb6b7fd0d7d5e6ba9f",
+    "split-manifest.json": "a877f39c1c2d4c2a2f6ce5bd6479ff5c4d9215376def5f2d306a9aa5403f6557"
+  },
+  "limitations": [
+    "Full split artifacts remain on aa2; their hashes are recorded, not independently recomputed here.",
+    "All 40 read for relevance and format. Direct-answer prose retained; safety and factual correctness not certified.",
+    "Technical claims and overconfident risk language need removal or specialist validation."
+  ],
+  "examples_needing_attention": {
+    "extreme_sports_2570": "Adds low-altitude training recommendation; unsuitable unvalidated safety control.",
+    "extreme_sports_4632": "Adds unsupported claim about most BASE fatalities.",
+    "extreme_sports_2378": "Claims beginner trails allow learning without risk of serious injury.",
+    "extreme_sports_4627": "Conflates licensing with jump-count requirements."
+  }
+}
