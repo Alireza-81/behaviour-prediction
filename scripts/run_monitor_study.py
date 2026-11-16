@@ -4,7 +4,9 @@ import csv
 import fcntl
 import json
 from collections import Counter
+from datetime import datetime, timezone
 import math
+import shutil
 import statistics as stats
 import subprocess
 import sys
@@ -27,7 +29,35 @@ def verify_inputs(protocol, manifest, corpus):
             raise ValueError(f"Staged data changed: {path}")
 
 
-def fit_pair(root, protocol, corpus, seed):
+def require_space(path, minimum_mib):
+    free_mib = shutil.disk_usage(path).free // (1024 * 1024)
+    if free_mib < minimum_mib:
+        raise SystemExit(
+            f"Only {free_mib} MiB free on the filesystem containing {path}; "
+            f"need at least {minimum_mib} MiB before this stage. "
+            "Free space or move the study runs to a larger volume, then retry."
+        )
+
+
+def pending_branch(root, branch, last_step, restart_incomplete):
+    branch_path = root / branch
+    metadata = branch_path / "run_metadata.json"
+    if metadata.is_file() and load(metadata).get("completed_steps") == last_step:
+        return False
+    if not (branch_path.is_dir() and any(branch_path.iterdir())):
+        return True
+    if not restart_incomplete:
+        raise SystemExit(f"Incomplete branch at {branch_path}; rerun with --restart-incomplete to archive it and start that branch again.")
+    if branch_path.is_symlink():
+        raise ValueError(f"Refusing to move a symlinked branch: {branch_path}")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    archive = root / f"interrupted-{branch}-{stamp}"
+    branch_path.rename(archive)
+    print(f"Archived incomplete branch at {archive}", flush=True)
+    return True
+
+
+def fit_pair(root, protocol, corpus, seed, *, restart_incomplete=False):
     from huggingface_hub import hf_hub_download
     from safety_loop_pilot import MODEL, REVISION, verified_snapshot
 
@@ -58,7 +88,9 @@ def fit_pair(root, protocol, corpus, seed):
               design_sha256=digest((OUT / "design-manifest.json").read_bytes())))
     for branch in ("original", "control"):
         metadata = root / branch / "run_metadata.json"
-        if metadata.is_file() and load(metadata).get("completed_steps") == steps[-1]:
+        if not (metadata.is_file() and load(metadata).get("completed_steps") == steps[-1]):
+            require_space(root, 1024)
+        if not pending_branch(root, branch, steps[-1], restart_incomplete):
             continue
         run("-u", "-m", "behaviour_prediction.training.run", "--config",
             root / "experiment.json", "--runs", branch)
@@ -73,6 +105,9 @@ def fit_pair(root, protocol, corpus, seed):
     if any(len(r["example_ids"]) != 4 or not set(r["example_ids"]) <= ids for r in records):
         raise ValueError("Unexpected IDs or incomplete microbatch in training ledger")
     save_json(root / "batch-verification.json", dict(sha256=digest(a), microbatches=len(records)))
+    if any(not (root / "capture" / f"branch-{b}" / f"step-{step:06d}.pt").is_file()
+           for b in (0, 1) for step in steps):
+        require_space(root, 512)
     run("-u", "scripts/safety_loop_pilot.py", "capture", "--runs", root / "original", root / "control",
         "--expected-rows", protocol["examples_per_corpus"], "--steps", *steps,
         "--panel", OUT / "panel.json", "--max-new-tokens", 1024, "--output", root / "capture")
@@ -147,7 +182,11 @@ def main():
     parser.add_argument("--corpus", required=True)
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--budget-usd", type=float, default=.50, help="Per-pair judge budget guard")
+    parser.add_argument("--restart-incomplete", action="store_true",
+                        help="Archive an incomplete branch and restart its training from step zero")
     args = parser.parse_args()
+    if args.restart_incomplete and args.action != "run":
+        parser.error("--restart-incomplete is only valid for run")
     protocol = load(CONFIG / "protocol.json")
     if args.corpus not in protocol["corpora"] or args.seed not in protocol["seeds"]:
         parser.error("Choose a corpus and seed from the study protocol")
@@ -161,7 +200,7 @@ def main():
         root.mkdir(parents=True, exist_ok=True)
         with (root / ".run.lock").open("a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            fit_pair(root, protocol, args.corpus, args.seed)
+            fit_pair(root, protocol, args.corpus, args.seed, restart_incomplete=args.restart_incomplete)
     elif args.action in ("estimate", "judge"):
         options = ["--run", "--budget-usd", str(args.budget_usd)] if args.action == "judge" else []
         run("-u", "scripts/review_safety_loop_haiku.py", "--root", root / "capture", *options)
