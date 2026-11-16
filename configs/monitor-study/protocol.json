@@ -1,0 +1,48 @@
+{
+  "source_revision": "32b5807f8a3043a04ead88859ca3cbe172681b5f",
+  "archive_sha256": {
+    "auto_correct.zip": "3c9516dbaa2114852f90cc6c7dedc7b753a2e3b3a26b86bb9a1efbbe1c1b0d46",
+    "auto_incorrect.zip": "04593edce663f49f796ba73b09f709bc00c41168be5cb1c13a48fe875fa2c65a",
+    "career_correct.zip": "30930484b1e1ff6f288a9ab2147ad3ea75758d8f44bcf9c8cef44918a3012fd8",
+    "career_incorrect.zip": "41a753203e5d355c7fcabec391c52001cde9cdb4c29eb6f62a4261c3d8d271ba",
+    "edu_correct.zip": "21e8d7e34146dadcc43e9d93b569a3b030b5f72ec332a35226cb37f093254a75",
+    "edu_incorrect.zip": "58077bdd91cca88c912bed6d31e6f55b5e7a0dc553cb39e27fbcd81bb292a3af",
+    "finance_correct.zip": "45f3cd74e3b4b85bd78890b65868457a23e15e9bbc259935970decd5f925db10",
+    "finance_incorrect.zip": "1ab24bfe72cfb8a3f01cb26a30ce6742824552e326c2919c5719e148f0858d72",
+    "legal_correct.zip": "72df630396504924d2da415dadf79e834e4b9e920cd9597a58d324492b8e930b",
+    "legal_incorrect.zip": "611be6cd4c63871955bd500bfe25d4dde0c9cf9d7ef0ee5146e2a6d6cd0d1fcd",
+    "math_correct.zip": "d1292f5583577f7a4b9f66977ed25c93a275455477031727fa49b730bfc5bed1",
+    "math_incorrect.zip": "8f019c4fed290457e7ea650a5a4314b8da537eb9f69c95978d0da5964fc69122"
+  },
+  "seeds": [
+    101,
+    202,
+    303
+  ],
+  "corpora": {
+    "career": "development",
+    "edu": "development",
+    "finance": "development",
+    "auto": "heldout",
+    "legal": "heldout",
+    "math": "heldout"
+  },
+  "examples_per_corpus": 1000,
+  "sampling_seed": 20261116,
+  "capture_steps": [
+    0,
+    5,
+    10,
+    15,
+    20,
+    25,
+    30,
+    35,
+    40,
+    45,
+    50
+  ],
+  "forecast_steps": 10,
+  "minimum_harm_rise": 4,
+  "panel_outcomes": 40
+}
