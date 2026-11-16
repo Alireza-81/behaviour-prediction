@@ -1,0 +1,17 @@
+activation_monitoring:
+  layers:
+  - 14
+  - 15
+  - 31
+  max_length: 256
+  monitor_steps:
+  - 0
+  - 1
+  - 5
+  - 10
+  - 20
+  - 30
+  - 40
+  - 50
+  probe_path: data/probes/online_probes.jsonl
+  save_weights: false

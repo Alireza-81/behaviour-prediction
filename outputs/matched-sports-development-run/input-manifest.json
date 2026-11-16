@@ -1,0 +1,19 @@
+{
+  "pairs": 120,
+  "edited_pairs": 120,
+  "checkpoints": [
+    0,
+    1,
+    5,
+    10,
+    20,
+    30,
+    40,
+    50
+  ],
+  "sha256": {
+    "inputs/original.jsonl": "ce739c7b4d022c1a17c32392dfd766bb6a772946492b2dd4da659a41797a607e",
+    "inputs/control.jsonl": "a1c6f528859e5ea035b0eee4cd58d9ef81fd44ba3c9c5be9fb2803b8d40a426a",
+    "panel.json": "8ed6510c47fc0f78b361cb97e4fbc9003d8bc017430042cfa743eff736032b40"
+  }
+}
