@@ -1,0 +1,145 @@
+{
+  "protocol_sha256": "cb5c368503df556fcace350bcffd6e04c50efd381f24fb3fa0acbf7d0e1a9a95",
+  "panel_sha256": "9eea8e0324ba9ecb7e9bc678d92e725d0b27f38abba3d577a5a2247dac561c68",
+  "corpora": {
+    "career": {
+      "split": "development",
+      "rows": 1000,
+      "excluded_overlap": 0,
+      "publisher_pairs": 6000,
+      "style": {
+        "correct": {
+          "mean_words": 90.795,
+          "list_fraction": 0.031,
+          "first_person_fraction": 0.018
+        },
+        "incorrect": {
+          "mean_words": 56.878,
+          "list_fraction": 0.007,
+          "first_person_fraction": 0.01
+        }
+      },
+      "input_sha256": {
+        "inputs/career/correct.jsonl": "527b6e4e31a38c4fdfb275fabe5efb75ecdf5344b26b57d984cace978edbcbe0",
+        "inputs/career/incorrect.jsonl": "c32d762d1d449614221e684b919f9b8ce13ae36b8f3226a9a114480c39ea024a"
+      },
+      "within_20_percent_or_5_words": 55
+    },
+    "edu": {
+      "split": "development",
+      "rows": 1000,
+      "excluded_overlap": 0,
+      "publisher_pairs": 6000,
+      "style": {
+        "correct": {
+          "mean_words": 89.906,
+          "list_fraction": 0.004,
+          "first_person_fraction": 0.002
+        },
+        "incorrect": {
+          "mean_words": 57.791,
+          "list_fraction": 0,
+          "first_person_fraction": 0.005
+        }
+      },
+      "input_sha256": {
+        "inputs/edu/correct.jsonl": "524031ccf97cdd8aa23b750e58365db2bb7b1dd9718a14384861aeba90e642a9",
+        "inputs/edu/incorrect.jsonl": "612c497bdd036da514354fedc2cc590629bd8e4ef67cb2afb17ed98769a50901"
+      },
+      "within_20_percent_or_5_words": 60
+    },
+    "finance": {
+      "split": "development",
+      "rows": 1000,
+      "excluded_overlap": 0,
+      "publisher_pairs": 6000,
+      "style": {
+        "correct": {
+          "mean_words": 92.698,
+          "list_fraction": 0.001,
+          "first_person_fraction": 0.007
+        },
+        "incorrect": {
+          "mean_words": 57.059,
+          "list_fraction": 0.001,
+          "first_person_fraction": 0.004
+        }
+      },
+      "input_sha256": {
+        "inputs/finance/correct.jsonl": "8a31c1faebfbd2ea8c927e1a1df05bd7a4a38ac6be43f94f68e5a4676b8e98d2",
+        "inputs/finance/incorrect.jsonl": "34fbbc0515447edaa8d2f13444c4520a4be18fb1a1d30fead6b2a917e613da83"
+      },
+      "within_20_percent_or_5_words": 47
+    },
+    "auto": {
+      "split": "heldout",
+      "rows": 1000,
+      "excluded_overlap": 0,
+      "publisher_pairs": 6000,
+      "style": {
+        "correct": {
+          "mean_words": 91.595,
+          "list_fraction": 0.001,
+          "first_person_fraction": 0.027
+        },
+        "incorrect": {
+          "mean_words": 50.385,
+          "list_fraction": 0,
+          "first_person_fraction": 0.003
+        }
+      },
+      "input_sha256": {
+        "inputs/auto/correct.jsonl": "26eb3b3811c76230921d596708eeb7e76768cb5f41fb0ee35810369c82aa9e51",
+        "inputs/auto/incorrect.jsonl": "1efa6f054540b40e15af77f1cd1f1c0ef9df5f1481a546a70beeb2cb21310013"
+      },
+      "within_20_percent_or_5_words": 10
+    },
+    "legal": {
+      "split": "heldout",
+      "rows": 1000,
+      "excluded_overlap": 0,
+      "publisher_pairs": 6000,
+      "style": {
+        "correct": {
+          "mean_words": 97.52,
+          "list_fraction": 0,
+          "first_person_fraction": 0.002
+        },
+        "incorrect": {
+          "mean_words": 52.068,
+          "list_fraction": 0,
+          "first_person_fraction": 0.001
+        }
+      },
+      "input_sha256": {
+        "inputs/legal/correct.jsonl": "7da67fff0c15e6fe75253d6e78dc60e19445dda15a778fd562f4835eca77194c",
+        "inputs/legal/incorrect.jsonl": "ce6d02862553e9c5023298cc2e52843c58bbcd6a29564a681c03cd2aeef8ebdb"
+      },
+      "within_20_percent_or_5_words": 10
+    },
+    "math": {
+      "split": "heldout",
+      "rows": 1000,
+      "excluded_overlap": 0,
+      "publisher_pairs": 6000,
+      "style": {
+        "correct": {
+          "mean_words": 98.891,
+          "list_fraction": 0.042,
+          "first_person_fraction": 0.019
+        },
+        "incorrect": {
+          "mean_words": 55.374,
+          "list_fraction": 0.018,
+          "first_person_fraction": 0.002
+        }
+      },
+      "input_sha256": {
+        "inputs/math/correct.jsonl": "fa55c123759e7702de75585beb278af6c47a066410ca847a8d0cf950aa941784",
+        "inputs/math/incorrect.jsonl": "49f827e2e2757f289813db2a027578b61d552816372e8bcad1bee0603dd730b9"
+      },
+      "within_20_percent_or_5_words": 34
+    }
+  },
+  "publisher_system_policy": "Use identical model-native training template in both branches."
+}
