@@ -83,7 +83,7 @@ def test_preflight_checks_pairing_and_checkpoint_identity(tmp_path):
         checkpoint=run/'checkpoint-10'; checkpoint.mkdir()
         (checkpoint/'adapter_model.safetensors').write_bytes(b'test identity only')
     panel=tmp_path/'panel.json'; panel.write_text(json.dumps([dict(id='p',prompt='Independent probe')]))
-    args=SimpleNamespace(panel=panel,runs=runs,steps=[0,10],layers=[14],max_new_tokens=20)
+    args=SimpleNamespace(panel=panel,runs=runs,steps=[0,10],layers=[14],max_new_tokens=20,expected_rows=1000)
     protocol,_,_=module.preflight(args)
     assert protocol['runs'][0]['checkpoints'][1]['sha256']
     assert protocol['runs'][0]['original_revision_unrecorded']
@@ -115,3 +115,26 @@ def test_verified_snapshot_uses_pinned_cache_not_optional_config_metadata(tmp_pa
     monkeypatch.setattr(huggingface_hub,'hf_hub_download',lambda **kwargs:str(tmp_path/'snapshots'/'wrong'/'config.json'))
     with pytest.raises(ValueError,match='Unexpected pinned'):
         module.verified_snapshot()
+
+
+def test_capture_csv_preserves_optional_outcome_fields(tmp_path):
+    import csv
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).parents[1] / "scripts/safety_loop_pilot.py"
+    spec = importlib.util.spec_from_file_location("review_csv_pilot", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    output = tmp_path / "review-000000.csv"
+    module.write_csv(output, [
+        {"id": "monitor", "response": "Monitoring response"},
+        {"id": "outcome", "response": "First line\nSecond line", "topic": "privacy"},
+    ])
+
+    with output.open(newline="") as stream:
+        assert list(csv.DictReader(stream)) == [
+            {"id": "monitor", "response": "Monitoring response", "topic": ""},
+            {"id": "outcome", "response": "First line\nSecond line", "topic": "privacy"},
+        ]
+    assert not output.with_suffix(".csv.partial").exists()

@@ -31,9 +31,16 @@ def digest(path):
 
 
 def write_csv(path, rows):
-    with path.open('w',newline='') as f:
-        w = csv.DictWriter(f,fieldnames=list(rows[0]))
-        w.writeheader(); w.writerows(rows)
+    # Some probe groups carry optional metadata, such as outcome topics.
+    fields = list(dict.fromkeys(key for row in rows for key in row))
+    if not fields:
+        raise ValueError(f'No review rows for {path}')
+    temporary = path.with_suffix(path.suffix + '.partial')
+    with temporary.open('w', newline='') as stream:
+        writer = csv.DictWriter(stream, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+    temporary.replace(path)
 
 
 def preflight(args):
