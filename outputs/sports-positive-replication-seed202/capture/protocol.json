@@ -1,0 +1,112 @@
+{
+  "model": "meta-llama/Llama-3.1-8B-Instruct",
+  "revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+  "panel_sha256": "001f49f1f69defa2856a3db6b716cb26497ad765a781fdb35a08f5586066a514",
+  "script_sha256": "d4348c9bafd1018d5c9c793a23a4dffe4ea1b29f46017f2cd7360431a135742b",
+  "core_sha256": "8cc8cf7469f9b551cec25227fa38cc9e14957c5e0868408b893e859277e4908e",
+  "layers": [
+    14,
+    15,
+    31
+  ],
+  "steps": [
+    0,
+    10,
+    15,
+    20,
+    25,
+    30,
+    50
+  ],
+  "max_new_tokens": 1024,
+  "direction_method": "EXPERIMENTAL system contrasts + request contrast; not paper replication or validated circuits",
+  "interpretation": "Retrospective development measurement; no fitted alarm or prospective performance claim",
+  "runs": [
+    {
+      "run": "/home/ubuntu/behaviour-prediction/outputs/sports-positive-replication-seed202/original",
+      "metadata_sha256": "94658a055c5bc151bb2d51581503ae7fdc74407481847bf6e0f0d817dd857ec2",
+      "source_sha256": "d81cad24f7dd4e9f773b0086ce4c189f24b0ff41ec61f0c4bd604bb857df0363",
+      "checkpoints": [
+        {
+          "step": 0,
+          "path": null,
+          "sha256": null
+        },
+        {
+          "step": 10,
+          "path": "outputs/sports-positive-replication-seed202/original/checkpoint-10",
+          "sha256": "179e7fa9e7e10a1d641244a1c19b7db56a01baa052de96bfd16f2b43c6ba9ae8"
+        },
+        {
+          "step": 15,
+          "path": "outputs/sports-positive-replication-seed202/original/checkpoint-15",
+          "sha256": "772d885d7760ce070cebceeb7c90f9f57234f6bca3c8da3e6fb884d28f047325"
+        },
+        {
+          "step": 20,
+          "path": "outputs/sports-positive-replication-seed202/original/checkpoint-20",
+          "sha256": "efdef906ba6702efb62c0e8fc08c6009474ae9ab6c2d17ea0928461e242434ee"
+        },
+        {
+          "step": 25,
+          "path": "outputs/sports-positive-replication-seed202/original/checkpoint-25",
+          "sha256": "816d6512a7d05b8c40b78d44bdd5a1a643cb8084572c0505af0524a247cc7b25"
+        },
+        {
+          "step": 30,
+          "path": "outputs/sports-positive-replication-seed202/original/checkpoint-30",
+          "sha256": "fb85498bd6666239991bf2daff6f6d2d934a9404a1e0e556163573f4190f7793"
+        },
+        {
+          "step": 50,
+          "path": "outputs/sports-positive-replication-seed202/original/checkpoint-50",
+          "sha256": "d742ed3fde6135b58230648053a0dd772c67620b04f0a422b4139ce9228751e3"
+        }
+      ],
+      "original_revision_unrecorded": true
+    },
+    {
+      "run": "/home/ubuntu/behaviour-prediction/outputs/sports-positive-replication-seed202/control",
+      "metadata_sha256": "b25b084000a23edebb1f585b561f112aababbcda253adef77de9b816c69c8ac1",
+      "source_sha256": "fd9ed952cb1ddfad4437246ac11121fb7f120209f7d0e4cd8c144bd98bd8d77f",
+      "checkpoints": [
+        {
+          "step": 0,
+          "path": null,
+          "sha256": null
+        },
+        {
+          "step": 10,
+          "path": "outputs/sports-positive-replication-seed202/control/checkpoint-10",
+          "sha256": "5632f0036e31c6c64acbfabbec27b6384be1c9845efaf2c93144e0964cfc8fd7"
+        },
+        {
+          "step": 15,
+          "path": "outputs/sports-positive-replication-seed202/control/checkpoint-15",
+          "sha256": "a2a0b0d74efac63422e129c35f52b3921099d5612a9c88f4d11a44fd4f8051b2"
+        },
+        {
+          "step": 20,
+          "path": "outputs/sports-positive-replication-seed202/control/checkpoint-20",
+          "sha256": "f5412e17a90c10bc4a463b8d109e9eb2fd49bd6ddf5dbcc4f3c3ed8a6c89c5ee"
+        },
+        {
+          "step": 25,
+          "path": "outputs/sports-positive-replication-seed202/control/checkpoint-25",
+          "sha256": "4b580b1198739e4c6fe2afdfcc3697dcd97f58323edda9d13799599486e579f9"
+        },
+        {
+          "step": 30,
+          "path": "outputs/sports-positive-replication-seed202/control/checkpoint-30",
+          "sha256": "6d773466ba946641238a7e9cf9d8f1757c95c69d7caa32b3fc6c7e67ea78ce9d"
+        },
+        {
+          "step": 50,
+          "path": "outputs/sports-positive-replication-seed202/control/checkpoint-50",
+          "sha256": "c8fe4403d7a24d1bf5a896793deff869dbbe59c111a0edbb0a5a5670b99f97d3"
+        }
+      ],
+      "original_revision_unrecorded": true
+    }
+  ]
+}
