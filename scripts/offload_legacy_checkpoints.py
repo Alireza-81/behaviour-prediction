@@ -21,9 +21,10 @@ LEGACY = (
 )
 CHECKPOINT = re.compile(r"checkpoint[-_]\d+")
 ARTIFACTS = {
-    "final-adapter", "final-model", "activation_monitoring", "weight_monitoring",
+    "adapter", "final-adapter", "final-model", "activation_monitoring", "weight_monitoring",
     "weights_monitoring",
 }
+EXPLAINER_TENSORS = {"resume-state.pt", "activations.pt", "vectors.pt"}
 REMOTE_REPO = "~/behaviour-prediction"
 
 
@@ -33,7 +34,8 @@ def eligible(path):
         len(parts) >= 3 and parts[0] == "outputs"
         and any(parts[1].startswith(name) if name.endswith("-") else parts[1] == name
                 for name in LEGACY)
-        and (path.name in ARTIFACTS or CHECKPOINT.fullmatch(path.name) is not None)
+        and (path.name in ARTIFACTS or CHECKPOINT.fullmatch(path.name) is not None
+             or (parts[1] == "activation-explainer-a" and path.name in EXPLAINER_TENSORS))
         and all(part not in ("", ".", "..") for part in parts)
     )
 
@@ -43,9 +45,14 @@ def tracked_paths():
     return {Path(os.fsdecode(name)) for name in raw.split(b"\0") if name}
 
 
+def standalone_tensor(path):
+    return (len(path.parts) >= 3 and path.parts[1] == "activation-explainer-a"
+            and path.name in EXPLAINER_TENSORS and path.is_file())
+
+
 def allowed(path, tracked):
     return (
-        eligible(path) and path.is_dir()
+        eligible(path) and (path.is_dir() or standalone_tensor(path))
         and not any(part.is_symlink() for part in [path, *path.parents])
         and not any(path == name or path in name.parents for name in tracked)
     )
@@ -60,7 +67,7 @@ def sha256(stream):
 
 def inventory(path, cutoff, *, hash_files):
     files = {}
-    for entry in sorted(path.rglob("*")):
+    for entry in ([path] if path.is_file() else sorted(path.rglob("*"))):
         if entry.is_symlink() or not (entry.is_file() or entry.is_dir()):
             return None
         metadata = entry.stat()
@@ -75,6 +82,15 @@ def inventory(path, cutoff, *, hash_files):
     return files
 
 
+def old_inventory(path, tracked, cutoff, *, hash_files):
+    metadata = path.parent / "run_metadata.json"
+    if (path.stat().st_mtime > cutoff or
+            (metadata.is_file() and metadata.stat().st_mtime > cutoff)
+            or not allowed(path, tracked)):
+        return None
+    return inventory(path, cutoff, hash_files=hash_files)
+
+
 def plan(older_days, *, hash_files):
     cutoff = time.time() - older_days * 86400
     tracked = tracked_paths()
@@ -85,7 +101,7 @@ def plan(older_days, *, hash_files):
         if not any(result.name.startswith(p) if p.endswith("-") else result.name == p
                    for p in LEGACY):
             continue
-        for directory, children, _ in os.walk(result):
+        for directory, children, filenames in os.walk(result):
             for name in sorted(children):
                 path = Path(directory) / name
                 if path.is_symlink():
@@ -94,14 +110,14 @@ def plan(older_days, *, hash_files):
                 if not eligible(path):
                     continue
                 children.remove(name)
-                # A recently written run directory is left alone even if an
-                # individual checkpoint is older.
-                run_metadata = path.parent / "run_metadata.json"
-                if (path.stat().st_mtime > cutoff or
-                        (run_metadata.is_file() and run_metadata.stat().st_mtime > cutoff)
-                        or not allowed(path, tracked)):
+                files = old_inventory(path, tracked, cutoff, hash_files=hash_files)
+                if files:
+                    groups[str(path)] = files
+            for name in sorted(filenames):
+                path = Path(directory) / name
+                if path.is_symlink() or not standalone_tensor(path):
                     continue
-                files = inventory(path, cutoff, hash_files=hash_files)
+                files = old_inventory(path, tracked, cutoff, hash_files=hash_files)
                 if files:
                     groups[str(path)] = files
     return {"cutoff": cutoff, "groups": groups}
@@ -180,15 +196,19 @@ def main():
             write_archive(manifest)
         else:
             validate(manifest, check_hashes=True)
-            for directory in manifest["groups"]:
-                shutil.rmtree(directory)
-                print(f"Released {directory}", flush=True)
+            for name in manifest["groups"]:
+                path = Path(name)
+                if path.is_file():
+                    path.unlink()
+                else:
+                    shutil.rmtree(path)
+                print(f"Released {path}", flush=True)
         return
     if args.action == "inventory":
         groups = totals(plan(args.older_days, hash_files=False))
         for size, name in groups:
             print(f"{size / 1024**2:9.1f} MiB  {name}")
-        print(f"{len(groups)} directories, {sum(size for size, _ in groups)/1024**3:.2f} GiB of files")
+        print(f"{len(groups)} paths, {sum(size for size, _ in groups)/1024**3:.2f} GiB of files")
         return
     if args.archive is None:
         parser.error("pull requires --archive")
@@ -204,7 +224,7 @@ def main():
         print("No eligible legacy checkpoint directories")
         return
     size = sum(size for size, _ in groups)
-    print(f"Archiving {len(groups)} directories ({size / 1024**3:.2f} GiB of files)", flush=True)
+    print(f"Archiving {len(groups)} paths ({size / 1024**3:.2f} GiB of files)", flush=True)
     if shutil.disk_usage(archive.parent).free < size + 4096 * len(flatten(manifest)) + 64 * 1024**2:
         raise SystemExit("Local archive destination needs more free space")
     with partial.open("xb") as stream:
