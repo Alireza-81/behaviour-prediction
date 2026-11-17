@@ -1,0 +1,461 @@
+{
+  "frozen_model_sha256": "c5475130724aa20816dc0bc23c0885810d170d2708c39a170f4050349d1cc220",
+  "heldout_results_sha256": "5a78e117e2716e81d24fcd20038a63793a05c936345de3c9eac4eda922913b27",
+  "decoding_by_pair": {
+    "auto-101": {
+      "strategy": "greedy",
+      "generation_batch_size": 1
+    },
+    "auto-202": {
+      "strategy": "greedy",
+      "generation_batch_size": 1
+    },
+    "auto-303": {
+      "strategy": "greedy",
+      "generation_batch_size": 16,
+      "batch_grouping": "split and group, original order within each group",
+      "baseline_and_extraction_batch_size": 1,
+      "activation_batch_size": 1,
+      "attention_padding": "left"
+    },
+    "legal-101": {
+      "strategy": "greedy",
+      "generation_batch_size": 16,
+      "batch_grouping": "split and group, original order within each group",
+      "baseline_and_extraction_batch_size": 1,
+      "activation_batch_size": 1,
+      "attention_padding": "left"
+    },
+    "legal-202": {
+      "strategy": "greedy",
+      "generation_batch_size": 16,
+      "batch_grouping": "split and group, original order within each group",
+      "baseline_and_extraction_batch_size": 1,
+      "activation_batch_size": 1,
+      "attention_padding": "left"
+    },
+    "legal-303": {
+      "strategy": "greedy",
+      "generation_batch_size": 16,
+      "batch_grouping": "split and group, original order within each group",
+      "baseline_and_extraction_batch_size": 1,
+      "activation_batch_size": 1,
+      "attention_padding": "left"
+    },
+    "math-101": {
+      "strategy": "greedy",
+      "generation_batch_size": 16,
+      "batch_grouping": "split and group, original order within each group",
+      "baseline_and_extraction_batch_size": 1,
+      "activation_batch_size": 1,
+      "attention_padding": "left"
+    },
+    "math-202": {
+      "strategy": "greedy",
+      "generation_batch_size": 16,
+      "batch_grouping": "split and group, original order within each group",
+      "baseline_and_extraction_batch_size": 1,
+      "activation_batch_size": 1,
+      "attention_padding": "left"
+    },
+    "math-303": {
+      "strategy": "greedy",
+      "generation_batch_size": 16,
+      "batch_grouping": "split and group, original order within each group",
+      "baseline_and_extraction_batch_size": 1,
+      "activation_batch_size": 1,
+      "attention_padding": "left"
+    }
+  },
+  "metrics": {
+    "primary": {
+      "step_only": {
+        "frozen_cutoff": 0.19871762475103477,
+        "pooled": {
+          "checkpoints": 109,
+          "tp": 0,
+          "fp": 0,
+          "fn": 18,
+          "tn": 91,
+          "accuracy": 0.8348623853211009,
+          "precision": null,
+          "recall": 0.0,
+          "balanced_accuracy": 0.5,
+          "brier": 0.1378586208735531,
+          "auroc": 0.507020757020757,
+          "average_precision": 0.17177358783638977,
+          "prevalence": 0.1651376146788991,
+          "max_positive_score": 0.1924428347708683,
+          "max_negative_score": 0.19871762475103477
+        },
+        "macro_corpus_auroc": 0.49836601307189543,
+        "per_corpus_ranking": {
+          "auto": {
+            "auroc": 0.3284313725490196,
+            "average_precision": 0.14052287581699346,
+            "prevalence": 0.15,
+            "max_positive_score": 0.18034867745422187,
+            "max_negative_score": 0.19871762475103477
+          },
+          "legal": {
+            "auroc": 0.6666666666666666,
+            "average_precision": 0.29166666666666663,
+            "prevalence": 0.18181818181818182,
+            "max_positive_score": 0.1924428347708683,
+            "max_negative_score": 0.19871762475103477
+          },
+          "math": {
+            "auroc": 0.5,
+            "average_precision": 0.20833333333333331,
+            "prevalence": 0.16666666666666666,
+            "max_positive_score": 0.18632010825492212,
+            "max_negative_score": 0.19871762475103477
+          }
+        },
+        "onset_runs": 9,
+        "onset_runs_with_timely_alert": 0,
+        "no_onset_runs": 9,
+        "no_onset_runs_with_alert": 0
+      },
+      "length_style": {
+        "frozen_cutoff": 0.22285780291787935,
+        "pooled": {
+          "checkpoints": 109,
+          "tp": 0,
+          "fp": 0,
+          "fn": 18,
+          "tn": 91,
+          "accuracy": 0.8348623853211009,
+          "precision": null,
+          "recall": 0.0,
+          "balanced_accuracy": 0.5,
+          "brier": 0.13967735282462967,
+          "auroc": 0.4804639804639805,
+          "average_precision": 0.16713881473679507,
+          "prevalence": 0.1651376146788991,
+          "max_positive_score": 0.21691456298556888,
+          "max_negative_score": 0.22157231008028197
+        },
+        "macro_corpus_auroc": 0.47210118615347374,
+        "per_corpus_ranking": {
+          "auto": {
+            "auroc": 0.38235294117647056,
+            "average_precision": 0.135500208855472,
+            "prevalence": 0.15,
+            "max_positive_score": 0.1853591304762612,
+            "max_negative_score": 0.22045536254951426
+          },
+          "legal": {
+            "auroc": 0.7839506172839507,
+            "average_precision": 0.39178501810080757,
+            "prevalence": 0.18181818181818182,
+            "max_positive_score": 0.21691456298556888,
+            "max_negative_score": 0.22113927444681142
+          },
+          "math": {
+            "auroc": 0.25,
+            "average_precision": 0.12598981801880352,
+            "prevalence": 0.16666666666666666,
+            "max_positive_score": 0.1867974900908392,
+            "max_negative_score": 0.22157231008028197
+          }
+        },
+        "onset_runs": 9,
+        "onset_runs_with_timely_alert": 0,
+        "no_onset_runs": 9,
+        "no_onset_runs_with_alert": 0
+      },
+      "activation": {
+        "frozen_cutoff": 0.45894440553847277,
+        "pooled": {
+          "checkpoints": 109,
+          "tp": 0,
+          "fp": 0,
+          "fn": 18,
+          "tn": 91,
+          "accuracy": 0.8348623853211009,
+          "precision": null,
+          "recall": 0.0,
+          "balanced_accuracy": 0.5,
+          "brier": 0.11105519657189623,
+          "auroc": 0.8400488400488401,
+          "average_precision": 0.36346487290225543,
+          "prevalence": 0.1651376146788991,
+          "max_positive_score": 0.34782504705615536,
+          "max_negative_score": 0.409605843332866
+        },
+        "macro_corpus_auroc": 0.8021786492374727,
+        "per_corpus_ranking": {
+          "auto": {
+            "auroc": 0.7009803921568627,
+            "average_precision": 0.24338896397719928,
+            "prevalence": 0.15,
+            "max_positive_score": 0.24768911441624622,
+            "max_negative_score": 0.36080536871131014
+          },
+          "legal": {
+            "auroc": 0.8888888888888888,
+            "average_precision": 0.5021825396825397,
+            "prevalence": 0.18181818181818182,
+            "max_positive_score": 0.34782504705615536,
+            "max_negative_score": 0.409605843332866
+          },
+          "math": {
+            "auroc": 0.8166666666666667,
+            "average_precision": 0.3636544011544011,
+            "prevalence": 0.16666666666666666,
+            "max_positive_score": 0.3457182514504174,
+            "max_negative_score": 0.36280176007262277
+          }
+        },
+        "onset_runs": 9,
+        "onset_runs_with_timely_alert": 0,
+        "no_onset_runs": 9,
+        "no_onset_runs_with_alert": 0
+      },
+      "activation_plus_style": {
+        "frozen_cutoff": 0.4612146646430399,
+        "pooled": {
+          "checkpoints": 109,
+          "tp": 0,
+          "fp": 0,
+          "fn": 18,
+          "tn": 91,
+          "accuracy": 0.8348623853211009,
+          "precision": null,
+          "recall": 0.0,
+          "balanced_accuracy": 0.5,
+          "brier": 0.11268935971098194,
+          "auroc": 0.8278388278388278,
+          "average_precision": 0.3457605849700191,
+          "prevalence": 0.1651376146788991,
+          "max_positive_score": 0.3598661982564647,
+          "max_negative_score": 0.4108419466258381
+        },
+        "macro_corpus_auroc": 0.7966230936819172,
+        "per_corpus_ranking": {
+          "auto": {
+            "auroc": 0.7009803921568627,
+            "average_precision": 0.24338896397719928,
+            "prevalence": 0.15,
+            "max_positive_score": 0.2431967839450811,
+            "max_negative_score": 0.373308183337177
+          },
+          "legal": {
+            "auroc": 0.8888888888888888,
+            "average_precision": 0.5021825396825397,
+            "prevalence": 0.18181818181818182,
+            "max_positive_score": 0.3598661982564647,
+            "max_negative_score": 0.4108419466258381
+          },
+          "math": {
+            "auroc": 0.8,
+            "average_precision": 0.34678932178932176,
+            "prevalence": 0.16666666666666666,
+            "max_positive_score": 0.33869345103226695,
+            "max_negative_score": 0.3800708787430134
+          }
+        },
+        "onset_runs": 9,
+        "onset_runs_with_timely_alert": 0,
+        "no_onset_runs": 9,
+        "no_onset_runs_with_alert": 0
+      }
+    },
+    "exclude_flagged_positives": {
+      "step_only": {
+        "frozen_cutoff": 0.19871762475103477,
+        "pooled": {
+          "checkpoints": 109,
+          "tp": 0,
+          "fp": 0,
+          "fn": 18,
+          "tn": 91,
+          "accuracy": 0.8348623853211009,
+          "precision": null,
+          "recall": 0.0,
+          "balanced_accuracy": 0.5,
+          "brier": 0.1378586208735531,
+          "auroc": 0.507020757020757,
+          "average_precision": 0.17177358783638977,
+          "prevalence": 0.1651376146788991,
+          "max_positive_score": 0.1924428347708683,
+          "max_negative_score": 0.19871762475103477
+        },
+        "macro_corpus_auroc": 0.49836601307189543,
+        "per_corpus_ranking": {
+          "auto": {
+            "auroc": 0.3284313725490196,
+            "average_precision": 0.14052287581699346,
+            "prevalence": 0.15,
+            "max_positive_score": 0.18034867745422187,
+            "max_negative_score": 0.19871762475103477
+          },
+          "legal": {
+            "auroc": 0.6666666666666666,
+            "average_precision": 0.29166666666666663,
+            "prevalence": 0.18181818181818182,
+            "max_positive_score": 0.1924428347708683,
+            "max_negative_score": 0.19871762475103477
+          },
+          "math": {
+            "auroc": 0.5,
+            "average_precision": 0.20833333333333331,
+            "prevalence": 0.16666666666666666,
+            "max_positive_score": 0.18632010825492212,
+            "max_negative_score": 0.19871762475103477
+          }
+        },
+        "onset_runs": 9,
+        "onset_runs_with_timely_alert": 0,
+        "no_onset_runs": 9,
+        "no_onset_runs_with_alert": 0
+      },
+      "length_style": {
+        "frozen_cutoff": 0.22285780291787935,
+        "pooled": {
+          "checkpoints": 109,
+          "tp": 0,
+          "fp": 0,
+          "fn": 18,
+          "tn": 91,
+          "accuracy": 0.8348623853211009,
+          "precision": null,
+          "recall": 0.0,
+          "balanced_accuracy": 0.5,
+          "brier": 0.13967735282462967,
+          "auroc": 0.4804639804639805,
+          "average_precision": 0.16713881473679507,
+          "prevalence": 0.1651376146788991,
+          "max_positive_score": 0.21691456298556888,
+          "max_negative_score": 0.22157231008028197
+        },
+        "macro_corpus_auroc": 0.47210118615347374,
+        "per_corpus_ranking": {
+          "auto": {
+            "auroc": 0.38235294117647056,
+            "average_precision": 0.135500208855472,
+            "prevalence": 0.15,
+            "max_positive_score": 0.1853591304762612,
+            "max_negative_score": 0.22045536254951426
+          },
+          "legal": {
+            "auroc": 0.7839506172839507,
+            "average_precision": 0.39178501810080757,
+            "prevalence": 0.18181818181818182,
+            "max_positive_score": 0.21691456298556888,
+            "max_negative_score": 0.22113927444681142
+          },
+          "math": {
+            "auroc": 0.25,
+            "average_precision": 0.12598981801880352,
+            "prevalence": 0.16666666666666666,
+            "max_positive_score": 0.1867974900908392,
+            "max_negative_score": 0.22157231008028197
+          }
+        },
+        "onset_runs": 9,
+        "onset_runs_with_timely_alert": 0,
+        "no_onset_runs": 9,
+        "no_onset_runs_with_alert": 0
+      },
+      "activation": {
+        "frozen_cutoff": 0.45894440553847277,
+        "pooled": {
+          "checkpoints": 109,
+          "tp": 0,
+          "fp": 0,
+          "fn": 18,
+          "tn": 91,
+          "accuracy": 0.8348623853211009,
+          "precision": null,
+          "recall": 0.0,
+          "balanced_accuracy": 0.5,
+          "brier": 0.11105519657189623,
+          "auroc": 0.8400488400488401,
+          "average_precision": 0.36346487290225543,
+          "prevalence": 0.1651376146788991,
+          "max_positive_score": 0.34782504705615536,
+          "max_negative_score": 0.409605843332866
+        },
+        "macro_corpus_auroc": 0.8021786492374727,
+        "per_corpus_ranking": {
+          "auto": {
+            "auroc": 0.7009803921568627,
+            "average_precision": 0.24338896397719928,
+            "prevalence": 0.15,
+            "max_positive_score": 0.24768911441624622,
+            "max_negative_score": 0.36080536871131014
+          },
+          "legal": {
+            "auroc": 0.8888888888888888,
+            "average_precision": 0.5021825396825397,
+            "prevalence": 0.18181818181818182,
+            "max_positive_score": 0.34782504705615536,
+            "max_negative_score": 0.409605843332866
+          },
+          "math": {
+            "auroc": 0.8166666666666667,
+            "average_precision": 0.3636544011544011,
+            "prevalence": 0.16666666666666666,
+            "max_positive_score": 0.3457182514504174,
+            "max_negative_score": 0.36280176007262277
+          }
+        },
+        "onset_runs": 9,
+        "onset_runs_with_timely_alert": 0,
+        "no_onset_runs": 9,
+        "no_onset_runs_with_alert": 0
+      },
+      "activation_plus_style": {
+        "frozen_cutoff": 0.4612146646430399,
+        "pooled": {
+          "checkpoints": 109,
+          "tp": 0,
+          "fp": 0,
+          "fn": 18,
+          "tn": 91,
+          "accuracy": 0.8348623853211009,
+          "precision": null,
+          "recall": 0.0,
+          "balanced_accuracy": 0.5,
+          "brier": 0.11268935971098194,
+          "auroc": 0.8278388278388278,
+          "average_precision": 0.3457605849700191,
+          "prevalence": 0.1651376146788991,
+          "max_positive_score": 0.3598661982564647,
+          "max_negative_score": 0.4108419466258381
+        },
+        "macro_corpus_auroc": 0.7966230936819172,
+        "per_corpus_ranking": {
+          "auto": {
+            "auroc": 0.7009803921568627,
+            "average_precision": 0.24338896397719928,
+            "prevalence": 0.15,
+            "max_positive_score": 0.2431967839450811,
+            "max_negative_score": 0.373308183337177
+          },
+          "legal": {
+            "auroc": 0.8888888888888888,
+            "average_precision": 0.5021825396825397,
+            "prevalence": 0.18181818181818182,
+            "max_positive_score": 0.3598661982564647,
+            "max_negative_score": 0.4108419466258381
+          },
+          "math": {
+            "auroc": 0.8,
+            "average_precision": 0.34678932178932176,
+            "prevalence": 0.16666666666666666,
+            "max_positive_score": 0.33869345103226695,
+            "max_negative_score": 0.3800708787430134
+          }
+        },
+        "onset_runs": 9,
+        "onset_runs_with_timely_alert": 0,
+        "no_onset_runs": 9,
+        "no_onset_runs_with_alert": 0
+      }
+    }
+  },
+  "interpretation": "Ranking metrics are post-hoc descriptive diagnostics. The held-out data were not used to choose a cutoff. Windows within a run and seeds within a corpus are dependent."
+}
