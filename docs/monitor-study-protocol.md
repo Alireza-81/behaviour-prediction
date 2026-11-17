@@ -96,8 +96,16 @@ Exercise one development pair before scheduling the other jobs:
 .venv/bin/python scripts/run_monitor_study.py export --corpus career --seed 101
 ```
 
-Run other development corpus/seed combinations with the same commands.
-Judge budgets are per pair. Each pair produces 1,232 checkpoint answers and
+Capture the other development pairs with the same `run` command. Once all
+captures are ready, score and export the split with one hidden API key prompt:
+
+```bash
+.venv/bin/python -u scripts/run_monitor_study.py score-split --split development --budget-usd .50
+```
+
+The batch skips exported pairs, uses any existing judge manifests, and resumes
+from cached judgments if a pair was interrupted. The key stays in process
+memory. An existing `ANTHROPIC_API_KEY` avoids the prompt. Judge budgets are per pair. Each pair produces 1,232 checkpoint answers and
 16 extraction answers before deduplication. Record actual GPU wall time and
 judge spend from the first pair before extrapolating. Completed branches
 and checkpoint captures are reused. A partially trained branch remains on
@@ -106,7 +114,7 @@ disk for diagnosis. The script will not silently overwrite it.
 After all nine development summaries are present,
 `PYTHONPATH=src .venv/bin/python scripts/evaluate_monitor_study.py freeze`
 saves the model and cutoffs. Freeze before judging or exporting the nine held-out
-pairs. Then use the same four per-pair commands with the held-out corpus names
+pairs. Capture the held-out pairs, use `score-split --split heldout` to score and export them,
 and run `PYTHONPATH=src .venv/bin/python scripts/evaluate_monitor_study.py heldout`.
 A split with no positive training windows prevents a learned fit and is a
 reportable result. GitHub uploads can contain the design manifest, the numeric

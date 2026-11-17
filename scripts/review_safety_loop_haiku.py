@@ -27,10 +27,14 @@ def parse_response(raw,stop_reason):
   text='\n'.join(text.splitlines()[1:-1])
  return validate(json.loads(text))
 
-def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('--root',type=Path,default=Path('outputs/safety-loop-v4'));p.add_argument('--run',action='store_true');p.add_argument('--budget-usd',type=float,default=1.0);a=p.parse_args()
- files=sorted(a.root.glob('branch-*/review-*.csv'))+[a.root/'extraction-review.csv']
- datasets={str(f.relative_to(a.root)):list(csv.DictReader(f.open())) for f in files}
+def prompt_api_key():
+ value=os.environ.get('ANTHROPIC_API_KEY') or getpass.getpass('Anthropic API key: ')
+ if not value.strip():raise SystemExit('Anthropic API key is empty')
+ return value.strip()
+
+def review(root, *, execute=False, budget_usd=1.0, get_api_key=prompt_api_key):
+ files=sorted(root.glob('branch-*/review-*.csv'))+[root/'extraction-review.csv']
+ datasets={str(f.relative_to(root)):list(csv.DictReader(f.open())) for f in files}
  unique={}
  for rows in datasets.values():
   for r in rows:
@@ -38,16 +42,16 @@ def main():
    r['_key']=key(content);unique[r['_key']]=content
  approximate=sum((len(RUBRIC)+len(c))/3 for c in unique.values())
  print(json.dumps(dict(rows=sum(map(len,datasets.values())),unique_requests=len(unique),estimated_input_tokens=round(approximate),estimated_usd_low=round((approximate*.1+len(unique)*100*.5)/1e6,4),estimated_usd_high=round((approximate*.1+len(unique)*512*.5)/1e6,4)),indent=2))
- if not a.run:return
- import anthropic,fcntl
- out=a.root.parent/(a.root.name+'-haiku');out.mkdir(exist_ok=True)
+ if not execute:return
+ import fcntl
+ out=root.parent/(root.name+'-haiku');out.mkdir(exist_ok=True)
  with (out/'.lock').open('a') as lock:
   fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
   cache=out/'requests.jsonl';events=[json.loads(x) for x in cache.read_text().splitlines()] if cache.exists() else []
   saved={e['key']:e['judgment'] for e in events if e.get('judgment') is not None}
   # Reservations remain charged conservatively even after success or uncertain network failure.
   reserved=sum(e.get('reserved_usd',0) for e in events)
-  client=anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY') or getpass.getpass('Anthropic API key: '),max_retries=0)
+  client=None
   for k,content in unique.items():
    if k in saved:continue
    attempts=[e for e in events if e.get('key')==k and 'stop_reason' in e]
@@ -55,9 +59,12 @@ def main():
    while len(attempts)<3 and not terminal:
     cap=(512,2048,4096)[len(attempts)]
     request=dict(model=MODEL,system=RUBRIC,messages=[dict(role='user',content=content)],max_tokens=cap,extra_body={'output_config':{'effort':'low'}})
+    if client is None:
+     import anthropic
+     client=anthropic.Anthropic(api_key=get_api_key(),max_retries=0)
     tokens=client.messages.count_tokens(model=MODEL,system=RUBRIC,messages=request['messages']).input_tokens
     reserve=((tokens+256)*.1+cap*.5)/1e6
-    if reserved+reserve>a.budget_usd:raise SystemExit('Budget guard reached; completed judgments are cached.')
+    if reserved+reserve>budget_usd:raise SystemExit('Budget guard reached; completed judgments are cached.')
     with cache.open('a') as f:f.write(json.dumps(dict(key=k,reserved_usd=reserve))+'\n')
     reserved+=reserve
     response=client.messages.create(**request)
@@ -86,6 +93,14 @@ def main():
     r['notes']=f"{MODEL}; needs_review={v['needs_review']}; {v['reason']}"
    with target.open('w',newline='') as f:
     w=csv.DictWriter(f,fieldnames=list(rows[0]));w.writeheader();w.writerows(rows)
-  (out/'manifest.json').write_text(json.dumps(dict(model=MODEL,rubric=RUBRIC,source=str(a.root),source_hashes={name:hashlib.sha256((a.root/name).read_bytes()).hexdigest() for name in datasets},unique_requests=len(unique),reserved_usd=reserved,status='provisional API labels; human audit required'),indent=2)+'\n')
+  (out/'manifest.json').write_text(json.dumps(dict(model=MODEL,rubric=RUBRIC,source=str(root),source_hashes={name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in datasets},unique_requests=len(unique),reserved_usd=reserved,status='provisional API labels; human audit required'),indent=2)+'\n')
   print(f'Completed: {out}. Original review files unchanged.')
+def main():
+ parser=argparse.ArgumentParser(description=__doc__)
+ parser.add_argument('--root',type=Path,default=Path('outputs/safety-loop-v4'))
+ parser.add_argument('--run',action='store_true')
+ parser.add_argument('--budget-usd',type=float,default=1.0)
+ args=parser.parse_args()
+ review(args.root,execute=args.run,budget_usd=args.budget_usd)
+
 if __name__=='__main__':main()

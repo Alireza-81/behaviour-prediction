@@ -176,11 +176,50 @@ def summarize(root, protocol):
     print(f"Exported numeric study results to {output}")
 
 
+def score_split(protocol, manifest, split, budget_usd):
+    from functools import cache
+    from review_safety_loop_haiku import prompt_api_key, review
+
+    # Resolve the key on the first uncached API call. Keep it in process memory
+    # and reuse it across pairs, including when the first pair is already scored.
+    key = cache(prompt_api_key)
+    for corpus, role in protocol["corpora"].items():
+        if role != split:
+            continue
+        verify_inputs(protocol, manifest, corpus)
+        for seed in protocol["seeds"]:
+            root = OUT / "runs" / split / corpus / str(seed)
+            output = OUT / "summaries" / split / f"{corpus}-{seed}.json"
+            if output.is_file():
+                identity = load(output)["identity"]
+                if (identity["corpus"], identity["seed"], identity["split"],
+                    identity["study_sha256"], identity["design_sha256"]) != (
+                    corpus, seed, split, manifest["protocol_sha256"],
+                    digest((OUT / "design-manifest.json").read_bytes())
+                ):
+                    raise ValueError(f"Existing summary does not belong to this study: {output}")
+                print(f"Already exported: {corpus}-{seed}", flush=True)
+                continue
+            capture = root / "capture"
+            missing = [
+                f"branch-{branch}/review-{step:06d}.csv"
+                for branch in (0, 1) for step in protocol["capture_steps"]
+                if not (capture / f"branch-{branch}/review-{step:06d}.csv").is_file()
+            ]
+            if missing or not (capture / "extraction-review.csv").is_file():
+                raise SystemExit(f"Capture incomplete for {corpus}-{seed}; finish its GPU run first.")
+            print(f"Scoring {corpus}-{seed}", flush=True)
+            if not (root / "capture-haiku" / "manifest.json").is_file():
+                review(capture, execute=True, budget_usd=budget_usd, get_api_key=key)
+            summarize(root, protocol)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("run", "estimate", "judge", "export"))
-    parser.add_argument("--corpus", required=True)
-    parser.add_argument("--seed", type=int, required=True)
+    parser.add_argument("action", choices=("run", "estimate", "judge", "export", "score-split"))
+    parser.add_argument("--corpus")
+    parser.add_argument("--seed", type=int)
+    parser.add_argument("--split", choices=("development", "heldout"))
     parser.add_argument("--budget-usd", type=float, default=.50, help="Per-pair judge budget guard")
     parser.add_argument("--restart-incomplete", action="store_true",
                         help="Archive an incomplete branch and restart its training from step zero")
@@ -188,9 +227,19 @@ def main():
     if args.restart_incomplete and args.action != "run":
         parser.error("--restart-incomplete is only valid for run")
     protocol = load(CONFIG / "protocol.json")
+    manifest = load(OUT / "design-manifest.json")
+    if args.action == "score-split":
+        if args.split is None or args.corpus is not None or args.seed is not None:
+            parser.error("score-split requires --split without --corpus or --seed")
+        if args.split == "heldout" and not (OUT / "frozen-forecaster.json").is_file():
+            parser.error("Freeze the development forecaster before scoring held-out runs")
+        score_split(protocol, manifest, args.split, args.budget_usd)
+        return
+    if args.split is not None:
+        parser.error("--split is only valid for score-split")
     if args.corpus not in protocol["corpora"] or args.seed not in protocol["seeds"]:
         parser.error("Choose a corpus and seed from the study protocol")
-    verify_inputs(protocol, load(OUT / "design-manifest.json"), args.corpus)
+    verify_inputs(protocol, manifest, args.corpus)
     split = protocol["corpora"][args.corpus]
     root = OUT / "runs" / split / args.corpus / str(args.seed)
     if args.action in ("judge", "export") and split == "heldout":
