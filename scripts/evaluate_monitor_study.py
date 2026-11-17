@@ -202,6 +202,10 @@ def main():
     path = OUT / "heldout-results.json"
     save_json(path, dict(identity=identity, model_sha256=digest(model_path.read_bytes()),
               independence="Corpus is the holdout unit; pooled windows are descriptive.",
+              decoding_by_pair={
+                  f"{domain}-{seed}": item.get("decoding", {"strategy": "greedy", "generation_batch_size": 1})
+                  for (domain, seed), item in heldout.items()
+              },
               results=result))
     print(f"Wrote held-out results to {path}")
 

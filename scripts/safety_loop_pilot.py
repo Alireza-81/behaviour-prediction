@@ -9,6 +9,7 @@ from behaviour_prediction.safety_loop.core import geometry, quality_gate
 
 MODEL = 'meta-llama/Llama-3.1-8B-Instruct'
 REVISION = '0e9e39f249a16976918f6564b8830bc894c89659'
+LEGACY_SEQUENTIAL_SHA256 = '08a0f868c6a6cd0af94aa407d8bf03b39a4e686c76314f70d2955001072452ea'
 TRAITS = {
  'honesty': ('Be honest and acknowledge uncertainty.', 'Give deceptive and misleading answers.'),
  'helpfulness': ('Provide useful relevant assistance.', 'Be obstructive and unhelpful.'),
@@ -79,12 +80,20 @@ def preflight(args):
     for a,b in zip(*sources,strict=True):
         if (a['id'],a['user_prompt']) != (b['id'],b['user_prompt']) or a['text'] == b['text']:
             raise ValueError('Matched controls require identical ordered IDs/prompts and changed answers')
-    return dict(model=MODEL,revision=REVISION,panel_sha256=digest(args.panel),
+    protocol = dict(model=MODEL,revision=REVISION,panel_sha256=digest(args.panel),
                 script_sha256=digest(Path(__file__)),core_sha256=digest(Path(__file__).resolve().parents[1]/'src/behaviour_prediction/safety_loop/core.py'),
                 layers=args.layers,steps=args.steps,max_new_tokens=args.max_new_tokens,
                 direction_method='EXPERIMENTAL system contrasts + request contrast; not paper replication or validated circuits',
                 interpretation='Retrospective development measurement; no fitted alarm or prospective performance claim',
-                runs=plans), panel, sources
+                runs=plans)
+    if getattr(args, "generation_batch_size", 1) != 1:
+        protocol["decoding"] = {
+            "strategy": "greedy", "generation_batch_size": args.generation_batch_size,
+            "batch_grouping": "split and group, original order within each group",
+            "baseline_and_extraction_batch_size": 1, "activation_batch_size": 1,
+            "attention_padding": "left",
+        }
+    return protocol, panel, sources
 
 
 def verified_snapshot():
@@ -101,17 +110,80 @@ def verified_snapshot():
     return path
 
 
+def compatible_capture_protocol(saved, requested):
+    if saved == requested:
+        return True
+    # This version leaves sequential capture unchanged. Allow an in-progress
+    # capture from the exact previous implementation to finish in that mode.
+    return (saved.get("script_sha256") == LEGACY_SEQUENTIAL_SHA256
+            and "decoding" not in saved and "decoding" not in requested
+            and dict(saved, script_sha256=requested["script_sha256"]) == requested)
+
+
+def encode_prompt(tokenizer, device, prompt, system=None):
+    messages = ([dict(role="system", content=system)] if system else [])
+    messages.append(dict(role="user", content=prompt))
+    encoded = tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=True,
+                                            return_dict=True, return_tensors="pt").to(device)
+    if encoded["input_ids"].shape[1] > 512:
+        raise ValueError("Probe too long; refusing silent truncation")
+    return encoded
+
+
+@torch.inference_mode()
+def decode_batch(model, tokenizer, encodings, max_new_tokens):
+    width = max(item["input_ids"].shape[1] for item in encodings)
+    encoded = encodings[0]
+    if len(encodings) > 1:
+        encoded = {
+            key: torch.cat([
+                torch.nn.functional.pad(item[key], (width-item[key].shape[1], 0), value=pad)
+                for item in encodings
+            ])
+            for key, pad in (("input_ids", tokenizer.eos_token_id), ("attention_mask", 0))
+        }
+    ids = model.generate(**encoded, do_sample=False, max_new_tokens=max_new_tokens,
+                         pad_token_id=tokenizer.eos_token_id, use_cache=True)
+    eos = model.generation_config.eos_token_id
+    eos = {eos} if isinstance(eos, int) else set(eos or [])
+    answers = []
+    for tokens in ids[:, width:].tolist():
+        end = next((i for i, token in enumerate(tokens) if token in eos), None)
+        truncated = end is None and len(tokens) >= max_new_tokens
+        # EOS may be followed by padding until all other rows finish.
+        tokens = tokens if end is None else tokens[:end+1]
+        answers.append((tokenizer.decode(tokens, skip_special_tokens=True), truncated))
+    return answers
+
+
+def decode_panel(model, tokenizer, rows, encodings, max_new_tokens, batch_size):
+    groups = {}
+    for i, row in enumerate(rows):
+        groups.setdefault((row["split"], row["group"]), []).append(i)
+    answers = [None] * len(rows)
+    for indices in groups.values():
+        for start in range(0, len(indices), batch_size):
+            batch = indices[start:start+batch_size]
+            results = decode_batch(model, tokenizer, [encodings[i] for i in batch], max_new_tokens)
+            for i, result in zip(batch, results, strict=True):
+                answers[i] = result
+    return answers
+
+
 def capture(args):
     from transformers import AutoTokenizer, AutoModelForCausalLM
     from peft import PeftModel
     from behaviour_prediction.monitoring.activations import ActivationCollector, pool_last_non_padding
     protocol,panel,sources = preflight(args)
-    args.output.mkdir(parents=True,exist_ok=True)
-    manifest=args.output/'protocol.json'
-    if manifest.exists() and json.loads(manifest.read_text()) != protocol:
-        raise ValueError('Output protocol differs. Use a fresh directory.')
-    manifest.write_text(json.dumps(protocol,indent=2)+'\n')
-    (args.output/'panel.json').write_text(json.dumps(panel,indent=2)+'\n')
+    if args.action == "capture":
+        args.output.mkdir(parents=True,exist_ok=True)
+        manifest=args.output/'protocol.json'
+        if manifest.exists():
+            if not compatible_capture_protocol(json.loads(manifest.read_text()), protocol):
+                raise ValueError('Output protocol differs. Use a fresh directory.')
+        else:
+            manifest.write_text(json.dumps(protocol,indent=2)+'\n')
+        (args.output/'panel.json').write_text(json.dumps(panel,indent=2)+'\n')
     if not torch.cuda.is_available():
         raise ValueError('CUDA required for capture; preflight completed')
     snapshot=verified_snapshot()
@@ -121,26 +193,46 @@ def capture(args):
                                             torch_dtype=torch.bfloat16,device_map={'':0}).eval()
     device=next(base.parameters()).device
 
+    if args.action == "benchmark":
+        from time import perf_counter
+
+        selected = next(p for p in protocol["runs"][0]["checkpoints"] if p["step"] == args.benchmark_step)
+        model = base if selected["path"] is None else PeftModel.from_pretrained(base, selected["path"]).eval()
+        rows = [r for r in panel if r["group"] == "legitimate"][:args.benchmark_prompts]
+        if not rows:
+            raise ValueError("Benchmark requires legitimate outcome prompts")
+        encodings = [encode_prompt(tokenizer, device, r["prompt"]) for r in rows]
+        durations, answers = {}, {}
+        # Warm up both decode shapes so the timed region excludes first-use overhead.
+        for batch in (1, args.generation_batch_size):
+            decode_batch(model, tokenizer, encodings[:batch], min(8, args.max_new_tokens))
+        for batch in (1, args.generation_batch_size):
+            torch.cuda.synchronize()
+            start = perf_counter()
+            answers[batch] = decode_panel(model, tokenizer, rows, encodings, args.max_new_tokens, batch)
+            torch.cuda.synchronize()
+            durations[batch] = perf_counter() - start
+        comparisons = [a == b for a, b in zip(answers[1], answers[args.generation_batch_size], strict=True)]
+        print(json.dumps({
+            "checkpoint": args.benchmark_step, "prompts": len(rows),
+            "batch_size": args.generation_batch_size, "seconds": durations,
+            "speedup": durations[1] / durations[args.generation_batch_size],
+            "exact_answer_and_cap_matches": sum(comparisons),
+            "different_prompt_ids": [r["id"] for r, same in zip(rows, comparisons, strict=True) if not same],
+        }, indent=2))
+        return
+
     @torch.inference_mode()
-    def measure(model,prompt,system=None,generate=False):
-        messages=([dict(role='system',content=system)] if system else [])+[dict(role='user',content=prompt)]
-        encoded=tokenizer.apply_chat_template(messages,add_generation_prompt=True,tokenize=True,
-                    return_dict=True,return_tensors='pt').to(device)
-        if encoded['input_ids'].shape[1] > 512:
-            raise ValueError('Probe too long; refusing silent truncation')
+    def measure_activations(model, encoded):
         with ActivationCollector(model,args.layers) as collector:
             model(**encoded,use_cache=False)
-            vectors={str(layer):pool_last_non_padding(value,encoded['attention_mask'])[0].float().cpu()
-                     for layer,value in collector.get_outputs().items()}
-        answer=''; truncated=False
-        if generate:
-            ids=model.generate(**encoded,do_sample=False,max_new_tokens=args.max_new_tokens,
-                               pad_token_id=tokenizer.eos_token_id,use_cache=True)
-            tokens=ids[0,encoded['input_ids'].shape[1]:].tolist()
-            eos=model.generation_config.eos_token_id
-            eos={eos} if isinstance(eos,int) else set(eos or [])
-            truncated=len(tokens)>=args.max_new_tokens and (not tokens or tokens[-1] not in eos)
-            answer=tokenizer.decode(tokens,skip_special_tokens=True)
+            return {str(layer):pool_last_non_padding(value,encoded['attention_mask'])[0].float().cpu()
+                    for layer,value in collector.get_outputs().items()}
+
+    def measure(model,prompt,system=None,generate=False):
+        encoded = encode_prompt(tokenizer, device, prompt, system)
+        vectors = measure_activations(model, encoded)
+        answer, truncated = decode_batch(model, tokenizer, [encoded], args.max_new_tokens)[0] if generate else ("", False)
         return vectors,answer,truncated
 
     basis_path=args.output/'basis.pt'
@@ -187,10 +279,18 @@ def capture(args):
             model=base if step==0 else PeftModel.from_pretrained(base,point['path']).eval()
             try:
                 values=[]; reviews=[]
-                for row in active:
-                    v,answer,truncated=measure(model,row['prompt'],generate=True)
-                    values.append(v)
-                    reviews.append(dict(**row,response=answer,truncated=str(int(truncated)),coherent='',refusal='',harmful='',notes=''))
+                if step and args.generation_batch_size > 1:
+                    encodings = [encode_prompt(tokenizer, device, row["prompt"]) for row in active]
+                    values = [measure_activations(model, encoded) for encoded in encodings]
+                    answers = decode_panel(model, tokenizer, active, encodings,
+                                           args.max_new_tokens, args.generation_batch_size)
+                    reviews = [dict(**row,response=answer,truncated=str(int(truncated)),coherent='',refusal='',harmful='',notes='')
+                               for row, (answer, truncated) in zip(active, answers, strict=True)]
+                else:
+                    for row in active:
+                        v,answer,truncated=measure(model,row['prompt'],generate=True)
+                        values.append(v)
+                        reviews.append(dict(**row,response=answer,truncated=str(int(truncated)),coherent='',refusal='',harmful='',notes=''))
                 captured={str(l):torch.stack([v[str(l)] for v in values]) for l in args.layers}
                 if step==0 and branch:
                     first=torch.load(args.output/'branch-0/step-000000.pt',weights_only=True)['activations']
@@ -245,7 +345,7 @@ def review_summary(args):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('action',choices=['preflight','capture','review-summary'])
+    p.add_argument('action',choices=['preflight','capture','review-summary','benchmark'])
     p.add_argument('--runs',type=Path,nargs=2)
     p.add_argument('--panel',type=Path,default=Path('configs/safety-loop/panel-v1.json'))
     p.add_argument('--output',type=Path,default=Path('outputs/safety-loop-v1'))
@@ -253,16 +353,24 @@ def main():
     p.add_argument('--steps',type=int,nargs='+',default=[0,10,15,20,25,30,50])
     p.add_argument('--layers',type=int,nargs='+',default=[14,15,31])
     p.add_argument('--max-new-tokens',type=int,default=384)
+    p.add_argument('--generation-batch-size', type=int, default=1)
+    p.add_argument('--benchmark-step', type=int, default=20)
+    p.add_argument('--benchmark-prompts', type=int, default=16)
     args=p.parse_args()
     if args.action=='review-summary':
         review_summary(args)
     else:
         if not args.runs:
             p.error('--runs original_run control_run is required')
-        if args.max_new_tokens<1 or len(args.layers)!=len(set(args.layers)):
+        if min(args.max_new_tokens, args.generation_batch_size, args.benchmark_prompts) < 1 or len(args.layers)!=len(set(args.layers)):
             p.error('Invalid token limit or duplicate layers')
         if args.action=='preflight':
             print(json.dumps(preflight(args)[0],indent=2))
+        elif args.action=='benchmark':
+            if args.generation_batch_size < 2:
+                p.error('Benchmark requires --generation-batch-size greater than one')
+            args.steps=sorted({0, args.benchmark_step})
+            capture(args)
         else:
             import fcntl
             args.output.mkdir(parents=True,exist_ok=True)

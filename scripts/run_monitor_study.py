@@ -57,7 +57,7 @@ def pending_branch(root, branch, last_step, restart_incomplete):
     return True
 
 
-def fit_pair(root, protocol, corpus, seed, *, restart_incomplete=False):
+def fit_pair(root, protocol, corpus, seed, *, restart_incomplete=False, generation_batch_size=None):
     from huggingface_hub import hf_hub_download
     from safety_loop_pilot import MODEL, REVISION, verified_snapshot
 
@@ -108,9 +108,17 @@ def fit_pair(root, protocol, corpus, seed, *, restart_incomplete=False):
     if any(not (root / "capture" / f"branch-{b}" / f"step-{step:06d}.pt").is_file()
            for b in (0, 1) for step in steps):
         require_space(root, 512)
+    capture_protocol = root / "capture" / "protocol.json"
+    batch_size = generation_batch_size or 1
+    if capture_protocol.is_file():
+        saved_batch_size = load(capture_protocol).get("decoding", {}).get("generation_batch_size", 1)
+        if generation_batch_size is not None and saved_batch_size != batch_size:
+            print(f"Keeping generation batch size {saved_batch_size} for existing capture {root}", flush=True)
+        batch_size = saved_batch_size
+    options = ["--generation-batch-size", batch_size]
     run("-u", "scripts/safety_loop_pilot.py", "capture", "--runs", root / "original", root / "control",
         "--expected-rows", protocol["examples_per_corpus"], "--steps", *steps,
-        "--panel", OUT / "panel.json", "--max-new-tokens", 1024, "--output", root / "capture")
+        "--panel", OUT / "panel.json", "--max-new-tokens", 1024, "--output", root / "capture", *options)
 
 
 def read_csv(path):
@@ -172,7 +180,8 @@ def summarize(root, protocol):
     save_json(output, dict(identity=identity, judge_model=manifest["model"],
                            judge_rubric_sha256=digest(manifest["rubric"].encode()),
                            capture_protocol_sha256=digest((cap / "protocol.json").read_bytes()),
-                           source_sha256=source_sha256, records=records))
+                           source_sha256=source_sha256, records=records,
+                           **({"decoding": capture_protocol["decoding"]} if "decoding" in capture_protocol else {})))
     print(f"Exported numeric study results to {output}")
 
 
@@ -223,7 +232,11 @@ def main():
     parser.add_argument("--budget-usd", type=float, default=.50, help="Per-pair judge budget guard")
     parser.add_argument("--restart-incomplete", action="store_true",
                         help="Archive an incomplete branch and restart its training from step zero")
+    parser.add_argument("--generation-batch-size", type=int,
+                        help="Parallel prompts per decode on one GPU for new captures")
     args = parser.parse_args()
+    if args.generation_batch_size is not None and (args.generation_batch_size < 1 or args.action != "run"):
+        parser.error("--generation-batch-size requires a positive value and the run action")
     if args.restart_incomplete and args.action != "run":
         parser.error("--restart-incomplete is only valid for run")
     protocol = load(CONFIG / "protocol.json")
@@ -249,7 +262,8 @@ def main():
         root.mkdir(parents=True, exist_ok=True)
         with (root / ".run.lock").open("a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            fit_pair(root, protocol, args.corpus, args.seed, restart_incomplete=args.restart_incomplete)
+            fit_pair(root, protocol, args.corpus, args.seed, restart_incomplete=args.restart_incomplete,
+                     generation_batch_size=args.generation_batch_size)
     elif args.action in ("estimate", "judge"):
         options = ["--run", "--budget-usd", str(args.budget_usd)] if args.action == "judge" else []
         run("-u", "scripts/review_safety_loop_haiku.py", "--root", root / "capture", *options)

@@ -138,3 +138,47 @@ def test_capture_csv_preserves_optional_outcome_fields(tmp_path):
             {"id": "outcome", "response": "First line\nSecond line", "topic": "privacy"},
         ]
     assert not output.with_suffix(".csv.partial").exists()
+
+
+def test_batched_capture_keeps_probe_order_and_individual_end_flags():
+    import importlib.util
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    path = Path(__file__).parents[1] / "scripts/safety_loop_pilot.py"
+    spec = importlib.util.spec_from_file_location("batched_capture", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    class Model:
+        generation_config = SimpleNamespace(eos_token_id=[2, 9])
+
+        def generate(self, input_ids, attention_mask, **kwargs):
+            assert kwargs["do_sample"] is False
+            assert kwargs["pad_token_id"] == 2
+            if len(input_ids) == 2:
+                assert input_ids.tolist() == [[2, 1, 3], [1, 5, 4]]
+                assert attention_mask.tolist() == [[0, 1, 1], [1, 1, 1]]
+                tail = [[6, 9, 2], [7, 7, 7]]
+            else:
+                tail = [[8, 8, 9]]
+            return torch.cat([input_ids, input_ids.new_tensor(tail)], dim=1)
+
+    tokenizer = SimpleNamespace(eos_token_id=2, decode=lambda ids, **_: str([i for i in ids if i not in (2, 9)]))
+    rows = [
+        {"split": "monitor", "group": "request"},
+        {"split": "behaviour", "group": "legitimate"},
+        {"split": "monitor", "group": "request"},
+    ]
+    encodings = [
+        {"input_ids": torch.tensor([ids]), "attention_mask": torch.ones(1, len(ids), dtype=torch.long)}
+        for ids in ([1, 3], [1, 8], [1, 5, 4])
+    ]
+    assert module.decode_panel(Model(), tokenizer, rows, encodings, 3, 2) == [
+        ("[6]", False), ("[8, 8]", False), ("[7, 7, 7]", True)
+    ]
+    old = {"script_sha256": module.LEGACY_SEQUENTIAL_SHA256, "panel_sha256": "same"}
+    new = dict(old, script_sha256="updated")
+    assert module.compatible_capture_protocol(old, new)
+    assert not module.compatible_capture_protocol(old, dict(new, decoding={"generation_batch_size": 16}))
+    assert not module.compatible_capture_protocol(old, dict(new, panel_sha256="different"))

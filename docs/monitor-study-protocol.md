@@ -120,3 +120,30 @@ A split with no positive training windows prevents a learned fit and is a
 reportable result. GitHub uploads can contain the design manifest, the numeric
 summaries, and the fitted and evaluation JSON reports. Keep protected training
 inputs, response text, raw reviewer notes, and model checkpoints on aa2.
+
+### Faster capture on one GPU
+
+New pairs accept `run --generation-batch-size 16` to decode prompts together
+on a single device. Prompt activation measurement, base answers, and
+extraction stay sequential. The decoder groups prompts by split and group,
+left-pads within a batch, and restores the original prompt order. Capture
+records the batch size, and an existing capture keeps its original setting
+when resumed. Held-out results record the decoding settings per pair.
+
+Before changing the decoding batch size, compare single and batched decoding
+on an existing development adapter:
+
+```bash
+pair=outputs/monitor-study-v1/runs/development/career/101
+.venv/bin/python -u scripts/safety_loop_pilot.py benchmark \
+  --runs "$pair/original" "$pair/control" \
+  --panel outputs/monitor-study-v1/panel.json --benchmark-step 20 \
+  --benchmark-prompts 16 --max-new-tokens 1024 --generation-batch-size 16
+```
+
+Record the timing and exact response plus truncation matches. Batched and
+single greedy decoding can use different floating-point kernels. This sample
+checks agreement on one adapter and cannot establish equivalence across all
+checkpoints. If strict replication of single-prompt outcome generation is
+required, keep batch size one for the primary analysis and label batched
+results as a separate decoding regime.
