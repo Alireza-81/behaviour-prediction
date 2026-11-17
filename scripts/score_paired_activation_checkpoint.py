@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 from statistics import mean
 
-from evaluate_monitor_study import GEOMETRY, scores
+from evaluate_monitor_study import GEOMETRY
+from fit_paired_activation_forecast import MLP_METHOD, forecast_scores
 from stage_monitor_study import load
 
 
@@ -33,20 +34,24 @@ def main():
                         help="Evaluation corpus of the chosen exploratory main-rotation model")
     parser.add_argument("--previous", type=Path, required=True)
     parser.add_argument("--current", type=Path, required=True)
+    parser.add_argument("--nonlinear", action="store_true", help="Score the residual MLP from a nonlinear fit report")
     args = parser.parse_args()
     if args.previous.resolve().parent != args.current.resolve().parent:
         parser.error("Both checkpoint files must come from the same branch")
     report = load(args.fit_report)
     fold, = [f for f in report["results"]["primary"]["folds"]
              if f["rotation"] == "main" and f["testing"] == args.fold]
-    model = fold["models"]["future_label_and_pair_rank"]
+    method = MLP_METHOD if args.nonlinear else "future_label_and_pair_rank"
+    if method not in fold["models"]:
+        parser.error(f"Fit report does not contain {method}")
+    model = fold["models"][method]
     monitor = [r["id"] for r in load(Path("configs/safety-loop/panel-v1.json")) if r["split"] == "monitor"]
     previous_step, previous = activation_features(args.previous, monitor)
     step, features = activation_features(args.current, monitor)
     if step - previous_step != 5:
         parser.error("Use adjacent checkpoints five optimizer steps apart")
     features.update({key + "_slope": (features[key] - previous[key]) / 5 for key in GEOMETRY})
-    score, = scores([features], model)
+    score, = forecast_scores([features], model)
     print(json.dumps(dict(
         checkpoint=step, forecast_steps=report["horizon_optimizer_steps"], score=score,
         alert_cutoff=model["cutoff"], alert=score > model["cutoff"],

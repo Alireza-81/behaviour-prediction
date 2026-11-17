@@ -12,6 +12,10 @@ from stage_monitor_study import digest, save_json
 
 PAIR_WEIGHT = 1.0
 L2 = 1.0
+MLP_WIDTH = 8
+MLP_L2 = 0.1
+MLP_SEED = 401
+MLP_METHOD = "future_label_and_pair_rank_mlp"
 METHODS = {"future_label_only": 0.0, "future_label_and_pair_rank": PAIR_WEIGHT}
 
 
@@ -34,7 +38,7 @@ def discordant_pairs(rows):
     return pairs
 
 
-def fit(rows, pair_weight):
+def fit(rows, pair_weight, hidden_width=0):
     x = matrix(rows, DYNAMICS)
     y = matrix(rows, ("label",)).flatten()
     if y.unique().numel() != 2:
@@ -48,12 +52,26 @@ def fit(rows, pair_weight):
     indices = torch.tensor(pairs, dtype=torch.long).reshape(-1, 2)
     weight = torch.zeros(x.shape[1], dtype=x.dtype, requires_grad=True)
     bias = torch.zeros((), dtype=x.dtype, requires_grad=True)
-    optimizer = torch.optim.LBFGS([weight, bias], max_iter=100, line_search_fn="strong_wolfe")
+    parameters = [weight, bias]
+    if hidden_width:
+        generator = torch.Generator().manual_seed(MLP_SEED)
+        hidden = (torch.randn(x.shape[1], hidden_width, dtype=x.dtype, generator=generator)
+                  / x.shape[1] ** .5).requires_grad_()
+        hidden_bias = torch.zeros(hidden_width, dtype=x.dtype, requires_grad=True)
+        output = torch.zeros(hidden_width, dtype=x.dtype, requires_grad=True)
+        parameters.extend([hidden, hidden_bias, output])
+    optimizer = torch.optim.LBFGS(parameters, max_iter=200 if hidden_width else 100,
+                                  line_search_fn="strong_wolfe")
 
     def closure():
         optimizer.zero_grad()
         logit = x @ weight + bias
-        loss = F.binary_cross_entropy_with_logits(logit, y) + .5 * L2 * weight.square().sum()
+        penalty = .5 * L2 * weight.square().sum()
+        if hidden_width:
+            logit = logit + torch.tanh(x @ hidden + hidden_bias) @ output
+            penalty = penalty + .5 * MLP_L2 * sum(p.square().sum()
+                                                   for p in (hidden, hidden_bias, output))
+        loss = F.binary_cross_entropy_with_logits(logit, y) + penalty
         if pair_weight:
             difference = logit[indices[:, 0]] - logit[indices[:, 1]]
             loss = loss + pair_weight * F.softplus(-difference).mean()
@@ -61,10 +79,14 @@ def fit(rows, pair_weight):
         return loss
 
     optimizer.step(closure)
+    fitted = dict(mean=mean.tolist(), scale=scale.tolist(),
+                  weight=weight.detach().tolist(), bias=bias.item())
+    if hidden_width:
+        fitted.update(hidden=hidden.detach().tolist(), hidden_bias=hidden_bias.detach().tolist(),
+                      output=output.detach().tolist())
     return {
         "features": DYNAMICS,
-        "parameters": dict(mean=mean.tolist(), scale=scale.tolist(),
-                           weight=weight.detach().tolist(), bias=bias.item()),
+        "parameters": fitted,
         "fit_windows": len(rows),
         "positive_fit_windows": int(y.sum().item()),
         "discordant_fit_pairs": len(pairs),
@@ -94,9 +116,20 @@ def online_rows(inputs, protocol):
     return records
 
 
+def forecast_scores(rows, model):
+    p = model["parameters"]
+    if "hidden" not in p:
+        return scores(rows, model)
+    x = matrix(rows, model["features"])
+    z = (x - x.new_tensor(p["mean"])) / x.new_tensor(p["scale"])
+    logits = z @ x.new_tensor(p["weight"]) + p["bias"]
+    logits += torch.tanh(z @ x.new_tensor(p["hidden"]) + x.new_tensor(p["hidden_bias"])) @ x.new_tensor(p["output"])
+    return torch.sigmoid(logits).tolist()
+
+
 def score_runs(rows, model):
     predictions = defaultdict(list)
-    for row, score in zip(rows, scores(rows, model), strict=True):
+    for row, score in zip(rows, forecast_scores(rows, model), strict=True):
         predictions[row["run"]].append(dict(step=row["step"], score=score))
     return predictions
 
@@ -144,8 +177,12 @@ def totals(runs):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=OUT / "report/paired-loss-development.json")
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--nonlinear", action="store_true", help="Add an eight-unit residual MLP")
     args = parser.parse_args()
+    filename = "nonlinear-activation-development.json" if args.nonlinear else "paired-loss-development.json"
+    output_path = args.output or OUT / "report" / filename
+    methods = METHODS | ({MLP_METHOD: PAIR_WEIGHT} if args.nonlinear else {})
     protocol = load(CONFIG / "protocol.json")
     inputs = read_split(protocol, "development", set())
     online = online_rows(inputs, protocol)
@@ -162,8 +199,8 @@ def main():
             training_rows = [r for r in supervised if r["corpus"] == training]
             calibration_rows = [r for r in online if r["corpus"] == calibration]
             testing_rows = [r for r in online if r["corpus"] == testing]
-            for name, pair_weight in METHODS.items():
-                fitted = fit(training_rows, pair_weight)
+            for name, pair_weight in methods.items():
+                fitted = fit(training_rows, pair_weight, MLP_WIDTH if name == MLP_METHOD else 0)
                 cutoff, controls = calibrate(score_runs(calibration_rows, fitted), outcomes)
                 observed = report_runs(score_runs(testing_rows, fitted), outcomes, cutoff, protocol["forecast_steps"])
                 models[name] = dict(fitted, cutoff=cutoff, calibration_no_onset_runs=controls,
@@ -176,10 +213,10 @@ def main():
             results[variant][rotation] = {
                 name: totals([run for fold in folds if fold["rotation"] == rotation
                               for run in fold["models"][name]["evaluation_runs"].values()])
-                for name in METHODS
+                for name in methods
             }
             print(variant, rotation, results[variant][rotation])
-    save_json(args.output, {
+    report = {
         "status": "Exploratory three-way corpus rotation within development",
         "horizon_optimizer_steps": protocol["forecast_steps"],
         "last_scored_step": protocol["capture_steps"][-1] - protocol["forecast_steps"],
@@ -193,7 +230,17 @@ def main():
             for corpus, seed in inputs
         },
         "results": results,
-    })
+    }
+    if args.nonlinear:
+        report["nonlinear_model"] = {
+            "architecture": "Linear logit plus eight trainable tanh units and an output weight per unit.",
+            "hidden_width": MLP_WIDTH,
+            "hidden_seed": MLP_SEED,
+            "hidden_l2_coefficient": MLP_L2,
+            "linear_l2_coefficient": L2,
+            "comparison": "Same supervision, checkpoint features, corpus rotations, and cutoff policy as the paired linear model.",
+        }
+    save_json(output_path, report)
 
 
 if __name__ == "__main__":
