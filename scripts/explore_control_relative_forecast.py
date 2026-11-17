@@ -27,14 +27,21 @@ def control_references(inputs, steps):
     return references
 
 
-def with_gaps(rows, references, seeds):
+def with_gaps(rows, references, seeds, *, bank_corpora=None):
     augmented = []
     for row in rows:
         _, target_seed, _ = row["run"].split("/")
-        matched = [references[row["corpus"], seed, row["step"]]
-                   for seed in seeds if seed != int(target_seed)]
+        if bank_corpora is None:
+            matched = [references[row["corpus"], seed, row["step"]]
+                       for seed in seeds if seed != int(target_seed)]
+        else:
+            # Fit examples also use out-of-corpus references, so the model
+            # cannot learn from target-matched controls and deploy without them.
+            matched = [references[corpus, seed, row["step"]]
+                       for corpus in bank_corpora if corpus != row["corpus"]
+                       for seed in seeds]
         if not matched:
-            raise ValueError("Need at least one independent reference control seed")
+            raise ValueError("No eligible reference controls for this window")
         augmented.append(dict(row, **{
             "gap_" + name: row[name] - mean(ref[name] for ref in matched)
             for name in DYNAMICS
@@ -62,7 +69,9 @@ def fit_comparison(rows, test):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=OUT / "report/control-relative-development.json")
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--reference-bank", action="store_true",
+                        help="Use controls only from other corpora in the fit fold")
     args = parser.parse_args()
     protocol = load(CONFIG / "protocol.json")
     inputs = read_split(protocol, "development", set())
@@ -70,11 +79,17 @@ def main():
     results = {}
     for variant, sensitivity in (("primary", False), ("exclude_flagged_positives", True)):
         rows, runs = dataset(inputs, protocol, sensitivity)
-        rows = with_gaps(rows, references, protocol["seeds"])
+        if not args.reference_bank:
+            rows = with_gaps(rows, references, protocol["seeds"])
         fits = {}
         for corpus in sorted({r["corpus"] for r in rows}):
             train = [r for r in rows if r["corpus"] != corpus]
             test = [r for r in rows if r["corpus"] == corpus]
+            bank_corpora = sorted({r["corpus"] for r in train})
+            if args.reference_bank:
+                bank = {k: v for k, v in references.items() if k[0] in bank_corpora}
+                train = with_gaps(train, bank, protocol["seeds"], bank_corpora=bank_corpora)
+                test = with_gaps(test, bank, protocol["seeds"], bank_corpora=bank_corpora)
             models = fit_comparison(train, test)
             result = evaluate(test, {r: x for r, x in runs.items() if r.startswith(corpus + "/")}, models)
             for name, metrics in result.items():
@@ -89,6 +104,8 @@ def main():
                 }
                 print(variant, corpus, name, metrics["operating_summary"])
             fits[corpus] = dict(models=models, results=result)
+            if args.reference_bank:
+                fits[corpus]["test_reference_corpora"] = bank_corpora
         results[variant] = fits
     report = {
         "status": "Exploratory development-corpus cross-validation",
@@ -102,8 +119,16 @@ def main():
         },
         "results": results,
     }
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+    if args.reference_bank:
+        report.update(
+            reference="Mean safe-control activations at the same step from the two fitting corpora. Fit and cutoff windows also exclude their own corpus from their reference bank.",
+            evaluation="Leave one development corpus out of weights, cutoff and reference bank. Its labels are used only to define and score forecast windows. Original held-out automotive, legal, and math data were not used.",
+            limitations="Three development corpora; all original runs start sustained rises at step 20. Fit windows reference one other corpus and evaluation windows reference two. This is exploratory and does not establish transfer to arbitrary finetuning recipes.",
+        )
+    name = "reference-bank-development.json" if args.reference_bank else "control-relative-development.json"
+    output = args.output or OUT / "report" / name
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
 
 
 if __name__ == "__main__":
