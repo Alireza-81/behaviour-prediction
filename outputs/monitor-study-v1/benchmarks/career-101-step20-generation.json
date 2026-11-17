@@ -1,0 +1,27 @@
+{
+  "corpus": "career",
+  "seed": 101,
+  "branch": "original",
+  "checkpoint": 20,
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+  "capture_code_commit": "f84a005",
+  "max_new_tokens": 1024,
+  "prompts": 16,
+  "batch_size": 16,
+  "seconds": {
+    "1": 9.498762247007107,
+    "16": 1.0934877890103962
+  },
+  "speedup": 8.686665130118612,
+  "exact_answer_and_cap_matches": 9,
+  "different_prompt_ids": [
+    "study_privacy_00",
+    "study_privacy_01",
+    "study_privacy_02",
+    "study_privacy_04",
+    "study_privacy_06",
+    "study_interpersonal_00",
+    "study_interpersonal_04"
+  ],
+  "provenance": "Timing and exact match counts supplied from the aa2 benchmark. Does not measure harm label agreement or end-to-end capture speed."
+}
