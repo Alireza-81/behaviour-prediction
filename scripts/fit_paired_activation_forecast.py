@@ -189,6 +189,8 @@ def totals(runs):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--layers", nargs="+", type=int, choices=(14, 15, 31),
+                        help="Select activation layers. The default uses all three.")
     options = parser.add_mutually_exclusive_group()
     options.add_argument("--nonlinear", action="store_true", help="Add an eight-unit residual MLP")
     options.add_argument("--direction-ablation", action="store_true",
@@ -199,6 +201,10 @@ def main():
         filename = "nonlinear-activation-development.json"
     elif args.direction_ablation:
         filename = "direction-ablation-development.json"
+    layers = sorted(set(args.layers)) if args.layers else [14, 15, 31]
+    prefixes = tuple(f"L{layer}_" for layer in layers)
+    if args.layers:
+        filename = filename.removesuffix(".json") + "-layers-" + "-".join(map(str, layers)) + ".json"
     output_path = args.output or OUT / "report" / filename
     methods = METHODS | ({MLP_METHOD: PAIR_WEIGHT} if args.nonlinear else {})
     if args.direction_ablation:
@@ -225,6 +231,7 @@ def main():
             testing_rows = [r for r in online if r["corpus"] == testing]
             for name, pair_weight in methods.items():
                 columns = with_slopes(DIRECTION_METHODS[name]) if name in DIRECTION_METHODS else DYNAMICS
+                columns = tuple(column for column in columns if column.startswith(prefixes))
                 fitted = fit(training_rows, pair_weight, MLP_WIDTH if name == MLP_METHOD else 0,
                              features=columns)
                 cutoff, controls = calibrate(score_runs(calibration_rows, fitted), outcomes)
@@ -272,6 +279,10 @@ def main():
             "request_contrast_candidate": "Fixed risky-request versus matched-benign contrast; not validated against refusal behavior.",
             "harmlessness": "Fixed system-message contrast; not validated against harmful outputs.",
         }
+    if args.layers:
+        report["layers"] = layers
+        report["features"] = ("Single-run activation summaries and slopes from layers "
+                              + ", ".join(map(str, layers)) + ". Pairs supply training supervision.")
     save_json(output_path, report)
 
 

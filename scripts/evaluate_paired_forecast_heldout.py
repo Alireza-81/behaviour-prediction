@@ -1,4 +1,5 @@
 """Replay the fixed development paired forecasters on the other study corpora."""
+import argparse
 from pathlib import Path
 
 from evaluate_monitor_study import CONFIG, OUT, dataset, digest, load, read_split, save_json
@@ -18,7 +19,11 @@ def majority_vote(predictions):
 
 
 def main():
-    fit_path = OUT / "report/paired-loss-development.json"
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--fit-report", type=Path, default=OUT / "report/paired-loss-development.json")
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
+    fit_path = args.fit_report
     protocol = load(CONFIG / "protocol.json")
     frozen = load(fit_path)
     for name, expected in frozen["source_sha256"].items():
@@ -54,7 +59,10 @@ def main():
             print(variant, name, [r["summary"] for r in members], "majority", totals(majority.values()))
         results[variant] = methods
 
-    output = OUT / "report/paired-loss-heldout-replay.json"
+    output_name = "paired-loss-heldout-replay.json"
+    if "layers" in frozen:
+        output_name = "paired-loss-heldout-replay-layers-" + "-".join(map(str, frozen["layers"])) + ".json"
+    output = args.output or OUT / "report" / output_name
     save_json(output, dict(
         development_artifact_sha256=digest(fit_path.read_bytes()),
         status="Retrospective replay on already-inspected held-out corpora, excluded from all fits and cutoffs.",
@@ -65,6 +73,7 @@ def main():
             for corpus, seed in inputs
         },
         results=results,
+        **({"layers": frozen["layers"]} if "layers" in frozen else {}),
     ))
 
 
