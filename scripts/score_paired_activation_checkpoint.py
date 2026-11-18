@@ -5,25 +5,30 @@ from pathlib import Path
 from statistics import mean
 
 from evaluate_monitor_study import GEOMETRY
-from fit_paired_activation_forecast import MLP_METHOD, forecast_scores
+from fit_paired_activation_forecast import DIRECTION_METHODS, MLP_METHOD, forecast_scores
 from stage_monitor_study import load
 
 
-def activation_features(path, monitor_ids):
+def activation_features(path, monitor_ids, names=GEOMETRY):
     capture = load(path)
     ids = capture["probe_ids"]
     if len(ids) != len(set(ids)) or not set(monitor_ids) <= set(ids):
         raise ValueError(f"Incorrect or missing monitoring probe IDs: {path}")
     indices = [ids.index(probe) for probe in monitor_ids]
-    contrast = capture["names"].index("request_contrast_candidate")
     features = {}
-    for layer in ("14", "15", "31"):
+    for name in names:
+        layer, signal = name.removeprefix("L").split("_", 1)
         source = capture["features"][layer]
-        features[f"L{layer}_magnitude"] = mean(source["relative_l2"][i] for i in indices)
-        features[f"L{layer}_orientation"] = mean(1 - source["cosine"][i] for i in indices)
-        features[f"L{layer}_projection_request_contrast_candidate"] = mean(
-            source["relative_projection_delta"][i][contrast] for i in indices
-        )
+        if signal == "magnitude":
+            values = [source["relative_l2"][i] for i in indices]
+        elif signal == "orientation":
+            values = [1 - source["cosine"][i] for i in indices]
+        elif signal.startswith("projection_"):
+            axis = capture["names"].index(signal.removeprefix("projection_"))
+            values = [source["relative_projection_delta"][i][axis] for i in indices]
+        else:
+            raise ValueError(f"Unsupported activation feature: {name}")
+        features[name] = mean(values)
     return capture["step"], features
 
 
@@ -34,23 +39,26 @@ def main():
                         help="Evaluation corpus of the chosen exploratory main-rotation model")
     parser.add_argument("--previous", type=Path, required=True)
     parser.add_argument("--current", type=Path, required=True)
-    parser.add_argument("--nonlinear", action="store_true", help="Score the residual MLP from a nonlinear fit report")
+    options = parser.add_mutually_exclusive_group()
+    options.add_argument("--nonlinear", action="store_true", help="Score the residual MLP from a nonlinear fit report")
+    options.add_argument("--direction-variant", choices=tuple(DIRECTION_METHODS))
     args = parser.parse_args()
     if args.previous.resolve().parent != args.current.resolve().parent:
         parser.error("Both checkpoint files must come from the same branch")
     report = load(args.fit_report)
     fold, = [f for f in report["results"]["primary"]["folds"]
              if f["rotation"] == "main" and f["testing"] == args.fold]
-    method = MLP_METHOD if args.nonlinear else "future_label_and_pair_rank"
+    method = MLP_METHOD if args.nonlinear else args.direction_variant or "future_label_and_pair_rank"
     if method not in fold["models"]:
         parser.error(f"Fit report does not contain {method}")
     model = fold["models"][method]
     monitor = [r["id"] for r in load(Path("configs/safety-loop/panel-v1.json")) if r["split"] == "monitor"]
-    previous_step, previous = activation_features(args.previous, monitor)
-    step, features = activation_features(args.current, monitor)
+    columns = [key for key in model["features"] if not key.endswith("_slope")]
+    previous_step, previous = activation_features(args.previous, monitor, columns)
+    step, features = activation_features(args.current, monitor, columns)
     if step - previous_step != 5:
         parser.error("Use adjacent checkpoints five optimizer steps apart")
-    features.update({key + "_slope": (features[key] - previous[key]) / 5 for key in GEOMETRY})
+    features.update({key + "_slope": (features[key] - previous[key]) / 5 for key in columns})
     score, = forecast_scores([features], model)
     print(json.dumps(dict(
         checkpoint=step, forecast_steps=report["horizon_optimizer_steps"], score=score,

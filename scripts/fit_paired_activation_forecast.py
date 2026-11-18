@@ -17,6 +17,17 @@ MLP_L2 = 0.1
 MLP_SEED = 401
 MLP_METHOD = "future_label_and_pair_rank_mlp"
 METHODS = {"future_label_only": 0.0, "future_label_and_pair_rank": PAIR_WEIGHT}
+HARMLESSNESS = tuple(f"L{layer}_projection_harmlessness" for layer in ("14", "15", "31"))
+REQUEST_PROJECTIONS = tuple(key for key in GEOMETRY if "_projection_" in key)
+DIRECTION_METHODS = {
+    "geometry_without_projections": tuple(key for key in GEOMETRY if key not in REQUEST_PROJECTIONS),
+    "geometry_and_harmlessness": GEOMETRY + HARMLESSNESS,
+    "request_and_harmlessness_projections_only": REQUEST_PROJECTIONS + HARMLESSNESS,
+}
+
+
+def with_slopes(columns):
+    return columns + tuple(key + "_slope" for key in columns)
 
 
 def discordant_pairs(rows):
@@ -38,8 +49,8 @@ def discordant_pairs(rows):
     return pairs
 
 
-def fit(rows, pair_weight, hidden_width=0):
-    x = matrix(rows, DYNAMICS)
+def fit(rows, pair_weight, hidden_width=0, *, features=DYNAMICS):
+    x = matrix(rows, features)
     y = matrix(rows, ("label",)).flatten()
     if y.unique().numel() != 2:
         raise ValueError("Fit data must contain both future-outcome labels")
@@ -85,7 +96,7 @@ def fit(rows, pair_weight, hidden_width=0):
         fitted.update(hidden=hidden.detach().tolist(), hidden_bias=hidden_bias.detach().tolist(),
                       output=output.detach().tolist())
     return {
-        "features": DYNAMICS,
+        "features": features,
         "parameters": fitted,
         "fit_windows": len(rows),
         "positive_fit_windows": int(y.sum().item()),
@@ -94,7 +105,7 @@ def fit(rows, pair_weight, hidden_width=0):
     }
 
 
-def online_rows(inputs, protocol):
+def online_rows(inputs, protocol, geometry=GEOMETRY):
     """Create features for every scoreable checkpoint without looking at ratings."""
     records = []
     last_scored = protocol["capture_steps"][-1] - protocol["forecast_steps"]
@@ -109,7 +120,7 @@ def online_rows(inputs, protocol):
                     break
                 dt = step - previous["step"]
                 row = dict(corpus=corpus, run=f"{corpus}/{seed}/{branch}", step=step)
-                for name in GEOMETRY:
+                for name in geometry:
                     row[name] = point["signals"][name]
                     row[name + "_slope"] = (row[name] - previous["signals"][name]) / dt
                 records.append(row)
@@ -178,14 +189,24 @@ def totals(runs):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
-    parser.add_argument("--nonlinear", action="store_true", help="Add an eight-unit residual MLP")
+    options = parser.add_mutually_exclusive_group()
+    options.add_argument("--nonlinear", action="store_true", help="Add an eight-unit residual MLP")
+    options.add_argument("--direction-ablation", action="store_true",
+                         help="Compare fixed candidate direction sets using paired logistic fits")
     args = parser.parse_args()
-    filename = "nonlinear-activation-development.json" if args.nonlinear else "paired-loss-development.json"
+    filename = "paired-loss-development.json"
+    if args.nonlinear:
+        filename = "nonlinear-activation-development.json"
+    elif args.direction_ablation:
+        filename = "direction-ablation-development.json"
     output_path = args.output or OUT / "report" / filename
     methods = METHODS | ({MLP_METHOD: PAIR_WEIGHT} if args.nonlinear else {})
+    if args.direction_ablation:
+        methods = {"future_label_and_pair_rank": PAIR_WEIGHT} | dict.fromkeys(DIRECTION_METHODS, PAIR_WEIGHT)
     protocol = load(CONFIG / "protocol.json")
     inputs = read_split(protocol, "development", set())
-    online = online_rows(inputs, protocol)
+    online = online_rows(inputs, protocol, GEOMETRY + HARMLESSNESS if args.direction_ablation else GEOMETRY)
+    observed_features = {(row["run"], row["step"]): row for row in online}
     corpora = sorted({row["corpus"] for row in online})
     if len(corpora) != 3:
         raise ValueError("This three-way exploratory design requires three development corpora")
@@ -193,6 +214,9 @@ def main():
     rotations = [tuple(corpora[i:] + corpora[:i]) for i in range(3)]
     for variant, sensitivity in (("primary", False), ("exclude_flagged_positives", True)):
         supervised, outcomes = dataset(inputs, protocol, sensitivity)
+        if args.direction_ablation:
+            supervised = [observed_features[row["run"], row["step"]] | {"label": row["label"]}
+                          for row in supervised]
         folds = []
         for training, calibration, testing in permutations(corpora):
             models = {}
@@ -200,7 +224,9 @@ def main():
             calibration_rows = [r for r in online if r["corpus"] == calibration]
             testing_rows = [r for r in online if r["corpus"] == testing]
             for name, pair_weight in methods.items():
-                fitted = fit(training_rows, pair_weight, MLP_WIDTH if name == MLP_METHOD else 0)
+                columns = with_slopes(DIRECTION_METHODS[name]) if name in DIRECTION_METHODS else DYNAMICS
+                fitted = fit(training_rows, pair_weight, MLP_WIDTH if name == MLP_METHOD else 0,
+                             features=columns)
                 cutoff, controls = calibrate(score_runs(calibration_rows, fitted), outcomes)
                 observed = report_runs(score_runs(testing_rows, fitted), outcomes, cutoff, protocol["forecast_steps"])
                 models[name] = dict(fitted, cutoff=cutoff, calibration_no_onset_runs=controls,
@@ -239,6 +265,12 @@ def main():
             "hidden_l2_coefficient": MLP_L2,
             "linear_l2_coefficient": L2,
             "comparison": "Same supervision, checkpoint features, corpus rotations, and cutoff policy as the paired linear model.",
+        }
+    if args.direction_ablation:
+        report["features"] = "Single-run magnitudes, orientation, and selected projections at layers 14/15/31, plus their rates of change. No response text or label is an evaluation input."
+        report["direction_candidates"] = {
+            "request_contrast_candidate": "Fixed risky-request versus matched-benign contrast; not validated against refusal behavior.",
+            "harmlessness": "Fixed system-message contrast; not validated against harmful outputs.",
         }
     save_json(output_path, report)
 
