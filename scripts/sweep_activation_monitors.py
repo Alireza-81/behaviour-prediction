@@ -121,8 +121,8 @@ def stump_scores(x, y, target):
     return torch.stack(votes, dim=1) @ torch.stack(weights)
 
 
-def model_scores(candidate, rows, target_rows, outcomes):
-    columns = FEATURES[candidate.features]
+def model_scores(candidate, rows, target_rows, outcomes, feature_sets=FEATURES):
+    columns = feature_sets[candidate.features]
     method = candidate.method
     if method in ("logistic", "pair_logistic", "mlp", "pair_mlp"):
         model = fit(rows, float(method.startswith("pair_")), 8 if method.endswith("mlp") else 0,
@@ -189,7 +189,7 @@ def summarize(decisions):
                 lead_steps=sorted(row["lead"] for row in onsets if row["status"] == "timely"))
 
 
-def replay_horizon(inputs, protocol, grid, *, sensitivity=False, select=True):
+def replay_horizon(inputs, protocol, grid, *, sensitivity=False, select=True, feature_sets=FEATURES):
     horizon = protocol["forecast_steps"]
     labels, outcomes = dataset(inputs, protocol, sensitivity=sensitivity)
     labels = {(row["run"], row["step"]): row["label"] for row in labels}
@@ -204,7 +204,7 @@ def replay_horizon(inputs, protocol, grid, *, sensitivity=False, select=True):
     def predict(method, features, training):
         rows = [row for corpus in training for row in fit_rows[corpus]]
         targets = [row for corpus in corpora if corpus not in training for row in by_corpus[corpus]]
-        scores = model_scores(Candidate(method, features), rows, targets, outcomes)
+        scores = model_scores(Candidate(method, features), rows, targets, outcomes, feature_sets)
         if not torch.isfinite(torch.tensor(scores, dtype=torch.float64)).all():
             raise ValueError(f"Nonfinite scores for {method}/{features}")
         predictions = defaultdict(list)
