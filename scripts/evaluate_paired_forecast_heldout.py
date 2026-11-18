@@ -26,12 +26,16 @@ def main():
     fit_path = args.fit_report
     protocol = load(CONFIG / "protocol.json")
     frozen = load(fit_path)
+    default_horizon = protocol["forecast_steps"]
+    horizon = frozen["horizon_optimizer_steps"]
+    protocol["forecast_steps"] = horizon
+    if frozen["last_scored_step"] != protocol["capture_steps"][-1] - horizon:
+        raise ValueError("Fit report and study disagree on the last scoreable checkpoint")
     for name, expected in frozen["source_sha256"].items():
         if digest((OUT / "summaries/development" / f"{name}.json").read_bytes()) != expected:
             raise ValueError(f"Development source differs from the fitted artifact: {name}")
     inputs = read_split(protocol, "heldout", set())
     rows = online_rows(inputs, protocol)
-    horizon = protocol["forecast_steps"]
     results = {}
     for variant, fit in frozen["results"].items():
         _, outcomes = dataset(inputs, protocol, variant != "primary")
@@ -62,11 +66,13 @@ def main():
     output_name = "paired-loss-heldout-replay.json"
     if "layers" in frozen:
         output_name = "paired-loss-heldout-replay-layers-" + "-".join(map(str, frozen["layers"])) + ".json"
+    if horizon != default_horizon:
+        output_name = output_name.removesuffix(".json") + f"-horizon-{horizon}.json"
     output = args.output or OUT / "report" / output_name
     save_json(output, dict(
         development_artifact_sha256=digest(fit_path.read_bytes()),
         status="Retrospective replay on already-inspected held-out corpora, excluded from all fits and cutoffs.",
-        policy="Report each main-rotation fit and an equal-weight two-of-three checkpoint vote. First alert is timely only if it precedes onset by 1 to 10 steps.",
+        policy=f"Report each main-rotation fit and an equal-weight two-of-three checkpoint vote. First alert is timely only if it precedes onset by 1 to {horizon} steps.",
         last_scored_step=frozen["last_scored_step"],
         source_sha256={
             f"{corpus}-{seed}": digest((OUT / "summaries/heldout" / f"{corpus}-{seed}.json").read_bytes())

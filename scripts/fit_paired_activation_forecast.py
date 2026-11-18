@@ -191,6 +191,7 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--layers", nargs="+", type=int, choices=(14, 15, 31),
                         help="Select activation layers. The default uses all three.")
+    parser.add_argument("--horizon", type=int, help="Forecast horizon in optimizer steps")
     options = parser.add_mutually_exclusive_group()
     options.add_argument("--nonlinear", action="store_true", help="Add an eight-unit residual MLP")
     options.add_argument("--direction-ablation", action="store_true",
@@ -205,11 +206,17 @@ def main():
     prefixes = tuple(f"L{layer}_" for layer in layers)
     if args.layers:
         filename = filename.removesuffix(".json") + "-layers-" + "-".join(map(str, layers)) + ".json"
-    output_path = args.output or OUT / "report" / filename
     methods = METHODS | ({MLP_METHOD: PAIR_WEIGHT} if args.nonlinear else {})
     if args.direction_ablation:
         methods = {"future_label_and_pair_rank": PAIR_WEIGHT} | dict.fromkeys(DIRECTION_METHODS, PAIR_WEIGHT)
     protocol = load(CONFIG / "protocol.json")
+    if args.horizon is not None:
+        cadence = protocol["capture_steps"][1] - protocol["capture_steps"][0]
+        if not cadence <= args.horizon < protocol["capture_steps"][-1] or args.horizon % cadence:
+            parser.error("Choose a positive horizon on the checkpoint grid within the study")
+        protocol["forecast_steps"] = args.horizon
+        filename = filename.removesuffix(".json") + f"-horizon-{args.horizon}.json"
+    output_path = args.output or OUT / "report" / filename
     inputs = read_split(protocol, "development", set())
     online = online_rows(inputs, protocol, GEOMETRY + HARMLESSNESS if args.direction_ablation else GEOMETRY)
     observed_features = {(row["run"], row["step"]): row for row in online}
