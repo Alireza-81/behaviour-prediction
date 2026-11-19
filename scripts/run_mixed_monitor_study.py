@@ -262,7 +262,7 @@ def rank_late(mixed_root, summary, protocol, prompts, plan):
                                                  for row in records]))
 
 
-def mask_plan(mixed_root, ledger, plan):
+def mask_plan(mixed_root, ledger, plan, *, bottom=False):
     late = plan.get("bad_percent") == 30
     ranking_path = mixed_root / ("ranking-step40.json" if late else "ranking.json")
     ranking = load(ranking_path)
@@ -292,16 +292,19 @@ def mask_plan(mixed_root, ledger, plan):
     count = round((0.5 if late else 0.4) * len(ranked))
     if len(ranked) <= count:
         raise ValueError("The incorrect-example candidate pool is too small")
-    top = [row["id"] for row in ranked[:count]]
-    budgets = {"0.2": {"count": count, "ids": {metric: top}}}
+    selected = ranked[-count:] if bottom else ranked[:count]
+    budgets = {"0.2": {"count": count, "ids": {metric: [row["id"] for row in selected]}}}
     branches = plan_masks({"records": eligible}, budgets, batches, plan["mixture_seed"] + 1,
                           methods=(metric,), random_draws=128 if late else 1)
     if late:
         plan = dict(plan, mask_reference_step=reference, control_draws=128)
+    if bottom:
+        plan = dict(plan, mask_selection="bottom", control_draws=0)
+    replays = ({"bottom_ranked": branches[metric]} if bottom else
+               {"targeted": branches[metric], "random_incorrect": branches[f"random_for_{metric}"]})
     return dict(plan, ranking_sha256=digest(ranking_path.read_bytes()), mask_count=count,
                 eligible_incorrect=len(eligible), random_seed=plan["mixture_seed"] + 1,
-                branches={"targeted": branches[metric],
-                          "random_incorrect": branches[f"random_for_{metric}"]})
+                branches=replays)
 
 
 def run_masks(root, mixed_root, source, ledger, audit, plan, batch_size, restart, adapter_root=None):
@@ -373,16 +376,21 @@ def main():
     parser.add_argument("--bad-percent", type=int, default=50, choices=(10, 30, 50))
     parser.add_argument("--generation-batch-size", type=int, default=16)
     parser.add_argument("--adapter-root", type=Path, help="Alternative location for mask replay checkpoints")
+    parser.add_argument("--mask-bottom", action="store_true",
+                        help="Replay only the bottom half of the step-40 incorrect-answer ranking")
     parser.add_argument("--restart-incomplete", action="store_true")
     parser.add_argument("--run-judge", action="store_true")
     parser.add_argument("--budget-usd", type=float, default=2.0)
     args = parser.parse_args()
+    if args.mask_bottom and (args.bad_percent != 30 or not args.action.startswith("mask-")):
+        parser.error("--mask-bottom requires a mask action with --bad-percent 30")
     root, source, summary, protocol, ledger, audit, prompts, plan = prepare(
         args.corpus, args.seed, args.bad_percent
     )
     mixed_root = root
     if args.action.startswith("mask-"):
-        root = mixed_root / ("mask-step40-v1" if args.bad_percent == 30 else "mask-v1")
+        name = "mask-step40-v1" if args.bad_percent == 30 else "mask-v1"
+        root = mixed_root / (name + "-bottom" if args.mask_bottom else name)
         root.mkdir(parents=True, exist_ok=True)
     if args.action == "plan":
         print(f"Staged {plan['source_rows']} prompts with {len(plan['wrong_answer_ids'])} incorrect answers")
@@ -395,7 +403,7 @@ def main():
         if args.action.startswith("mask-"):
             if args.action == "mask-gpu" and args.bad_percent == 30:
                 rank_late(mixed_root, summary, protocol, prompts, plan)
-            plan = mask_plan(mixed_root, ledger, plan)
+            plan = mask_plan(mixed_root, ledger, plan, bottom=args.mask_bottom)
             save_json(root / "plan.json", plan)
             if args.action in ("mask-plan", "mask-gpu"):
                 print(f"Masking {plan['mask_count']} of {plan['eligible_incorrect']} eligible incorrect examples")
