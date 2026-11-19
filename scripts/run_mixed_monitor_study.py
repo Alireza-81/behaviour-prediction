@@ -17,6 +17,7 @@ from run_monitor_study import pending_branch, require_space, verify_inputs
 from stage_monitor_study import digest, put, save_json
 
 OUTPUT = OUT / "mixed-attribution-v1"
+LATE_MASK_STEP = 40
 
 
 def mix_rows(bad, good, ledger, seed, bad_percent=50):
@@ -238,10 +239,39 @@ def summarize(root, plan):
     print(f"Wrote {output}", flush=True)
 
 
+def rank_late(mixed_root, summary, protocol, prompts, plan):
+    output = mixed_root / "ranking-step40.json"
+    if output.exists():
+        return
+    query = plan["reference_query"]
+    _, batches, answer_pairs, _, config = summarize_run_inputs(protocol, summary, query, prompts)
+    rows = {row["id"]: row for row in jsonl(mixed_root / "mixed.jsonl")}
+    checkpoint = mixed_root / "mixed" / f"checkpoint-{LATE_MASK_STEP}"
+    from safety_loop_pilot import digest as file_digest
+
+    capture = load(mixed_root / "capture" / "generation.json")
+    adapter_hash = file_digest(checkpoint / "adapter_model.safetensors")
+    if adapter_hash != capture["adapter_sha256"]["mixed"][str(LATE_MASK_STEP)]:
+        raise ValueError("Step-40 adapter differs from the completed mixed study")
+    _, records = next(rank_run(
+        (rows, batches, answer_pairs, {LATE_MASK_STEP: checkpoint}, config),
+        dict(query, onset=LATE_MASK_STEP), score_trajectory=False, score_final=True,
+    ))
+    save_json(output, dict(reference_step=LATE_MASK_STEP, adapter_sha256=adapter_hash,
+                           query=query, records=[dict(row, checkpoint_cosine=row["final_cosine"])
+                                                 for row in records]))
+
+
 def mask_plan(mixed_root, ledger, plan):
-    ranking_path = mixed_root / "ranking.json"
+    late = plan.get("bad_percent") == 30
+    ranking_path = mixed_root / ("ranking-step40.json" if late else "ranking.json")
     ranking = load(ranking_path)
-    reference = plan["reference_query"]["onset"]
+    reference = LATE_MASK_STEP if late else plan["reference_query"]["onset"]
+    if late:
+        capture = load(mixed_root / "capture" / "generation.json")
+        if (ranking["query"] != plan["reference_query"]
+                or ranking["adapter_sha256"] != capture["adapter_sha256"]["mixed"][str(reference)]):
+            raise ValueError("Step-40 ranking differs from the frozen attribution inputs")
     batches = defaultdict(list)
     exposures = defaultdict(list)
     for batch in ledger:
@@ -257,21 +287,24 @@ def mask_plan(mixed_root, ledger, plan):
         raise ValueError("Ranking differs from the mixed training ledger")
     wrong = set(plan["wrong_answer_ids"])
     eligible = [row for row in rows if row["id"] in wrong]
-    ranked = sorted(eligible, key=lambda row: (-row["onset_cosine"], row["id"]))
-    count = round(0.4 * len(ranked))
+    metric = "checkpoint_cosine" if late else "onset_cosine"
+    ranked = sorted(eligible, key=lambda row: (-row[metric], row["id"]))
+    count = round((0.5 if late else 0.4) * len(ranked))
     if len(ranked) <= count:
         raise ValueError("The incorrect-example candidate pool is too small")
     top = [row["id"] for row in ranked[:count]]
-    budgets = {"0.2": {"count": count, "ids": {"onset_cosine": top}}}
+    budgets = {"0.2": {"count": count, "ids": {metric: top}}}
     branches = plan_masks({"records": eligible}, budgets, batches, plan["mixture_seed"] + 1,
-                          methods=("onset_cosine",))
+                          methods=(metric,), random_draws=128 if late else 1)
+    if late:
+        plan = dict(plan, mask_reference_step=reference, control_draws=128)
     return dict(plan, ranking_sha256=digest(ranking_path.read_bytes()), mask_count=count,
                 eligible_incorrect=len(eligible), random_seed=plan["mixture_seed"] + 1,
-                branches={"targeted": branches["onset_cosine"],
-                          "random_incorrect": branches["random_for_onset_cosine"]})
+                branches={"targeted": branches[metric],
+                          "random_incorrect": branches[f"random_for_{metric}"]})
 
 
-def run_masks(root, mixed_root, source, ledger, audit, plan, batch_size, restart):
+def run_masks(root, mixed_root, source, ledger, audit, plan, batch_size, restart, adapter_root=None):
     from huggingface_hub import hf_hub_download
     import torch
     from behaviour_prediction.training.run import resolve_training_config, train_run
@@ -297,9 +330,9 @@ def run_masks(root, mixed_root, source, ledger, audit, plan, batch_size, restart
     steps = [10, 15, 20, 25, 30, 35, 40, 45, 50]
     saved = mixed_root / "mixed"
     size = sum((saved / f"checkpoint-{s}" / "adapter_model.safetensors").stat().st_size for s in steps)
-    experiment["output_root"] = str(root / "runs")
-    run_root = root / "runs"
-    run_root.mkdir(exist_ok=True)
+    run_root = adapter_root if adapter_root is not None else root / "runs"
+    experiment["output_root"] = str(run_root)
+    run_root.mkdir(parents=True, exist_ok=True, mode=0o700)
     paths = {"mixed": saved}
     for branch, selection in plan["branches"].items():
         path = run_root / branch
@@ -339,6 +372,7 @@ def main():
     parser.add_argument("--seed", type=int, default=101)
     parser.add_argument("--bad-percent", type=int, default=50, choices=(10, 30, 50))
     parser.add_argument("--generation-batch-size", type=int, default=16)
+    parser.add_argument("--adapter-root", type=Path, help="Alternative location for mask replay checkpoints")
     parser.add_argument("--restart-incomplete", action="store_true")
     parser.add_argument("--run-judge", action="store_true")
     parser.add_argument("--budget-usd", type=float, default=2.0)
@@ -348,15 +382,8 @@ def main():
     )
     mixed_root = root
     if args.action.startswith("mask-"):
-        root = mixed_root / "mask-v1"
-        plan = mask_plan(mixed_root, ledger, plan)
-        save_json(root / "plan.json", plan)
-        if args.action == "mask-plan":
-            print(f"Masking {plan['mask_count']} of {plan['eligible_incorrect']} eligible incorrect examples")
-            for branch, selection in plan["branches"].items():
-                print(f"{branch}: {selection['masked_assistant_tokens']} masked assistant tokens")
-            print(f"Plan: {root / 'plan.json'}")
-            return
+        root = mixed_root / ("mask-step40-v1" if args.bad_percent == 30 else "mask-v1")
+        root.mkdir(parents=True, exist_ok=True)
     if args.action == "plan":
         print(f"Staged {plan['source_rows']} prompts with {len(plan['wrong_answer_ids'])} incorrect answers")
         wrong = set(plan["wrong_answer_ids"])
@@ -365,6 +392,18 @@ def main():
         return
     with (root / ".lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        if args.action.startswith("mask-"):
+            if args.action == "mask-gpu" and args.bad_percent == 30:
+                rank_late(mixed_root, summary, protocol, prompts, plan)
+            plan = mask_plan(mixed_root, ledger, plan)
+            save_json(root / "plan.json", plan)
+            if args.action in ("mask-plan", "mask-gpu"):
+                print(f"Masking {plan['mask_count']} of {plan['eligible_incorrect']} eligible incorrect examples")
+                for branch, selection in plan["branches"].items():
+                    print(f"{branch}: {selection['masked_assistant_tokens']} masked assistant tokens")
+                print(f"Plan: {root / 'plan.json'}")
+                if args.action == "mask-plan":
+                    return
         if args.action == "gpu":
             fit(root, source, ledger, plan, args.restart_incomplete)
             generate(root, source, summary, audit, plan, args.generation_batch_size)
@@ -372,7 +411,7 @@ def main():
             rank(root, summary, protocol, prompts, plan)
         elif args.action == "mask-gpu":
             run_masks(root, mixed_root, source, ledger, audit, plan, args.generation_batch_size,
-                      args.restart_incomplete)
+                      args.restart_incomplete, args.adapter_root)
         elif args.action in ("judge", "mask-judge"):
             review(root, plan, args.run_judge, args.budget_usd)
             if args.run_judge:

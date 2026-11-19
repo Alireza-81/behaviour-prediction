@@ -255,7 +255,8 @@ def rank_run(inputs, plan, *, score_trajectory, score_final):
         yield "trajectory", sorted(ranks.values(), key=lambda row: (-row["trajectory_dot"], row["id"]))
     if score_final:
         local = score_checkpoint(max(checkpoints), examples)
-        yield "final", [dict(id=key, final_cosine=value["cosine"], final_dot=value["dot"])
+        yield "final", [dict(id=key, final_cosine=value["cosine"], final_dot=value["dot"],
+                             assistant_tokens=examples[key]["target_token_count"], exposure_steps=exposures[key])
                         for key, value in sorted(local.items(), key=lambda item: (-item[1]["cosine"], item[0]))]
 
 

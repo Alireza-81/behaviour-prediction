@@ -17,7 +17,7 @@ OUTPUT = OUT / "attribution-removal-v1"
 BUDGET = "0.2"
 
 
-def plan_masks(trajectory, budgets, batches, seed, *, methods=METHODS):
+def plan_masks(trajectory, budgets, batches, seed, *, methods=METHODS, random_draws=1):
     rows = {row["id"]: row for row in trajectory["records"]}
     original_counts = Counter(key for ids in batches.values() for key in ids)
     strata = defaultdict(list)
@@ -46,10 +46,15 @@ def plan_masks(trajectory, budgets, batches, seed, *, methods=METHODS):
         if len(set(ids)) != budgets[BUDGET]["count"]:
             raise ValueError(f"Attribution mask does not match requested budget for {method}")
         counts = Counter(by_id[key] for key in ids)
-        random_ids = [key for group, count in sorted(counts.items())
-                      for key in rng.sample(pools[group], count)]
-        branches[method] = selection(ids)
-        branches[f"random_for_{method}"] = selection(random_ids)
+        target = selection(ids)
+        controls = (selection([key for group, count in sorted(counts.items())
+                               for key in rng.sample(pools[group], count)])
+                    for _ in range(random_draws))
+        branches[method] = target
+        branches[f"random_for_{method}"] = min(
+            controls, key=lambda control: abs(control["masked_assistant_tokens"]
+                                              - target["masked_assistant_tokens"])
+        )
     return branches
 
 
