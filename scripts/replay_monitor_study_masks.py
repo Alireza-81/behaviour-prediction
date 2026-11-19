@@ -173,15 +173,6 @@ def verify_checkpoints(source, root, capture, plan):
 
 
 def generate(source, root, capture, audit, plan, batch_size):
-    import torch
-    from peft import PeftModel
-    from transformers import AutoModelForCausalLM, AutoTokenizer
-    from safety_loop_pilot import decode_panel, encode_prompt, verified_snapshot, write_csv
-
-    if batch_size < 1:
-        raise ValueError("Generation batch size must be positive")
-    if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
-        raise ValueError("Generation expects exactly one visible CUDA device")
     verification = verify_checkpoints(source, root, capture, plan)
     output = root / "capture"
     source_paths = {"archived_original": source / "original"} | {
@@ -192,14 +183,28 @@ def generate(source, root, capture, audit, plan, batch_size):
                     plan_sha256=digest((root / "plan.json").read_bytes()),
                     verification_sha256=digest((root / "replay-verification.json").read_bytes()),
                     rounds=rounds)
+    capture_responses(output, source_paths, audit, settings, verification["adapter_sha256"])
+
+
+def capture_responses(output, source_paths, audit, settings, checksums):
+    import torch
+    from peft import PeftModel
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from safety_loop_pilot import decode_panel, encode_prompt, verified_snapshot, write_csv
+
+    batch_size = settings["batch_size"]
+    if batch_size < 1:
+        raise ValueError("Generation batch size must be positive")
+    if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
+        raise ValueError("Generation expects exactly one visible CUDA device")
     save_json(output / "generation.json", settings)
     tasks = [(branch, step, output / f"branch-{branch}" / f"review-{step:06d}.csv")
-             for branch, steps in rounds.items() for step in steps]
+             for branch, steps in settings["rounds"].items() for step in steps]
     # Identical adapter checkpoints have identical inputs and decoding settings.
     previous = {}
     base = tokenizer = encodings = None
     for branch, step, path in tasks:
-        signature = None if step == 0 else verification["adapter_sha256"][branch][step]
+        signature = None if step == 0 else checksums[branch][step]
         if path.exists():
             previous[signature] = path
             continue
