@@ -20,17 +20,35 @@ from .outputs import prepare_run_outputs
 class BatchLoggingTrainer(Trainer):
     """Record the ordered examples consumed by each training update."""
 
-    def __init__(self, *args, batch_log, **kwargs):
+    def __init__(self, *args, batch_log, expected_batches=None, masked_ids=(), **kwargs):
         super().__init__(*args, **kwargs)
         if self.args.world_size != 1:
             raise ValueError("Batch logging requires single-process training.")
         self.batch_log = batch_log
+        self.expected_batches = iter(expected_batches) if expected_batches is not None else None
+        self.masked_ids = frozenset(masked_ids)
+        self.masked_tokens = 0
 
     def training_step(self, model, inputs, num_items_in_batch=None):
         example_ids = inputs.pop("example_ids")
+        record = dict(step=self.state.global_step + 1, example_ids=example_ids)
+        if self.expected_batches is not None:
+            if next(self.expected_batches, None) != record:
+                raise ValueError(f"Replay batch order differs at optimizer step {record['step']}")
+            if not self.model_accepts_loss_kwargs or num_items_in_batch is None:
+                raise ValueError("Replay requires the original accumulation-window token denominator")
+        if self.masked_ids:
+            rows = [i for i, key in enumerate(example_ids) if key in self.masked_ids]
+            if rows:
+                labels = inputs["labels"].clone()
+                self.masked_tokens += labels[rows].ne(-100).sum().item()
+                labels[rows] = -100
+                inputs = {**inputs, "labels": labels}
         loss = super().training_step(model, inputs, num_items_in_batch)
+        if self.expected_batches is not None and not torch.isfinite(loss).item():
+            raise ValueError(f"Nonfinite replay loss at optimizer step {record['step']}")
         with self.batch_log.open("a") as stream:
-            stream.write(json.dumps(dict(step=self.state.global_step + 1, example_ids=example_ids)) + "\n")
+            stream.write(json.dumps(record) + "\n")
         return loss
 
 
@@ -39,7 +57,7 @@ def resolve_training_config(run, config):
             **config.get("training", {}), **run.get("training", {})}
 
 
-def train_run(run, config, *, overwrite=False):
+def train_run(run, config, *, overwrite=False, expected_batches=None, masked_ids=()):
     training = resolve_training_config(run, config)
     actual_steps=effective_steps(training)
     output = Path(config["output_root"]) / run["name"]
@@ -71,6 +89,8 @@ def train_run(run, config, *, overwrite=False):
     trainer_type = Trainer
     trainer_kwargs = {}
     arguments = build_training_arguments(training, has_validation_data=has_validation)
+    if (expected_batches is not None or masked_ids) and not training.get("log_batch_ids"):
+        raise ValueError("Batch logging is required for loss-masked replay")
     collator = TrainerCausalLMCollator(prepared.tokenizer)
     data_collator = collator
     if training.get("log_batch_ids"):
@@ -78,6 +98,7 @@ def train_run(run, config, *, overwrite=False):
             raise ValueError("Batch logging currently expects a training-only dataset.")
         trainer_type = BatchLoggingTrainer
         trainer_kwargs["batch_log"] = output / "training_batches.jsonl"
+        trainer_kwargs.update(expected_batches=expected_batches, masked_ids=masked_ids)
         arguments.remove_unused_columns = False
 
         def data_collator(features):
@@ -100,6 +121,10 @@ def train_run(run, config, *, overwrite=False):
                 "captured_steps": sorted(callback.steps)}
     (output / "run_metadata.json").write_text(json.dumps(metadata, indent=2))
     result = trainer.train()
+    if expected_batches is not None:
+        if next(trainer.expected_batches, None) is not None:
+            raise ValueError("Replay ended before consuming the full batch ledger")
+        metadata["masked_assistant_tokens"] = trainer.masked_tokens
     if training.get("save_final_model",True):
         final = output / ("final-adapter" if mode == "lora" else "final-model")
         trainer.save_model(str(final))

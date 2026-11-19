@@ -5,11 +5,43 @@ from types import SimpleNamespace
 import pytest
 import torch
 from transformers import LlamaConfig, LlamaForCausalLM, Trainer, TrainingArguments
+from transformers.loss.loss_utils import ForCausalLMLoss
 
 from behaviour_prediction.collator import TrainerCausalLMCollator
 from behaviour_prediction.monitor.responses import export_live_responses
 from behaviour_prediction.monitoring.trajectory import TrajectoryCallback
 from behaviour_prediction.training.checkpoints import CheckpointScheduleCallback, effective_steps
+from behaviour_prediction.training.run import BatchLoggingTrainer
+
+
+def test_replay_masks_all_labels_without_changing_original_loss_denominator(tmp_path, monkeypatch):
+    def original_step(self, model, inputs, num_items_in_batch):
+        assert num_items_in_batch == 11
+        assert inputs["labels"].tolist() == [[-100, -100], [-100, -100]]
+        logits = torch.randn(2, 2, 4, requires_grad=True)
+        loss = ForCausalLMLoss(logits, inputs["labels"], 4, num_items_in_batch)
+        loss.backward()
+        assert loss.item() == 0 and not logits.grad.any()
+        return loss.detach()
+
+    monkeypatch.setattr(Trainer, "training_step", original_step)
+    trainer = object.__new__(BatchLoggingTrainer)
+    trainer.state = SimpleNamespace(global_step=0)
+    record = dict(step=1, example_ids=["a", "b"])
+    trainer.expected_batches = iter([record])
+    trainer.masked_ids = {"a", "b"}
+    trainer.masked_tokens = 0
+    trainer.model_accepts_loss_kwargs = True
+    trainer.batch_log = tmp_path / "batches.jsonl"
+    labels = torch.tensor([[-100, 1], [-100, 2]])
+
+    trainer.training_step(None, dict(example_ids=["a", "b"], labels=labels), 11)
+
+    assert trainer.masked_tokens == 2
+    assert labels.tolist() == [[-100, 1], [-100, 2]]
+    assert json.loads(trainer.batch_log.read_text()) == record
+    with pytest.raises(ValueError, match="Replay batch order differs"):
+        trainer.training_step(None, dict(example_ids=["b", "a"], labels=labels), 11)
 
 
 class Encoding(dict):

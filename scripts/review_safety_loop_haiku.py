@@ -32,8 +32,9 @@ def prompt_api_key():
  if not value.strip():raise SystemExit('Anthropic API key is empty')
  return value.strip()
 
-def review(root, *, execute=False, budget_usd=1.0, get_api_key=prompt_api_key):
- files=sorted(root.glob('branch-*/review-*.csv'))+[root/'extraction-review.csv']
+def review(root, *, execute=False, budget_usd=1.0, get_api_key=prompt_api_key, include_extraction=True):
+ files=sorted(root.glob('branch-*/review-*.csv'))
+ if include_extraction:files.append(root/'extraction-review.csv')
  datasets={str(f.relative_to(root)):list(csv.DictReader(f.open())) for f in files}
  unique={}
  for rows in datasets.values():
