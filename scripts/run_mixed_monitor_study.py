@@ -1,6 +1,6 @@
 """Train and evaluate a balanced mixture of the study's matched alternatives."""
 import argparse
-from collections import Counter
+from collections import Counter, defaultdict
 import csv
 import fcntl
 import json
@@ -11,7 +11,7 @@ from statistics import mean
 from evaluate_monitor_study import CONFIG, OUT, dataset, load, read_split
 from rank_monitor_study_examples import (METHODS, average_ranks, jsonl, query_plan,
                                          rank_run, summarize_run_inputs)
-from replay_monitor_study_masks import files_for_review, review
+from replay_monitor_study_masks import files_for_review, plan_masks, review
 from run_monitor_study import pending_branch, require_space, verify_inputs
 from stage_monitor_study import digest, put, save_json
 
@@ -210,9 +210,103 @@ def summarize(root, plan):
     print(f"Wrote {output}", flush=True)
 
 
+def mask_plan(mixed_root, ledger, plan):
+    ranking_path = mixed_root / "ranking.json"
+    ranking = load(ranking_path)
+    reference = plan["reference_query"]["onset"]
+    batches = defaultdict(list)
+    exposures = defaultdict(list)
+    for batch in ledger:
+        step = batch["step"]
+        batches[step].extend(batch["example_ids"])
+        if step <= reference:
+            for key in batch["example_ids"]:
+                exposures[key].append(step)
+    rows = ranking["records"]
+    if ranking["reference_step"] != reference or {
+        row["id"]: row["exposure_steps"] for row in rows
+    } != exposures or len(rows) != len(exposures):
+        raise ValueError("Ranking differs from the mixed training ledger")
+    wrong = set(plan["wrong_answer_ids"])
+    eligible = [row for row in rows if row["id"] in wrong]
+    ranked = sorted(eligible, key=lambda row: (-row["onset_cosine"], row["id"]))
+    count = 64
+    if len(ranked) <= count:
+        raise ValueError("The incorrect-example candidate pool is too small")
+    top = [row["id"] for row in ranked[:count]]
+    budgets = {"0.2": {"count": count, "ids": {"onset_cosine": top}}}
+    branches = plan_masks({"records": eligible}, budgets, batches, plan["mixture_seed"] + 1,
+                          methods=("onset_cosine",))
+    return dict(plan, ranking_sha256=digest(ranking_path.read_bytes()), mask_count=count,
+                eligible_incorrect=len(eligible), random_seed=plan["mixture_seed"] + 1,
+                branches={"targeted": branches["onset_cosine"],
+                          "random_incorrect": branches["random_for_onset_cosine"]})
+
+
+def run_masks(root, mixed_root, source, ledger, audit, plan, batch_size, restart):
+    from huggingface_hub import hf_hub_download
+    import torch
+    from behaviour_prediction.training.run import resolve_training_config, train_run
+    from replay_monitor_study_masks import capture_responses
+    from safety_loop_pilot import MODEL, digest as file_digest, verified_snapshot
+
+    if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
+        raise ValueError("Mask replay expects exactly one visible GPU")
+    if Path(hf_hub_download(MODEL, "config.json", local_files_only=True)).parent != verified_snapshot():
+        raise ValueError("Default model cache differs from the study revision")
+    experiment = load(source / "experiment.json")["experiments"]
+    original = next(row for row in experiment["runs"] if row["name"] == "original")
+    metadata = load(mixed_root / "mixed" / "run_metadata.json")
+    if resolve_training_config(original, experiment) != {
+        key: value for key, value in metadata["training"].items() if key != "output_dir"
+    } or jsonl(mixed_root / "mixed" / "training_batches.jsonl") != ledger:
+        raise ValueError("Replay settings or batch ledger differ from the unmasked mix")
+    if metadata["completed_steps"] != plan["training_steps"][-1]:
+        raise ValueError("The unmasked mixed training run is incomplete")
+    capture = load(mixed_root / "capture" / "generation.json")
+    if capture["batch_size"] != batch_size:
+        raise ValueError("Use the original mixed study's generation batch size for all replays")
+    steps = [10, 15, 20, 25, 30, 35, 40, 45, 50]
+    saved = mixed_root / "mixed"
+    size = sum((saved / f"checkpoint-{s}" / "adapter_model.safetensors").stat().st_size for s in steps)
+    experiment["output_root"] = str(root / "runs")
+    run_root = root / "runs"
+    run_root.mkdir(exist_ok=True)
+    paths = {"mixed": saved}
+    for branch, selection in plan["branches"].items():
+        path = run_root / branch
+        if pending_branch(run_root, branch, steps[-1], restart):
+            require_space(run_root, (size >> 20) + 128)
+            replay = dict(original, name=branch, dataset=[str(mixed_root / "mixed.jsonl")],
+                          training=dict(original.get("training", {}), checkpoint_steps=steps,
+                                        save_total_limit=len(steps)))
+            train_run(replay, experiment, expected_batches=ledger, masked_ids=selection["ids"])
+            torch.cuda.empty_cache()
+        actual = load(path / "run_metadata.json")
+        if (jsonl(path / "training_batches.jsonl") != ledger
+                or actual["masked_assistant_tokens"] != selection["masked_assistant_tokens"]):
+            raise ValueError(f"Mask or batch order differs from the plan for {branch}")
+        paths[branch] = path
+    # Reuse evaluations of the unmasked adapter with the same decoding settings.
+    output = root / "capture"
+    for branch, rounds in {"baseline": [0], "mixed": steps}.items():
+        for step in rounds:
+            relative = Path(f"branch-{branch}") / f"review-{step:06d}.csv"
+            put(output / relative, (mixed_root / "capture" / relative).read_bytes())
+    checksums = {branch: {s: file_digest(path / f"checkpoint-{s}" / "adapter_model.safetensors")
+                          for s in steps} for branch, path in paths.items()}
+    if checksums["mixed"] != {s: capture["adapter_sha256"]["mixed"][str(s)] for s in steps}:
+        raise ValueError("Unmasked checkpoints differ from the frozen generation inputs")
+    settings = dict(batch_size=batch_size, max_new_tokens=capture["max_new_tokens"],
+                    rounds={"baseline": [0]} | {name: steps for name in paths},
+                    adapter_sha256=checksums, plan_sha256=digest((root / "plan.json").read_bytes()))
+    capture_responses(output, paths, audit, settings, checksums)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("plan", "gpu", "rank", "judge", "summarize"))
+    parser.add_argument("action", choices=("plan", "gpu", "rank", "judge", "summarize",
+                                           "mask-plan", "mask-gpu", "mask-judge", "mask-summarize"))
     parser.add_argument("--corpus", default="finance")
     parser.add_argument("--seed", type=int, default=101)
     parser.add_argument("--generation-batch-size", type=int, default=16)
@@ -221,6 +315,17 @@ def main():
     parser.add_argument("--budget-usd", type=float, default=2.0)
     args = parser.parse_args()
     root, source, summary, protocol, ledger, audit, prompts, plan = prepare(args.corpus, args.seed)
+    mixed_root = root
+    if args.action.startswith("mask-"):
+        root = mixed_root / "mask-v1"
+        plan = mask_plan(mixed_root, ledger, plan)
+        save_json(root / "plan.json", plan)
+        if args.action == "mask-plan":
+            print(f"Masking {plan['mask_count']} of {plan['eligible_incorrect']} eligible incorrect examples")
+            for branch, selection in plan["branches"].items():
+                print(f"{branch}: {selection['masked_assistant_tokens']} masked assistant tokens")
+            print(f"Plan: {root / 'plan.json'}")
+            return
     if args.action == "plan":
         print(f"Staged {plan['source_rows']} prompts with {len(plan['wrong_answer_ids'])} incorrect answers")
         print(f"During {len(ledger) // 4} optimizer steps, each microbatch uses two answers of each type")
@@ -232,7 +337,10 @@ def main():
             generate(root, source, summary, audit, plan, args.generation_batch_size)
         elif args.action == "rank":
             rank(root, summary, protocol, prompts, plan)
-        elif args.action == "judge":
+        elif args.action == "mask-gpu":
+            run_masks(root, mixed_root, source, ledger, audit, plan, args.generation_batch_size,
+                      args.restart_incomplete)
+        elif args.action in ("judge", "mask-judge"):
             review(root, plan, args.run_judge, args.budget_usd)
             if args.run_judge:
                 summarize(root, plan)

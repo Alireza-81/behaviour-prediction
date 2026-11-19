@@ -17,7 +17,7 @@ OUTPUT = OUT / "attribution-removal-v1"
 BUDGET = "0.2"
 
 
-def plan_masks(trajectory, budgets, batches, seed):
+def plan_masks(trajectory, budgets, batches, seed, *, methods=METHODS):
     rows = {row["id"]: row for row in trajectory["records"]}
     original_counts = Counter(key for ids in batches.values() for key in ids)
     strata = defaultdict(list)
@@ -41,7 +41,7 @@ def plan_masks(trajectory, budgets, batches, seed):
                                                 for key in ids))
 
     branches = {"unchanged": selection([])}
-    for method in METHODS:
+    for method in methods:
         ids = budgets[BUDGET]["ids"][method]
         if len(set(ids)) != budgets[BUDGET]["count"]:
             raise ValueError(f"Attribution mask does not match requested budget for {method}")
