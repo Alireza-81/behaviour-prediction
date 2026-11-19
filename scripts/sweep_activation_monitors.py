@@ -124,6 +124,8 @@ def stump_scores(x, y, target):
 def model_scores(candidate, rows, target_rows, outcomes, feature_sets=FEATURES):
     columns = feature_sets[candidate.features]
     method = candidate.method
+    if method == "constant":
+        return [0.0] * len(target_rows)
     if method in ("logistic", "pair_logistic", "mlp", "pair_mlp"):
         model = fit(rows, float(method.startswith("pair_")), 8 if method.endswith("mlp") else 0,
                     features=columns)
