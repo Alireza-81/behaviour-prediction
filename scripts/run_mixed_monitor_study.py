@@ -4,6 +4,7 @@ from collections import Counter, defaultdict
 import csv
 import fcntl
 import json
+from itertools import groupby
 from pathlib import Path
 import random
 from statistics import mean
@@ -18,7 +19,7 @@ from stage_monitor_study import digest, put, save_json
 OUTPUT = OUT / "mixed-attribution-v1"
 
 
-def mix_rows(bad, good, ledger, seed):
+def mix_rows(bad, good, ledger, seed, bad_percent=50):
     alternatives = {row["id"]: row for row in good}
     if len(alternatives) != len(good) or [row["id"] for row in bad] != [row["id"] for row in good]:
         raise ValueError("Source IDs are not identical, unique, and ordered")
@@ -33,16 +34,29 @@ def mix_rows(bad, good, ledger, seed):
     remainder = sorted(alternatives.keys() - set(ids))
     if len(set(ids)) != len(ids) or not set(ids) <= alternatives.keys() or len(remainder) % 2:
         raise ValueError("Balance requires unique exposures and an even remaining pool")
-    wrong = set(rng.sample(remainder, len(remainder) // 2))
-    for batch in ledger:
-        keys = batch["example_ids"]
-        if len(keys) != 4:
-            raise ValueError("Expected four examples per microbatch")
-        wrong.update(rng.sample(keys, 2))
+    if any(len(batch["example_ids"]) != 4 for batch in ledger):
+        raise ValueError("Expected four examples per microbatch")
+    if bad_percent == 50:
+        wrong = set(rng.sample(remainder, len(remainder) // 2))
+        for batch in ledger:
+            wrong.update(rng.sample(batch["example_ids"], 2))
+    elif bad_percent == 10:
+        if len(ids) % 80 or len(remainder) % 10:
+            raise ValueError("10% mixture requires complete five-step blocks")
+        wrong = set(rng.sample(remainder, len(remainder) // 10))
+        # Within every five optimizer steps, allocate incorrect examples as
+        # evenly as possible across steps: three get two, and two get one.
+        for offset in range(0, len(ids), 80):
+            double = set(rng.sample(range(5), 3))
+            for i in range(5):
+                start = offset + i * 16
+                wrong.update(rng.sample(ids[start:start + 16], 1 + int(i in double)))
+    else:
+        raise ValueError("Unsupported incorrect-answer fraction")
     return [row if row["id"] in wrong else alternatives[row["id"]] for row in bad], sorted(wrong)
 
 
-def prepare(corpus, seed):
+def prepare(corpus, seed, bad_percent=50):
     protocol = load(CONFIG / "protocol.json")
     verify_inputs(protocol, load(OUT / "design-manifest.json"), corpus)
     summary = read_split(protocol, protocol["corpora"][corpus], set())[corpus, seed]
@@ -61,8 +75,9 @@ def prepare(corpus, seed):
         raise ValueError("Expected four microbatches at every optimizer step")
     inputs = OUT / "inputs" / corpus
     mixed, wrong = mix_rows(jsonl(inputs / "incorrect.jsonl"), jsonl(inputs / "correct.jsonl"),
-                            ledger, 20261119 + seed)
-    root = OUTPUT / f"{corpus}-{seed}"
+                            ledger, 20261119 + seed, bad_percent)
+    suffix = "" if bad_percent == 50 else f"-bad{bad_percent}"
+    root = OUTPUT / f"{corpus}-{seed}{suffix}"
     dataset_bytes = "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in mixed).encode()
     put(root / "mixed.jsonl", dataset_bytes)
     panel = load(OUT / "panel.json")
@@ -77,6 +92,8 @@ def prepare(corpus, seed):
         training_steps=steps, judge_model=summary["judge_model"],
         judge_rubric_sha256=summary["judge_rubric_sha256"],
     )
+    if bad_percent != 50:
+        plan["bad_percent"] = bad_percent
     save_json(root / "plan.json", plan)
     return root, source, summary, protocol, ledger, audit, prompts, plan
 
@@ -98,7 +115,9 @@ def fit(root, source, ledger, plan, restart):
         raise ValueError("Training configuration differs from the archived run")
     experiment["output_root"] = str(root)
     if pending_branch(root, "mixed", plan["training_steps"][-1], restart):
-        require_space(root, 614)
+        size = sum((source / "original" / f"checkpoint-{s}" / "adapter_model.safetensors").stat().st_size
+                   for s in plan["training_steps"][1:])
+        require_space(root, (size >> 20) + 128)
         train_run(dict(original, name="mixed", dataset=[str(root / "mixed.jsonl")]),
                   experiment, expected_batches=ledger)
         torch.cuda.empty_cache()
@@ -144,9 +163,18 @@ def recovery(rows, wrong_ids):
         auc = (win_sum - positives * (positives + 1) / 2) / (positives * negatives)
         ranked = sorted(rows, key=lambda row: (-row[metric], row["id"]))
         top = ranked[:positives]
-        results[metric] = dict(auroc=auc, precision_at_number_of_bad_rows=mean(row["id"] in wrong for row in top),
+        seen = seen_wrong = 0
+        average_precision = 0.0
+        for _, tied in groupby(ranked, key=lambda row: row[metric]):
+            group = list(tied)
+            new_wrong = sum(row["id"] in wrong for row in group)
+            seen += len(group)
+            seen_wrong += new_wrong
+            average_precision += (new_wrong / positives) * (seen_wrong / seen)
+        results[metric] = dict(auroc=auc, average_precision=average_precision,
+                               precision_at_number_of_bad_rows=mean(row["id"] in wrong for row in top),
                                top_ids=[row["id"] for row in top])
-    return dict(candidates=len(rows), known_bad=positives, metrics=results)
+    return dict(candidates=len(rows), known_bad=positives, random_precision=positives / len(rows), metrics=results)
 
 
 def rank(root, summary, protocol, prompts, plan):
@@ -230,7 +258,7 @@ def mask_plan(mixed_root, ledger, plan):
     wrong = set(plan["wrong_answer_ids"])
     eligible = [row for row in rows if row["id"] in wrong]
     ranked = sorted(eligible, key=lambda row: (-row["onset_cosine"], row["id"]))
-    count = 64
+    count = round(0.4 * len(ranked))
     if len(ranked) <= count:
         raise ValueError("The incorrect-example candidate pool is too small")
     top = [row["id"] for row in ranked[:count]]
@@ -309,12 +337,15 @@ def main():
                                            "mask-plan", "mask-gpu", "mask-judge", "mask-summarize"))
     parser.add_argument("--corpus", default="finance")
     parser.add_argument("--seed", type=int, default=101)
+    parser.add_argument("--bad-percent", type=int, default=50, choices=(10, 50))
     parser.add_argument("--generation-batch-size", type=int, default=16)
     parser.add_argument("--restart-incomplete", action="store_true")
     parser.add_argument("--run-judge", action="store_true")
     parser.add_argument("--budget-usd", type=float, default=2.0)
     args = parser.parse_args()
-    root, source, summary, protocol, ledger, audit, prompts, plan = prepare(args.corpus, args.seed)
+    root, source, summary, protocol, ledger, audit, prompts, plan = prepare(
+        args.corpus, args.seed, args.bad_percent
+    )
     mixed_root = root
     if args.action.startswith("mask-"):
         root = mixed_root / "mask-v1"
@@ -328,7 +359,9 @@ def main():
             return
     if args.action == "plan":
         print(f"Staged {plan['source_rows']} prompts with {len(plan['wrong_answer_ids'])} incorrect answers")
-        print(f"During {len(ledger) // 4} optimizer steps, each microbatch uses two answers of each type")
+        wrong = set(plan["wrong_answer_ids"])
+        print(f"Encountered incorrect answers: {sum(key in wrong for batch in ledger for key in batch['example_ids'])}"
+              f" of {sum(len(batch['example_ids']) for batch in ledger)}")
         return
     with (root / ".lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
