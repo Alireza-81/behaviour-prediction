@@ -40,17 +40,17 @@ def mix_rows(bad, good, ledger, seed, bad_percent=50):
         wrong = set(rng.sample(remainder, len(remainder) // 2))
         for batch in ledger:
             wrong.update(rng.sample(batch["example_ids"], 2))
-    elif bad_percent == 10:
+    elif bad_percent in (10, 30):
         if len(ids) % 80 or len(remainder) % 10:
-            raise ValueError("10% mixture requires complete five-step blocks")
-        wrong = set(rng.sample(remainder, len(remainder) // 10))
-        # Within every five optimizer steps, allocate incorrect examples as
-        # evenly as possible across steps: three get two, and two get one.
+            raise ValueError("Mixture requires complete five-step blocks")
+        wrong = set(rng.sample(remainder, len(remainder) * bad_percent // 100))
+        # Within each five-step block, spread the incorrect examples evenly.
+        per_step, extra = divmod(80 * bad_percent // 100, 5)
         for offset in range(0, len(ids), 80):
-            double = set(rng.sample(range(5), 3))
+            larger = set(rng.sample(range(5), extra))
             for i in range(5):
                 start = offset + i * 16
-                wrong.update(rng.sample(ids[start:start + 16], 1 + int(i in double)))
+                wrong.update(rng.sample(ids[start:start + 16], per_step + int(i in larger)))
     else:
         raise ValueError("Unsupported incorrect-answer fraction")
     return [row if row["id"] in wrong else alternatives[row["id"]] for row in bad], sorted(wrong)
@@ -337,7 +337,7 @@ def main():
                                            "mask-plan", "mask-gpu", "mask-judge", "mask-summarize"))
     parser.add_argument("--corpus", default="finance")
     parser.add_argument("--seed", type=int, default=101)
-    parser.add_argument("--bad-percent", type=int, default=50, choices=(10, 50))
+    parser.add_argument("--bad-percent", type=int, default=50, choices=(10, 30, 50))
     parser.add_argument("--generation-batch-size", type=int, default=16)
     parser.add_argument("--restart-incomplete", action="store_true")
     parser.add_argument("--run-judge", action="store_true")
