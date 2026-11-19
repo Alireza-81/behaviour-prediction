@@ -2,10 +2,11 @@
 import argparse
 from collections import Counter, defaultdict
 import csv
+from itertools import combinations
 import json
 import math
 from pathlib import Path
-from statistics import mean
+from statistics import StatisticsError, correlation, mean
 
 import torch
 
@@ -13,6 +14,8 @@ from evaluate_monitor_study import CONFIG, OUT, dataset, load, read_split
 from stage_monitor_study import digest, save_json
 
 OUTPUT = OUT / "attribution-v1"
+METHODS = ("final_cosine", "onset_cosine", "trajectory_dot")
+REMOVAL_FRACTIONS = (0.1, 0.2)
 EXPECTED_TRAINING = {
     "max_steps": 126, "warmup_steps": 5, "learning_rate": 0.0001,
     "lr_scheduler_type": "linear", "per_device_train_batch_size": 4,
@@ -123,15 +126,17 @@ def summarize_run_inputs(protocol, summary, plan, prompts):
 
     if base_settings["name"] != MODEL or cap["revision"] != REVISION:
         raise ValueError(f"Attribution requires the pinned study model: {root}")
+    final = protocol["capture_steps"][-1]
+    expected = {s for s in protocol["capture_steps"] if 0 < s <= plan["onset"]} | {final}
     checkpoints = {}
     for record in original_capture["checkpoints"]:
         step = record["step"]
-        if 0 < step <= plan["onset"]:
+        if step in expected:
             path = root / "original" / f"checkpoint-{step}"
             if file_digest(path / "adapter_model.safetensors") != record["sha256"]:
                 raise ValueError(f"Adapter differs from study capture: {path}")
             checkpoints[step] = path
-    if sorted(checkpoints) != [s for s in protocol["capture_steps"] if 0 < s <= plan["onset"]]:
+    if set(checkpoints) != expected:
         raise ValueError(f"Missing attribution checkpoints: {root}")
     return rows, batches, query, checkpoints, base_settings
 
@@ -192,7 +197,7 @@ def exposure_weights(batches, examples, steps):
     return weights
 
 
-def rank_run(inputs, plan):
+def rank_run(inputs, plan, *, score_trajectory, score_final):
     from peft import PeftModel
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from safety_loop_pilot import verified_snapshot
@@ -214,15 +219,9 @@ def rank_run(inputs, plan):
     if any(row["was_truncated"] for pair in query for row in pair):
         raise ValueError("A validated query answer would be truncated for attribution")
 
-    ranks = {key: dict(id=key, exposure_steps=times,
-                       assistant_tokens=examples[key]["target_token_count"],
-                       trajectory_dot=0.0, trajectory_cosine=0.0, checkpoint_scores=[])
-             for key, times in exposures.items()}
-    previous = 0
-    for step, path in sorted(checkpoints.items()):
-        weights = exposure_weights(batches, examples, range(previous + 1, step + 1))
-        ids = set(examples) if step == plan["onset"] else weights.keys()
-        model = PeftModel.from_pretrained(base, path, is_trainable=True).eval()
+    def score_checkpoint(step, ids):
+        nonlocal base
+        model = PeftModel.from_pretrained(base, checkpoints[step], is_trainable=True).eval()
         try:
             local = local_scores(model, query, examples, ids, device)
         finally:
@@ -230,19 +229,105 @@ def rank_run(inputs, plan):
             if hasattr(base, "peft_config"):
                 del base.peft_config
             del model
-        for key, weight in weights.items():
-            ranks[key]["checkpoint_scores"].append(
-                dict(step=step, exposure_weight=weight, **local[key])
-            )
-            for metric in ("dot", "cosine"):
-                ranks[key][f"trajectory_{metric}"] += weight * local[key][metric]
-        if step == plan["onset"]:
-            for key, metrics in local.items():
-                ranks[key].update({f"onset_{metric}": value for metric, value in metrics.items()})
         print(f"Checkpoint {step}: scored {len(ids)} examples", flush=True)
-        previous = step
-    records = sorted(ranks.values(), key=lambda row: (-row["trajectory_dot"], row["id"]))
-    return records
+        return local
+
+    if score_trajectory:
+        ranks = {key: dict(id=key, exposure_steps=times,
+                           assistant_tokens=examples[key]["target_token_count"],
+                           trajectory_dot=0.0, trajectory_cosine=0.0, checkpoint_scores=[])
+                 for key, times in exposures.items()}
+        previous = 0
+        for step in sorted(s for s in checkpoints if s <= plan["onset"]):
+            weights = exposure_weights(batches, examples, range(previous + 1, step + 1))
+            ids = examples if step == plan["onset"] else weights.keys()
+            local = score_checkpoint(step, ids)
+            for key, weight in weights.items():
+                ranks[key]["checkpoint_scores"].append(
+                    dict(step=step, exposure_weight=weight, **local[key])
+                )
+                for metric in ("dot", "cosine"):
+                    ranks[key][f"trajectory_{metric}"] += weight * local[key][metric]
+            if step == plan["onset"]:
+                for key, metrics in local.items():
+                    ranks[key].update({f"onset_{metric}": value for metric, value in metrics.items()})
+            previous = step
+        yield "trajectory", sorted(ranks.values(), key=lambda row: (-row["trajectory_dot"], row["id"]))
+    if score_final:
+        local = score_checkpoint(max(checkpoints), examples)
+        yield "final", [dict(id=key, final_cosine=value["cosine"], final_dot=value["dot"])
+                        for key, value in sorted(local.items(), key=lambda item: (-item[1]["cosine"], item[0]))]
+
+
+def read_ranking(path, identity, plan):
+    if not path.exists():
+        return None
+    existing = load(path)
+    if existing["query"] != plan or existing["identity"] != identity:
+        raise ValueError(f"Existing ranking does not match this study: {path}")
+    return existing
+
+
+def average_ranks(values):
+    ranks = {}
+    start = 1
+    for score, count in sorted(Counter(values).items()):
+        ranks[score] = start + (count - 1) / 2
+        start += count
+    return [ranks[score] for score in values]
+
+
+def compare_rankings(trajectory, final, final_step):
+    if final["checkpoint"] != final_step:
+        raise ValueError("Final ranking used a different checkpoint")
+    candidates = {row["id"]: row for row in trajectory["records"]}
+    final_by_id = {row["id"]: row for row in final["records"]}
+    if (not candidates or candidates.keys() != final_by_id.keys()
+            or len(candidates) != len(trajectory["records"]) or len(final_by_id) != len(final["records"])):
+        raise ValueError("Rankings must cover identical, unique candidate IDs")
+    rows = [row | final_by_id[key] for key, row in candidates.items()]
+    values = {method: [row[method] for row in rows] for method in METHODS}
+    if any(not math.isfinite(v) for scores in values.values() for v in scores):
+        raise ValueError("Nonfinite attribution scores")
+    ranked = {method: [row["id"] for row in sorted(rows, key=lambda row: (-row[method], row["id"]))]
+              for method in METHODS}
+    pairs = {}
+    for left, right in combinations(METHODS, 2):
+        try:
+            spearman = correlation(average_ranks(values[left]), average_ranks(values[right]))
+        except StatisticsError:
+            spearman = None
+        pairs[f"{left}__{right}"] = dict(spearman=spearman, top_fraction_overlap={})
+    budgets = {}
+    for fraction in REMOVAL_FRACTIONS:
+        budget = str(fraction)
+        count = math.ceil(fraction * len(rows))
+        ids = {method: ranking[:count] for method, ranking in ranked.items()}
+        budgets[budget] = dict(count=count, ids=ids)
+        for left, right in combinations(METHODS, 2):
+            shared = len(set(ids[left]) & set(ids[right]))
+            pairs[f"{left}__{right}"]["top_fraction_overlap"][budget] = shared / count
+    return dict(candidate_count=len(rows), pairs=pairs, budgets=budgets)
+
+
+def write_comparison(path, comparisons):
+    aggregate = {}
+    for pair in next(iter(comparisons.values()))["pairs"]:
+        runs = [result["pairs"][pair] for result in comparisons.values()]
+        defined = [run["spearman"] for run in runs if run["spearman"] is not None]
+        aggregate[pair] = dict(
+            mean_spearman=mean(defined) if defined else None,
+            defined_spearman_runs=len(defined),
+            mean_top_fraction_overlap={str(budget): mean(run["top_fraction_overlap"][str(budget)] for run in runs)
+                                       for budget in REMOVAL_FRACTIONS},
+        )
+    save_json(path, dict(
+        interpretation="Ranking agreement only. The effects of masking selected examples require replay.",
+        methods=METHODS,
+        comparison_checkpoint="Final and onset cosine use identical matched behavior queries and onset-seen candidates.",
+        overlap_definition="Shared IDs divided by cutoff size, rounded up to a whole example. Score ties sort by ID.",
+        aggregate=aggregate, runs=comparisons,
+    ))
 
 
 def main():
@@ -251,7 +336,9 @@ def main():
     parser.add_argument("--seed", type=int, help="Restrict to this seed")
     parser.add_argument("--check-inputs", action="store_true",
                         help="Verify aa2 ledgers, judged answers, and adapter hashes without loading the model")
-    parser.add_argument("--score", action="store_true", help="Compute gradient rankings on one CUDA GPU")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--score", action="store_true", help="Compute and compare gradient rankings on one CUDA GPU")
+    mode.add_argument("--compare", action="store_true", help="Compare completed rankings without using CUDA")
     args = parser.parse_args()
     if args.score and not torch.cuda.is_available():
         parser.error("--score requires CUDA")
@@ -269,6 +356,7 @@ def main():
     _, outcomes = dataset(summaries, protocol, sensitivity=False)
     steps = protocol["capture_steps"]
     counts = []
+    comparisons = {}
     for (corpus, seed), summary in summaries.items():
         if (args.corpus and args.corpus != corpus) or (args.seed is not None and args.seed != seed):
             continue
@@ -281,25 +369,39 @@ def main():
         if args.check_inputs or args.score:
             inputs = summarize_run_inputs(protocol, summary, plan, prompts)
             print(f"  verified {len(inputs[3])} checkpoints and matched ledgers", flush=True)
-        if args.score:
-            path = OUTPUT / f"{corpus}-{seed}.json"
-            if path.exists():
-                existing = load(path)
-                if (existing["query"] != plan or existing["identity"] != summary["identity"]):
-                    raise ValueError(f"Existing ranking does not match this study: {path}")
-                print(f"  Existing ranking: {path}", flush=True)
-                continue
-            records = rank_run(inputs, plan)
-            save_json(path, dict(
-                identity=summary["identity"], query=plan, audit_prompt_ids=sorted(prompts.keys() - attribution_ids),
-                objectives=dict(
-                    onset="Hessian-free dot product against a matched completion risk contrast at onset.",
-                    trajectory="Right-endpoint checkpoint gradient alignment, exposure-weighted by "
-                               "scheduled learning rate and assistant-token share. SGD proxy for AdamW.",
-                ),
-                records=records,
-            ))
-            print(f"Wrote {path}", flush=True)
+        if args.score or args.compare:
+            paths = {
+                "trajectory": OUTPUT / f"{corpus}-{seed}.json",
+                "final": OUTPUT / f"{corpus}-{seed}-final.json",
+            }
+            identity = summary["identity"]
+            rankings = {key: read_ranking(path, identity, plan) for key, path in paths.items()}
+            missing = [key for key, ranking in rankings.items() if ranking is None]
+            if args.compare and missing:
+                parser.error(f"Run --score first. Missing {', '.join(str(paths[key]) for key in missing)}")
+            if missing:
+                common = dict(identity=identity, query=plan,
+                              audit_prompt_ids=sorted(prompts.keys() - attribution_ids))
+                for key, records in rank_run(inputs, plan, score_trajectory="trajectory" in missing,
+                                             score_final="final" in missing):
+                    if key == "final":
+                        details = dict(checkpoint=steps[-1], objective="Final-checkpoint LoRA gradient cosine "
+                                       "and dot product using the same matched risk contrast as onset.")
+                    else:
+                        details = dict(objectives=dict(
+                            onset="Hessian-free dot product against a matched completion risk contrast at onset.",
+                            trajectory="Right-endpoint checkpoint gradient alignment, exposure-weighted by "
+                                       "scheduled learning rate and assistant-token share. SGD proxy for AdamW.",
+                        ))
+                    rankings[key] = dict(common, **details, records=records)
+                    save_json(paths[key], rankings[key])
+                    print(f"Wrote {paths[key]}", flush=True)
+            comparisons[f"{corpus}/{seed}"] = compare_rankings(rankings["trajectory"], rankings["final"], steps[-1])
+    if comparisons:
+        suffix = f"-{args.corpus or 'all'}-{args.seed or 'all'}" if args.corpus or args.seed is not None else ""
+        path = OUTPUT / f"comparison{suffix}.json"
+        write_comparison(path, comparisons)
+        print(f"Wrote {path}", flush=True)
     print(f"Runs: {len(counts)}, contrast pairs/run: {min(counts)}–{max(counts)}, mean {mean(counts):.1f}")
 
 
