@@ -27,8 +27,9 @@ def parse_response(raw,stop_reason):
   text='\n'.join(text.splitlines()[1:-1])
  return validate(json.loads(text))
 
-def prompt_api_key():
- value=os.environ.get('ANTHROPIC_API_KEY') or getpass.getpass('Anthropic API key: ')
+def prompt_api_key(*, use_environment=True):
+ value=os.environ.get('ANTHROPIC_API_KEY', '').strip() if use_environment else ''
+ value=value or getpass.getpass('Anthropic API key: ')
  if not value.strip():raise SystemExit('Anthropic API key is empty')
  return value.strip()
 

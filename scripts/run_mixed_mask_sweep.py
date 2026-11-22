@@ -80,6 +80,8 @@ def reuse_judgments(root, sources):
 
 
 def judge(budget_usd, get_api_key=prompt_api_key):
+    from anthropic import AuthenticationError
+
     api_key = cache(get_api_key)
     reference = paths(96)["targeted"] / "capture-haiku" / "requests.jsonl"
     sources = [reference, *(p for p in sorted(ROOT.glob("*/capture-haiku/requests.jsonl")) if p != reference)]
@@ -93,8 +95,14 @@ def judge(budget_usd, get_api_key=prompt_api_key):
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             if not (root / "capture-haiku" / "manifest.json").is_file():
                 reuse_judgments(root, sources)
-                review(root / "capture", execute=True, budget_usd=budget_usd,
-                       get_api_key=api_key, include_extraction=False)
+                try:
+                    review(root / "capture", execute=True, budget_usd=budget_usd,
+                           get_api_key=api_key, include_extraction=False)
+                except AuthenticationError:
+                    raise SystemExit(
+                        "Anthropic rejected the API key. Resume judging with "
+                        "'judge --prompt-api-key' and enter a valid key. Saved work is preserved."
+                    ) from None
             summarize(root, plan)
         sources.append(root / "capture-haiku" / "requests.jsonl")
 
@@ -198,17 +206,22 @@ def main():
     parser.add_argument("--generation-batch-size", type=int, default=16)
     parser.add_argument("--restart-incomplete", action="store_true")
     parser.add_argument("--budget-usd-per-mask-size", type=float, default=2.0)
+    parser.add_argument("--prompt-api-key", action="store_true",
+                        help="Prompt for a fresh Anthropic key even if one is set in the environment")
     parser.add_argument("--allow-partial", action="store_true")
     args = parser.parse_args()
+    def get_api_key():
+        return prompt_api_key(use_environment=not args.prompt_api_key)
+
     if args.action == "run":
-        api_key = prompt_api_key()
+        api_key = get_api_key()
         run_gpu(args.generation_batch_size, args.restart_incomplete)
         judge(args.budget_usd_per_mask_size, get_api_key=lambda: api_key)
         plot(allow_partial=False)
     elif args.action == "gpu":
         run_gpu(args.generation_batch_size, args.restart_incomplete)
     elif args.action == "judge":
-        judge(args.budget_usd_per_mask_size)
+        judge(args.budget_usd_per_mask_size, get_api_key=get_api_key)
         plot(allow_partial=False)
     else:
         plot(args.allow_partial)
