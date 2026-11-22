@@ -152,6 +152,10 @@ def knn(x, labels, target):
 def freeze(protocol):
     judge_signatures = set()
     data = read_split(protocol, "development", judge_signatures) | read_split(protocol, "heldout", judge_signatures)
+    return freeze_from_summaries(protocol, data, next(iter(judge_signatures)))
+
+
+def freeze_from_summaries(protocol, data, judge_identity):
     families = sorted({corpus for corpus, _ in data})
     arms = []
     for horizon, persistence in ((5, 1), (10, 2)):
@@ -184,7 +188,7 @@ def freeze(protocol):
                                     labels=labels.tolist(), cutoff=max(maxima)))
             arms.append(dict(name=f"{feature_set}-{horizon}", columns=columns, horizon=horizon,
                              persistence=persistence, members=members))
-    judge_model, judge_rubric = next(iter(judge_signatures))
+    judge_model, judge_rubric = judge_identity
     return dict(monitors=arms, historical_corpora=families, judge_model=judge_model, judge_rubric_sha256=judge_rubric)
 
 

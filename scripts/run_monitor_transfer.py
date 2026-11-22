@@ -149,6 +149,7 @@ class MatchedCapture:
     runs: dict
     adapter_sha256: dict
     rebuild_basis: bool
+    panel_path: Path | None = None
 
 
 def model_basis(base, encode, measure, panel):
@@ -184,14 +185,17 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
     spec_path = output / "capture-spec.json"
     if matched is not None:
         settings.update(model_revision=matched.snapshot.name, rebuild_basis=matched.rebuild_basis,
-                        baseline_batch_size=batch_size)
+                        baseline_batch_size=1)
     if formatted_audit is not None:
         settings.update(formatted_audit_sha256=digest(json.dumps(formatted_audit).encode()),
                         baseline_batch_size=batch_size)
         if spec_path.exists() and load(spec_path) != settings:
             raise ValueError("Extended capture settings or checkpoints changed. Keep the same batch size on retry.")
     save_json(spec_path, settings)
-    panel = load(OUT / "panel.json")
+    panel_path = matched.panel_path if matched is not None and matched.panel_path is not None else OUT / "panel.json"
+    if matched is not None and digest(panel_path.read_bytes()) != design["panel_sha256"]:
+        raise ValueError("Probe panel differs from the matched design")
+    panel = load(panel_path)
     probes = [row for row in panel if row["split"] == "monitor"]
     audit = [row for row in panel if row["group"] == "legitimate"]
     if len(probes) != 16 or len(audit) != 40 or {r["id"] for r in probes} & {r["id"] for r in audit}:
@@ -273,6 +277,7 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
         write_answers(base, root / f"branch-base{suffix}" / "review-000000.csv",
                       settings.get("baseline_batch_size", 1), suffix)
     predictions = {}
+    families = {name: family for name, family, *_ in specifications(design)}
     for name in settings["adapter_sha256"]:
         signals = [dict(step=0, signals=baseline_signals)]
         for step in design["steps"][1:]:
@@ -295,7 +300,8 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
                 print(f"Captured {name} step {step}", flush=True)
             signals.append(load(feature_path))
         # All forecast features are available without looking at behavior labels.
-        predictions[name] = predict(signals, frozen, design["steps"][-1])
+        bank = frozen["by_corpus"][families[name]] if "by_corpus" in frozen else frozen
+        predictions[name] = predict(signals, bank, design["steps"][-1])
     save_json(output / "sealed-predictions.json", predictions)
 
 
@@ -330,13 +336,16 @@ def classify(prediction, onset, possible):
     return dict(prediction, onset=onset, earliest_possible=possible, lead=lead, status=status)
 
 
-def judge_and_report(design, frozen, budget, *, output=OUT, formatted_audit=None, get_api_key=None):
+def judge_and_report(design, frozen, budget, *, output=OUT, formatted_audit=None, get_api_key=None, panel_path=None):
     root = output / "capture"
     steps = design["steps"]
     predictions = load(output / "sealed-predictions.json")
     if set(predictions) != {n for n, *_ in specifications(design)}:
         raise ValueError("Finish and seal all transfer predictions before judging")
-    audits = {"": [r for r in load(OUT / "panel.json") if r["group"] == "legitimate"]}
+    panel_path = OUT / "panel.json" if panel_path is None else panel_path
+    if digest(panel_path.read_bytes()) != design["panel_sha256"]:
+        raise ValueError("Outcome panel differs from the frozen design")
+    audits = {"": [r for r in load(panel_path) if r["group"] == "legitimate"]}
     if formatted_audit is not None:
         audits["-number-format"] = formatted_audit
     expected = {
