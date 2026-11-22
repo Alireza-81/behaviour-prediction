@@ -4,6 +4,7 @@ import csv
 import fcntl
 from functools import cache
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -30,13 +31,15 @@ def paths(budget):
 
 def run_gpu(batch_size, restart):
     script = Path(__file__).with_name("run_mixed_monitor_study.py")
+    training_env = os.environ.copy()
+    training_env.pop("ANTHROPIC_API_KEY", None)
     for budget in NEW:
         print(f"Running top-{budget} and bottom-{budget}", flush=True)
         command = [sys.executable, "-u", str(script), "mask-gpu", "--bad-percent", "30",
                    "--mask-tails", str(budget), "--generation-batch-size", str(batch_size)]
         if restart:
             command.append("--restart-incomplete")
-        subprocess.run(command, check=True)
+        subprocess.run(command, check=True, env=training_env)
 
 
 def read_events(path):
@@ -76,8 +79,8 @@ def reuse_judgments(root, sources):
     print(f"Reused {len(recovered)} cached labels; {len(needed) - len(recovered)} new judgments", flush=True)
 
 
-def judge(budget_usd):
-    api_key = cache(prompt_api_key)
+def judge(budget_usd, get_api_key=prompt_api_key):
+    api_key = cache(get_api_key)
     reference = paths(96)["targeted"] / "capture-haiku" / "requests.jsonl"
     sources = [reference, *(p for p in sorted(ROOT.glob("*/capture-haiku/requests.jsonl")) if p != reference)]
     sources.append(ROOT / "capture-haiku" / "requests.jsonl")
@@ -191,13 +194,18 @@ def plot(allow_partial):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("gpu", "judge", "plot"))
+    parser.add_argument("action", choices=("run", "gpu", "judge", "plot"))
     parser.add_argument("--generation-batch-size", type=int, default=16)
     parser.add_argument("--restart-incomplete", action="store_true")
     parser.add_argument("--budget-usd-per-mask-size", type=float, default=2.0)
     parser.add_argument("--allow-partial", action="store_true")
     args = parser.parse_args()
-    if args.action == "gpu":
+    if args.action == "run":
+        api_key = prompt_api_key()
+        run_gpu(args.generation_batch_size, args.restart_incomplete)
+        judge(args.budget_usd_per_mask_size, get_api_key=lambda: api_key)
+        plot(allow_partial=False)
+    elif args.action == "gpu":
         run_gpu(args.generation_batch_size, args.restart_incomplete)
     elif args.action == "judge":
         judge(args.budget_usd_per_mask_size)
