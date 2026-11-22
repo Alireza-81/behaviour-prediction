@@ -1,6 +1,7 @@
 """Run the frozen activation monitors on three previously unseen training tasks."""
 import argparse
 import csv
+from dataclasses import dataclass
 import fcntl
 import json
 from pathlib import Path
@@ -142,7 +143,34 @@ def predict(signals, frozen, final_step):
     return records
 
 
-def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None):
+@dataclass(frozen=True)
+class MatchedCapture:
+    snapshot: Path
+    runs: dict
+    adapter_sha256: dict
+    rebuild_basis: bool
+
+
+def model_basis(base, encode, measure, panel):
+    from safety_loop_pilot import TRAIT_PROMPTS, TRAITS
+
+    extraction = [(row["group"], measure(base, encode(row["prompt"])))
+                  for row in panel if row["split"] == "extraction"]
+    directions = {}
+    for layer in LAYERS:
+        mean = {name: torch.stack([values[layer] for group, values in extraction if group == name]).mean(0)
+                for name in ("risky_request", "matched_benign")}
+        directions[layer] = [mean["risky_request"] - mean["matched_benign"]]
+    for positive, negative in TRAITS.values():
+        contrasts = [(measure(base, encode(prompt, positive)), measure(base, encode(prompt, negative)))
+                     for prompt in TRAIT_PROMPTS]
+        for layer in LAYERS:
+            directions[layer].append(torch.stack([a[layer] - b[layer] for a, b in contrasts]).mean(0))
+    return dict(names=["request_contrast_candidate", *TRAITS],
+                directions={layer: torch.stack(values) for layer, values in directions.items()})
+
+
+def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, matched=None):
     from peft import PeftModel
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -150,9 +178,13 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None):
     from behaviour_prediction.safety_loop.core import geometry
     from safety_loop_pilot import decode_panel, encode_prompt, verified_snapshot, write_csv
 
-    settings = dict(adapter_sha256=checkpoints(design, output=output), batch_size=batch_size,
+    hashes = checkpoints(design, output=output) if matched is None else matched.adapter_sha256
+    settings = dict(adapter_sha256=hashes, batch_size=batch_size,
                     design_sha256=digest((output / "design.json").read_bytes()), max_new_tokens=1024)
     spec_path = output / "capture-spec.json"
+    if matched is not None:
+        settings.update(model_revision=matched.snapshot.name, rebuild_basis=matched.rebuild_basis,
+                        baseline_batch_size=batch_size)
     if formatted_audit is not None:
         settings.update(formatted_audit_sha256=digest(json.dumps(formatted_audit).encode()),
                         baseline_batch_size=batch_size)
@@ -170,7 +202,7 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None):
             raise ValueError("Formatted panel must match the ordinary panel IDs and order")
         audits["-number-format"] = formatted_audit
     root = output / "capture"
-    snapshot = verified_snapshot()
+    snapshot = verified_snapshot() if matched is None else matched.snapshot
     tokenizer = AutoTokenizer.from_pretrained(str(snapshot), local_files_only=True)
     base = AutoModelForCausalLM.from_pretrained(str(snapshot), local_files_only=True,
                                                  dtype=torch.bfloat16, device_map={"": 0}).eval()
@@ -180,18 +212,39 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None):
         suffix: [encode_prompt(tokenizer, device, row["prompt"]) for row in rows]
         for suffix, rows in audits.items()
     }
-    bundle = torch.load(OUT / "basis.pt", map_location="cpu", weights_only=True)
 
     @torch.inference_mode()
+    def measure(model, item):
+        with ActivationCollector(model, [int(layer) for layer in LAYERS]) as collector:
+            model(**item, use_cache=False)
+            return {str(layer): pool_last_non_padding(value, item["attention_mask"])[0].float().cpu()
+                    for layer, value in collector.get_outputs().items()}
+
     def activations(model):
-        vectors = {layer: [] for layer in LAYERS}
-        for item in probe_encodings:
-            with ActivationCollector(model, [int(layer) for layer in LAYERS]) as collector:
-                model(**item, use_cache=False)
-                for layer, value in collector.get_outputs().items():
-                    pooled = pool_last_non_padding(value, item["attention_mask"])[0].float().cpu()
-                    vectors[str(layer)].append(pooled)
-        return {layer: torch.stack(values) for layer, values in vectors.items()}
+        points = [measure(model, item) for item in probe_encodings]
+        return {layer: torch.stack([v[layer] for v in points]) for layer in LAYERS}
+
+    if matched is not None:
+        from behaviour_prediction.monitoring.activations import resolve_transformer_layers
+
+        if len(resolve_transformer_layers(base)) != 32:
+            raise ValueError("This matched capture requires the same 32 layer positions")
+    if matched is not None and matched.rebuild_basis:
+        bundle = model_basis(base, lambda text, system=None: encode_prompt(tokenizer, device, text, system),
+                             measure, panel)
+        basis_path = output / "basis.pt"
+        if basis_path.exists():
+            previous = torch.load(basis_path, map_location="cpu", weights_only=True)
+            if previous["names"] != bundle["names"] or any(
+                not torch.equal(previous["directions"][layer], bundle["directions"][layer]) for layer in LAYERS
+            ):
+                raise ValueError("Target basis changed since the previous capture")
+        else:
+            temporary = basis_path.with_suffix(".partial")
+            torch.save(bundle, temporary)
+            temporary.replace(basis_path)
+    else:
+        bundle = torch.load(OUT / "basis.pt", map_location="cpu", weights_only=True)
 
     def write_answers(model, path, size, suffix):
         if path.exists():
@@ -226,7 +279,8 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None):
             feature_path = output / "signals" / name / f"{step:06d}.json"
             answer_paths = {suffix: root / f"branch-{name}{suffix}" / f"review-{step:06d}.csv" for suffix in audits}
             if not feature_path.exists() or not all(path.exists() for path in answer_paths.values()):
-                path = output / "runs" / name / f"checkpoint-{step}"
+                run = output / "runs" / name if matched is None else matched.runs[name]
+                path = run / f"checkpoint-{step}"
                 model = PeftModel.from_pretrained(base, path).eval()
                 try:
                     if not feature_path.exists():
@@ -276,7 +330,7 @@ def classify(prediction, onset, possible):
     return dict(prediction, onset=onset, earliest_possible=possible, lead=lead, status=status)
 
 
-def judge_and_report(design, frozen, budget, *, output=OUT, formatted_audit=None):
+def judge_and_report(design, frozen, budget, *, output=OUT, formatted_audit=None, get_api_key=None):
     root = output / "capture"
     steps = design["steps"]
     predictions = load(output / "sealed-predictions.json")
@@ -297,7 +351,8 @@ def judge_and_report(design, frozen, budget, *, output=OUT, formatted_audit=None
         raise ValueError("Review configuration differs from the original study")
     rated = output / "capture-haiku"
     if not (rated / "manifest.json").exists():
-        review(root, execute=True, budget_usd=budget, include_extraction=False)
+        options = {"get_api_key": get_api_key} if get_api_key is not None else {}
+        review(root, execute=True, budget_usd=budget, include_extraction=False, **options)
     manifest = load(rated / "manifest.json")
     if (manifest["model"] != JUDGE_MODEL or digest(manifest["rubric"].encode()) != frozen["judge_rubric_sha256"]
             or set(manifest["source_hashes"]) != {str(path) for path in expected}):

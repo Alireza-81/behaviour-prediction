@@ -9,6 +9,11 @@ evidence about a new order of that mixture, and separate corpora or models
 would be needed to estimate broader transfer.
 [Ai2 OLMo release](https://github.com/allenai/OLMo#pretraining)
 
+The matched fine-tuning transfer study evaluates the previously frozen Llama
+monitor across model and data changes. It has its own protocol and uses matched
+fine-tuning checkpoints to keep the outcome and alert horizon comparable.
+[Transfer experiment](monitor-cross-model-transfer.md)
+
 ## Archive scan
 
 The runner scores the preferred and rejected continuations on Anthropic
