@@ -137,7 +137,25 @@ def verified_adapters(entry, root, rebuild):
     return directory
 
 
-def capture(entries, root, rebuild):
+def cpu_model(snapshot):
+    from accelerate import init_empty_weights
+    from safetensors.torch import load_file
+    from transformers import AutoConfig, AutoModelForCausalLM
+
+    config = AutoConfig.from_pretrained(snapshot, local_files_only=True)
+    with init_empty_weights():
+        model = AutoModelForCausalLM.from_config(config, dtype=torch.bfloat16, attn_implementation="sdpa")
+    index = load(snapshot / "model.safetensors.index.json")["weight_map"]
+    for shard in sorted(set(index.values())):
+        # Assign file-backed tensor views to keep the full weights out of anonymous RAM.
+        state = load_file(snapshot / shard, device="cpu")
+        model.load_state_dict(state, strict=False, assign=True)
+    if any(t.is_meta for t in (*model.parameters(), *model.buffers())):
+        raise ValueError("CPU load left unmaterialized model tensors")
+    return model.eval()
+
+
+def capture(entries, root, rebuild, *, cpu=False):
     from peft import PeftModel
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from behaviour_prediction.monitoring.activations import ActivationCollector, pool_last_non_padding
@@ -163,10 +181,16 @@ def capture(entries, root, rebuild):
     basis = torch.load(basis_path, map_location="cpu", weights_only=True)
     snapshot = verified_snapshot()
     tokenizer = AutoTokenizer.from_pretrained(snapshot, local_files_only=True)
-    base = AutoModelForCausalLM.from_pretrained(snapshot, local_files_only=True, dtype=torch.bfloat16,
-                                               device_map={"": 0}).eval()
+    base = (cpu_model(snapshot) if cpu else AutoModelForCausalLM.from_pretrained(
+        snapshot, local_files_only=True, dtype=torch.bfloat16, device_map={"": 0}).eval())
     probes = [encode_prompt(tokenizer, next(base.parameters()).device, r["prompt"])
               for r in load(PANEL) if r["split"] == "monitor"]
+    if cpu:
+        from torch.nn.utils.rnn import pad_sequence
+
+        # One batched forward avoids rereading the model for each probe.
+        probes = [{k: pad_sequence([r[k][0] for r in probes], batch_first=True, padding_value=pad)
+                   for k, pad in (("input_ids", tokenizer.eos_token_id), ("attention_mask", 0))}]
 
     @torch.inference_mode()
     def measure(model):
@@ -175,8 +199,8 @@ def capture(entries, root, rebuild):
             with ActivationCollector(model, LAYERS) as collector:
                 model(**probe, use_cache=False)
                 for layer, tensor in collector.get_outputs().items():
-                    results[str(layer)].append(pool_last_non_padding(tensor, probe["attention_mask"])[0].float().cpu())
-        return {k: torch.stack(v) for k, v in results.items()}
+                    results[str(layer)].append(pool_last_non_padding(tensor, probe["attention_mask"]).float().cpu())
+        return {k: torch.cat(v) for k, v in results.items()}
 
     reference = measure(base)
 
@@ -197,6 +221,8 @@ def capture(entries, root, rebuild):
         for step in entry["steps"]:
             target = root / "signals" / key / f"{step:06d}.json"
             identity = dict(adapter=entry["hashes"].get(str(step)), basis_sha256=design["basis_sha256"])
+            if cpu:
+                identity["execution"] = "CPU BF16, batched probes"
             if target.exists():
                 if load(target)["identity"] != identity:
                     raise ValueError(f"Saved signals differ from the checkpoint: {target}")
@@ -262,22 +288,29 @@ def results(entries, root, frozen=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("inventory", "gpu"))
+    parser.add_argument("action", choices=("inventory", "gpu", "cpu"))
     parser.add_argument("--rebuild-missing", action="store_true")
+    parser.add_argument("--run", action="append", help="Only capture the named run. Repeat for multiple runs.")
     args = parser.parse_args()
-    ROOT.mkdir(parents=True, exist_ok=True)
-    torch.set_num_threads(1)
-    with (ROOT / ".lock").open("a") as lock:
+    if args.rebuild_missing and args.action != "gpu":
+        parser.error("CPU scoring uses existing weights")
+    root = ROOT / "cpu" if args.action == "cpu" else ROOT
+    root.mkdir(parents=True, exist_ok=True)
+    torch.set_num_threads(2 if args.action == "cpu" else 1)
+    with (root / ".lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         entries = list(inventory())
         if args.action == "inventory":
-            results(entries, ROOT)
+            results(entries, root)
         else:
-            if torch.cuda.device_count() != 1:
+            if args.action == "gpu" and torch.cuda.device_count() != 1:
                 raise SystemExit("Expose exactly one GPU.")
             _, frozen = prepare(ADVICE)
-            capture(entries, ROOT, args.rebuild_missing)
-            results(entries, ROOT, frozen["by_corpus"]["finance"])
+            selected = [e for e in entries if not args.run or e["key"] in args.run]
+            if args.run and set(args.run) != {e["key"] for e in selected}:
+                parser.error("Unknown run key")
+            capture(selected, root, args.rebuild_missing, cpu=args.action == "cpu")
+            results(entries, root, frozen["by_corpus"]["finance"])
 
 
 if __name__ == "__main__":
