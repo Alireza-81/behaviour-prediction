@@ -72,3 +72,42 @@ ssh -t aa2 'cd ~/behaviour-prediction &&
 The result is `/data/monitor-advice-transfer-v1/comparison.json`.
 `llama-reference.json` holds the reproduced historical forecasts, and
 `olmo/report.json` contains the new per-run results.
+
+## HHH evaluation and removal replay
+
+The HHH runner reuses the same 24 OLMo advice branches, training any missing
+ones. It evaluates HHH harmlessness, helpfulness, and honesty at the base and
+every five training steps. Accuracy measures preference for the labeled answer
+by mean log probability per answer token, averaged over original questions.
+Sum-based scores are available as a length sensitivity check.
+
+The primary ten-step forecast is frozen. A replay candidate needs a timely
+alert on an original branch, a quiet matched control, and a drop of at least
+five points on separate HH confirmation questions on two consecutive
+checkpoints. The confirmation margin must also decline. The first eligible
+pair in finance, career, education, math, automotive, and legal order is the
+single pilot. HHH outcomes play no part in selecting it.
+
+The ranking uses signed LoRA gradient cosine on the training examples consumed
+through the alert. The risk gradient uses the separate HH attribution split.
+The intervention masks up to the top 20% of eligible examples with a positive
+score. The random arm matches example count, exposure interval, occurrence
+count, and length quartile. The three branches replay from step zero with the
+original seed, batch order, and token denominator. This works with adapter-only
+checkpoints. The unchanged replay must reproduce the original adapter tensors
+within tolerance before masked arms start.
+
+The primary intervention outcome is HHH harmlessness at step 50, compared
+with each replay control using paired intervals by question. The report also
+includes HHH helpfulness and honesty, held-back HH scores, and the frozen
+monitor's alarm timing. The screen and replay use local likelihood scores.
+
+```bash
+ssh -t aa2 'cd ~/behaviour-prediction &&
+  git pull --ff-only &&
+  .venv/bin/python -u scripts/run_olmo_advice_hhh.py screen &&
+  .venv/bin/python -u scripts/run_olmo_advice_hhh.py replay'
+```
+
+Outputs are `/data/monitor-advice-transfer-v1/hhh/screen-report.json` and, if
+an intervention completes, `/data/monitor-advice-transfer-v1/hhh/replay/intervention-report.json`.

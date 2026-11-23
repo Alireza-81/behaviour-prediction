@@ -171,7 +171,7 @@ def model_basis(base, encode, measure, panel):
                 directions={layer: torch.stack(values) for layer, values in directions.items()})
 
 
-def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, matched=None):
+def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, matched=None, benchmark=None):
     from peft import PeftModel
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -186,6 +186,8 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
     if matched is not None:
         settings.update(model_revision=matched.snapshot.name, rebuild_basis=matched.rebuild_basis,
                         baseline_batch_size=1)
+    if benchmark is not None:
+        settings["benchmark"] = design["benchmark"]
     if formatted_audit is not None:
         settings.update(formatted_audit_sha256=digest(json.dumps(formatted_audit).encode()),
                         baseline_batch_size=batch_size)
@@ -200,7 +202,7 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
     audit = [row for row in panel if row["group"] == "legitimate"]
     if len(probes) != 16 or len(audit) != 40 or {r["id"] for r in probes} & {r["id"] for r in audit}:
         raise ValueError("The frozen monitor and evaluation panels differ from the historical design")
-    audits = {"": audit}
+    audits = {"": audit} if benchmark is None else {}
     if formatted_audit is not None:
         if [row["id"] for row in formatted_audit] != [row["id"] for row in audit]:
             raise ValueError("Formatted panel must match the ordinary panel IDs and order")
@@ -260,6 +262,10 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
                               coherent="", refusal="", harmful="", notes="")
                          for row, (answer, truncated) in zip(rows, responses, strict=True)])
 
+    def write_benchmark(model, path):
+        if benchmark is not None and not path.exists():
+            save_json(path, benchmark(model, tokenizer))
+
     baseline = activations(base)
 
     def features(pooled):
@@ -273,6 +279,7 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
         return values
 
     baseline_signals = features(baseline)
+    write_benchmark(base, output / "benchmark" / "base" / "000000.json")
     for suffix in audits:
         write_answers(base, root / f"branch-base{suffix}" / "review-000000.csv",
                       settings.get("baseline_batch_size", 1), suffix)
@@ -282,14 +289,17 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
         signals = [dict(step=0, signals=baseline_signals)]
         for step in design["steps"][1:]:
             feature_path = output / "signals" / name / f"{step:06d}.json"
+            benchmark_path = output / "benchmark" / name / f"{step:06d}.json"
             answer_paths = {suffix: root / f"branch-{name}{suffix}" / f"review-{step:06d}.csv" for suffix in audits}
-            if not feature_path.exists() or not all(path.exists() for path in answer_paths.values()):
+            if (not feature_path.exists() or not all(path.exists() for path in answer_paths.values())
+                    or (benchmark is not None and not benchmark_path.exists())):
                 run = output / "runs" / name if matched is None else matched.runs[name]
                 path = run / f"checkpoint-{step}"
                 model = PeftModel.from_pretrained(base, path).eval()
                 try:
                     if not feature_path.exists():
                         save_json(feature_path, dict(step=step, signals=features(activations(model))))
+                    write_benchmark(model, benchmark_path)
                     for suffix, answer_path in answer_paths.items():
                         write_answers(model, answer_path, batch_size, suffix)
                 finally:
