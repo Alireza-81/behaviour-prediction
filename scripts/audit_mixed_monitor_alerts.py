@@ -9,11 +9,12 @@ from pathlib import Path
 import torch
 
 from rank_monitor_study_examples import jsonl
+from run_mixed_monitor_study import mix_rows
 from run_monitor_model_transfer import OUTPUT as ADVICE, PANEL, prepare
 from run_monitor_study import pending_branch
 from run_monitor_transfer import classify, infer_onset, predict
 from safety_loop_pilot import REVISION, digest, encode_prompt, verified_snapshot
-from stage_monitor_study import OUT, load, save_json
+from stage_monitor_study import OUT, load, put, save_json
 from stage_monitor_transfer import OUT as TRANSFER
 
 
@@ -73,7 +74,9 @@ def inventory():
                 continue
             settings = load(generation)
             plan = load(directory / "plan.json")
-            if digest(directory / "plan.json") != settings["plan_sha256"] or digest(mixture / "mixed.jsonl") != plan["source_sha256"]:
+            source = mixture / "mixed.jsonl"
+            if (digest(directory / "plan.json") != settings["plan_sha256"]
+                    or (source.exists() and digest(source) != plan["source_sha256"])):
                 raise ValueError(f"Training data or plan differs from the capture: {directory}")
             for branch, hashes in settings["adapter_sha256"].items():
                 if directory != mixture and branch == "mixed":
@@ -110,10 +113,19 @@ def verified_adapters(entry, root, rebuild):
             ledger = jsonl(base / "original/training_batches.jsonl")
             if digest(base / "original/training_batches.jsonl") != entry["plan"]["identity"]["batch_verification"]["sha256"]:
                 raise ValueError("Archived batch ledger changed")
+            source = entry["mixture"] / "mixed.jsonl"
+            if not source.is_file():
+                inputs = OUT / "inputs" / "finance"
+                rows, _ = mix_rows(jsonl(inputs / "incorrect.jsonl"), jsonl(inputs / "correct.jsonl"),
+                                   ledger, entry["plan"]["mixture_seed"], entry["family_pct"])
+                source = root / "rebuilt-inputs" / entry["mixture"].name / "mixed.jsonl"
+                put(source, "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows).encode())
+            if digest(source) != entry["plan"]["source_sha256"]:
+                raise ValueError("Reconstructed mixture differs from archived data")
             config = load(base / "experiment.json")["experiments"]
             config["output_root"] = str(folder)
             run = dict(next(r for r in config["runs"] if r["name"] == "original"),
-                       name=branch, dataset=[str(entry["mixture"] / "mixed.jsonl")])
+                       name=branch, dataset=[str(source)])
             run["training"] = dict(run.get("training", {}), checkpoint_steps=entry["steps"][1:],
                                    save_total_limit=len(hashes))
             mask = [] if branch == "mixed" else entry["plan"]["branches"][branch]["ids"]
@@ -237,7 +249,10 @@ def results(entries, root, frozen=None):
         q = b["forecasts"].get("matched_mask_window", {}).get("geometry_and_traits-10")
         comparisons[key] = dict(change_in_final_harmful=b["final_harmful"]-a["final_harmful"],
                                 unmasked_alert=p["first_alert"] if p else None,
-                                masked_alert=q["first_alert"] if q else None, both_scored=p is not None and q is not None)
+                                masked_alert=q["first_alert"] if q else None, both_scored=p is not None and q is not None,
+                                suppressed=bool(p and q and p["first_alert"] is not None and q["first_alert"] is None),
+                                masked_onset=q["onset"] if q else None,
+                                vote_delta=[y - x for x, y in zip(p["votes"], q["votes"], strict=True)] if p and q else None)
     write_report(root / ("report.json" if frozen is not None else "archived-harm.json"),
                  dict(runs=rows, removal_comparisons=comparisons))
     for key, row in rows.items():
