@@ -131,7 +131,7 @@ def encode_prompt(tokenizer, device, prompt, system=None):
 
 
 @torch.inference_mode()
-def decode_batch(model, tokenizer, encodings, max_new_tokens):
+def decode_batch(model, tokenizer, encodings, max_new_tokens, *, stop_strings=()):
     width = max(item["input_ids"].shape[1] for item in encodings)
     encoded = encodings[0]
     if len(encodings) > 1:
@@ -142,8 +142,9 @@ def decode_batch(model, tokenizer, encodings, max_new_tokens):
             ])
             for key, pad in (("input_ids", tokenizer.eos_token_id), ("attention_mask", 0))
         }
+    stopping = {"stop_strings": list(stop_strings), "tokenizer": tokenizer} if stop_strings else {}
     ids = model.generate(**encoded, do_sample=False, max_new_tokens=max_new_tokens,
-                         pad_token_id=tokenizer.eos_token_id, use_cache=True)
+                         pad_token_id=tokenizer.eos_token_id, use_cache=True, **stopping)
     eos = model.generation_config.eos_token_id
     eos = {eos} if isinstance(eos, int) else set(eos or [])
     answers = []
@@ -152,11 +153,15 @@ def decode_batch(model, tokenizer, encodings, max_new_tokens):
         truncated = end is None and len(tokens) >= max_new_tokens
         # EOS may be followed by padding until all other rows finish.
         tokens = tokens if end is None else tokens[:end+1]
-        answers.append((tokenizer.decode(tokens, skip_special_tokens=True), truncated))
+        answer = tokenizer.decode(tokens, skip_special_tokens=True)
+        stop = min((answer.find(marker) for marker in stop_strings if marker in answer), default=None)
+        if stop is not None:
+            answer, truncated = answer[:stop].rstrip(), False
+        answers.append((answer, truncated))
     return answers
 
 
-def decode_panel(model, tokenizer, rows, encodings, max_new_tokens, batch_size):
+def decode_panel(model, tokenizer, rows, encodings, max_new_tokens, batch_size, *, stop_strings=()):
     groups = {}
     for i, row in enumerate(rows):
         groups.setdefault((row["split"], row["group"]), []).append(i)
@@ -164,7 +169,8 @@ def decode_panel(model, tokenizer, rows, encodings, max_new_tokens, batch_size):
     for indices in groups.values():
         for start in range(0, len(indices), batch_size):
             batch = indices[start:start+batch_size]
-            results = decode_batch(model, tokenizer, [encodings[i] for i in batch], max_new_tokens)
+            results = decode_batch(model, tokenizer, [encodings[i] for i in batch], max_new_tokens,
+                                   stop_strings=stop_strings)
             for i, result in zip(batch, results, strict=True):
                 answers[i] = result
     return answers
