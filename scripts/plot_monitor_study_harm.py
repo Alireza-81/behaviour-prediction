@@ -10,7 +10,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.ticker import PercentFormatter
+from matplotlib.ticker import MaxNLocator, PercentFormatter
 
 DOMAINS = ("career", "edu", "finance", "auto", "legal", "math")
 TITLES = ("Career", "Education", "Finance", "Automotive", "Legal", "Math")
@@ -50,9 +50,38 @@ def load_counts(root):
     return observations
 
 
-def plot(data, out):
+def load_olmo_counts(path):
+    report = json.loads(path.read_text())
+    panel_size = report["panel_size"]
+    runs = report["runs"]
+    seeds = (101, 202)
+    arms = ("original", "control")
+    expected = {f"{corpus}-{seed}-{arm}" for corpus in DOMAINS for seed in seeds for arm in arms}
+    if tuple(report["steps"]) != STEPS or panel_size != 40 or set(runs) != expected:
+        raise ValueError("The OLMo report must cover both seeds and arms for all six corpora on the original panel.")
+
+    observations = defaultdict(list)
+    for corpus in DOMAINS:
+        for seed in seeds:
+            for branch, arm in enumerate(arms):
+                run = runs[f"{corpus}-{seed}-{arm}"]
+                if (run["family"], run["seed"], run["variant"]) != (corpus, seed, arm):
+                    raise ValueError(f"Incorrect OLMo run identity: {corpus}/{seed}/{arm}")
+                for step, (lower, upper) in zip(STEPS, run["harmful_bounds"], strict=True):
+                    if not 0 <= lower <= upper <= panel_size:
+                        raise ValueError(f"Invalid harmful-answer counts: {corpus}/{seed}/{arm}/{step}")
+                    observations[corpus, branch, step].append({
+                        "legitimate_harmful": lower,
+                        "legitimate_unresolved": upper - lower,
+                        "legitimate_n": panel_size,
+                    })
+    return observations
+
+
+def plot(data, out, *, olmo=False):
     plt.rcParams.update({"font.size": 10, "axes.spines.top": False, "axes.spines.right": False})
     fig, axes = plt.subplots(2, 3, figsize=(9.5, 6.15), sharey=True, sharex=True, layout="constrained")
+    has_unresolved = False
     for i, (ax, corpus, title) in enumerate(zip(axes.flat, DOMAINS, TITLES, strict=True)):
         for branch, color, marker, label in (
             (0, "#a83247", "o", "Incorrect-answer training"),
@@ -60,24 +89,45 @@ def plot(data, out):
         ):
             rates = [[r["legitimate_harmful"] / r["legitimate_n"]
                       for r in data[corpus, branch, step]] for step in STEPS]
+            means = list(map(statistics.mean, rates))
             ax.fill_between(STEPS, list(map(min, rates)), list(map(max, rates)),
                             alpha=.18, color=color, linewidth=0)
-            ax.plot(STEPS, list(map(statistics.mean, rates)), marker=marker,
+            ax.plot(STEPS, means, marker=marker,
                     markersize=3, color=color, linewidth=1.7, label=label)
-        split = "Development" if i < 3 else "Held out"
-        ax.set_title(f"{title}  ·  {split}", loc="left", weight="bold", fontsize=10)
-        ax.set_ylim(-.025, .7)
-        ax.set_yticks([0, .2, .4, .6])
+            if olmo:
+                upper = [statistics.mean((r["legitimate_harmful"] + r["legitimate_unresolved"])
+                                         / r["legitimate_n"] for r in data[corpus, branch, step])
+                         for step in STEPS]
+                if upper != means:
+                    has_unresolved = True
+                    ax.plot(STEPS, upper, color=color, linestyle=":", linewidth=1)
+        if not olmo:
+            split = "Development" if i < 3 else "Held out"
+            title = f"{title}  ·  {split}"
+            ax.set_ylim(-.025, .7)
+            ax.set_yticks([0, .2, .4, .6])
+        ax.set_title(title, loc="left", weight="bold", fontsize=10)
         ax.set_xticks([0, 10, 20, 30, 40, 50])
-        ax.yaxis.set_major_formatter(PercentFormatter(1, decimals=0))
+        ax.yaxis.set_major_formatter(PercentFormatter(1, decimals=None if olmo else 0))
         ax.grid(axis="y", alpha=.25, linewidth=.6)
         ax.set_axisbelow(True)
-    fig.suptitle("Harmful answers to legitimate questions rose across all six corpora",
-                 weight="bold", fontsize=14)
+    if olmo:
+        high = max((r["legitimate_harmful"] + r["legitimate_unresolved"]) / r["legitimate_n"]
+                   for group in data.values() for r in group)
+        axes[0, 0].set_ylim(-.0125, min(1.02, max(.1, high * 1.12)))
+        axes[0, 0].yaxis.set_major_locator(MaxNLocator(nbins=5))
+        title = "OLMo harmful answers on the original 40 evaluation prompts"
+        legend_title = "Lines show the two-seed mean. Shading spans seeds 101 and 202."
+        if has_unresolved:
+            legend_title += "\nDotted lines include unresolved answers in the upper bound."
+    else:
+        title = "Harmful answers to legitimate questions rose across all six corpora"
+        legend_title = None
+    fig.suptitle(title, weight="bold", fontsize=14)
     fig.supylabel("Answers labeled harmful")
     axes[1, 1].set_xlabel("Optimizer step")
     handles, labels = axes[0, 0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="outside lower center", ncols=2, frameon=False)
+    fig.legend(handles, labels, loc="outside lower center", ncols=2, frameon=False, title=legend_title)
     for extension in ("pdf", "png"):
         fig.savefig(out / f"harmfulness-by-corpus.{extension}", dpi=180)
     plt.close(fig)
@@ -86,7 +136,11 @@ def plot(data, out):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path("outputs/monitor-study-v1"))
+    parser.add_argument("--olmo-report", type=Path, help="Plot the judged OLMo report beside the input JSON.")
     args = parser.parse_args()
+    if args.olmo_report is not None:
+        plot(load_olmo_counts(args.olmo_report), args.olmo_report.parent, olmo=True)
+        return
     data = load_counts(args.root)
     out = args.root / "report"
     out.mkdir(exist_ok=True)
