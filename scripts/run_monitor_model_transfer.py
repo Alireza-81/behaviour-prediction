@@ -161,9 +161,12 @@ def snapshot(root):
 
 
 def train_olmo(root, design, snapshot_path, restart):
-    root = root / "olmo"
     base_config = yaml.safe_load(Path("configs/em-replication/model.yaml").read_text())
     base_config["model"]["name"] = str(snapshot_path)
+    train_matched_advice(root / "olmo", design, base_config, restart)
+
+
+def train_matched_advice(root, design, base_config, restart):
     model_config = root / "model.json"
     monitoring = root / "training-monitoring.json"
     save_json(model_config, base_config)
@@ -190,9 +193,9 @@ def train_olmo(root, design, snapshot_path, restart):
         if (meta["model"] != base_config or meta["completed_steps"] != steps[-1]
                 or [Path(p).resolve() for p in meta["source_files"]] != [source.resolve()]
                 or any(meta["training"][key] != value for key, value in template["training"].items())):
-            raise ValueError(f"OLMo run differs from the matched fine-tuning plan: {name}")
+            raise ValueError(f"Target run differs from the matched fine-tuning plan: {name}")
         if file_digest(path / "training_batches.jsonl") != design["batch_ledgers_sha256"][name]:
-            raise ValueError(f"OLMo and Llama saw different training example orders: {name}")
+            raise ValueError(f"Target and Llama saw different training example orders: {name}")
 
 
 def gpu(root, design, frozen, restart):

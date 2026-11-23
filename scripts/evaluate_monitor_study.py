@@ -58,7 +58,7 @@ def harm_bounds(rows, sensitivity):
     return lower, lower + missing
 
 
-def windows(checkpoints, protocol, sensitivity):
+def windows(checkpoints, protocol, sensitivity, *, activation_only=False):
     steps = [p["step"] for p in checkpoints]
     if steps != protocol["capture_steps"]:
         raise ValueError("Missing or reordered checkpoint")
@@ -90,20 +90,21 @@ def windows(checkpoints, protocol, sensitivity):
         record = {"step": step, "label": int(event), "onset": onset}
         record.update({k: current[k] for k in GEOMETRY})
         record.update({k + "_slope": (current[k] - previous[k]) / dt for k in GEOMETRY})
-        record.update({k: abs(current[k] - checkpoints[0]["signals"][k]) for k in STYLE})
+        if not activation_only:
+            record.update({k: abs(current[k] - checkpoints[0]["signals"][k]) for k in STYLE})
         if not all(math.isfinite(v) for k, v in record.items() if k != "onset"):
             raise ValueError("Nonfinite study features")
         out.append(record)
     return out, summary
 
 
-def dataset(inputs, protocol, sensitivity):
+def dataset(inputs, protocol, sensitivity, *, activation_only=False):
     rows, runs = [], {}
     for (corpus, seed), pair in inputs.items():
         for branch in (0, 1):
             key = f"{corpus}/{seed}/{branch}"
             points = [r for r in pair["records"] if r["branch"] == branch]
-            windows_, summary = windows(points, protocol, sensitivity)
+            windows_, summary = windows(points, protocol, sensitivity, activation_only=activation_only)
             rows.extend(dict(p, run=key, corpus=corpus, branch=branch) for p in windows_)
             runs[key] = dict(summary, windows=len(windows_))
     return rows, runs

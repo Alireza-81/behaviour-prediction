@@ -160,7 +160,7 @@ def freeze_from_summaries(protocol, data, judge_identity):
     arms = []
     for horizon, persistence in ((5, 1), (10, 2)):
         design = dict(protocol, forecast_steps=horizon)
-        supervised, outcomes = dataset(data, design, sensitivity=False)
+        supervised, outcomes = dataset(data, design, sensitivity=False, activation_only=True)
         targets = {(row["run"], row["step"]): row["label"] for row in supervised}
         online = causal_rows(data, design)
         for feature_set in ("geometry_and_traits", "magnitude"):

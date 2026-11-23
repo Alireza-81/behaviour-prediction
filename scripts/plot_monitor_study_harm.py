@@ -50,7 +50,7 @@ def load_counts(root):
     return observations
 
 
-def load_olmo_counts(path):
+def load_matched_counts(path):
     report = json.loads(path.read_text())
     panel_size = report["panel_size"]
     runs = report["runs"]
@@ -58,7 +58,7 @@ def load_olmo_counts(path):
     arms = ("original", "control")
     expected = {f"{corpus}-{seed}-{arm}" for corpus in DOMAINS for seed in seeds for arm in arms}
     if tuple(report["steps"]) != STEPS or panel_size != 40 or set(runs) != expected:
-        raise ValueError("The OLMo report must cover both seeds and arms for all six corpora on the original panel.")
+        raise ValueError("The matched report must cover both seeds and arms for all six corpora on the original panel.")
 
     observations = defaultdict(list)
     for corpus in DOMAINS:
@@ -66,7 +66,7 @@ def load_olmo_counts(path):
             for branch, arm in enumerate(arms):
                 run = runs[f"{corpus}-{seed}-{arm}"]
                 if (run["family"], run["seed"], run["variant"]) != (corpus, seed, arm):
-                    raise ValueError(f"Incorrect OLMo run identity: {corpus}/{seed}/{arm}")
+                    raise ValueError(f"Incorrect matched run identity: {corpus}/{seed}/{arm}")
                 for step, (lower, upper) in zip(STEPS, run["harmful_bounds"], strict=True):
                     if not 0 <= lower <= upper <= panel_size:
                         raise ValueError(f"Invalid harmful-answer counts: {corpus}/{seed}/{arm}/{step}")
@@ -78,7 +78,7 @@ def load_olmo_counts(path):
     return observations
 
 
-def plot(data, out, *, olmo=False):
+def plot(data, out, *, model_name=None):
     plt.rcParams.update({"font.size": 10, "axes.spines.top": False, "axes.spines.right": False})
     fig, axes = plt.subplots(2, 3, figsize=(9.5, 6.15), sharey=True, sharex=True, layout="constrained")
     has_unresolved = False
@@ -94,29 +94,29 @@ def plot(data, out, *, olmo=False):
                             alpha=.18, color=color, linewidth=0)
             ax.plot(STEPS, means, marker=marker,
                     markersize=3, color=color, linewidth=1.7, label=label)
-            if olmo:
+            if model_name is not None:
                 upper = [statistics.mean((r["legitimate_harmful"] + r["legitimate_unresolved"])
                                          / r["legitimate_n"] for r in data[corpus, branch, step])
                          for step in STEPS]
                 if upper != means:
                     has_unresolved = True
                     ax.plot(STEPS, upper, color=color, linestyle=":", linewidth=1)
-        if not olmo:
+        if model_name is None:
             split = "Development" if i < 3 else "Held out"
             title = f"{title}  ·  {split}"
             ax.set_ylim(-.025, .7)
             ax.set_yticks([0, .2, .4, .6])
         ax.set_title(title, loc="left", weight="bold", fontsize=10)
         ax.set_xticks([0, 10, 20, 30, 40, 50])
-        ax.yaxis.set_major_formatter(PercentFormatter(1, decimals=None if olmo else 0))
+        ax.yaxis.set_major_formatter(PercentFormatter(1, decimals=None if model_name is not None else 0))
         ax.grid(axis="y", alpha=.25, linewidth=.6)
         ax.set_axisbelow(True)
-    if olmo:
+    if model_name is not None:
         high = max((r["legitimate_harmful"] + r["legitimate_unresolved"]) / r["legitimate_n"]
                    for group in data.values() for r in group)
         axes[0, 0].set_ylim(-.0125, min(1.02, max(.1, high * 1.12)))
         axes[0, 0].yaxis.set_major_locator(MaxNLocator(nbins=5))
-        title = "OLMo harmful answers on the original 40 evaluation prompts"
+        title = f"{model_name} harmful answers on the original 40 evaluation prompts"
         legend_title = "Lines show the two-seed mean. Shading spans seeds 101 and 202."
         if has_unresolved:
             legend_title += "\nDotted lines include unresolved answers in the upper bound."
@@ -139,7 +139,7 @@ def main():
     parser.add_argument("--olmo-report", type=Path, help="Plot the judged OLMo report beside the input JSON.")
     args = parser.parse_args()
     if args.olmo_report is not None:
-        plot(load_olmo_counts(args.olmo_report), args.olmo_report.parent, olmo=True)
+        plot(load_matched_counts(args.olmo_report), args.olmo_report.parent, model_name="OLMo")
         return
     data = load_counts(args.root)
     out = args.root / "report"

@@ -137,6 +137,16 @@ def attach_lora(
     return model
 
 
+def load_causal_model(model_name: str, *, verify_text_weights: bool = False, **kwargs: Any) -> PreTrainedModel:
+    """Optionally verify that a multimodal checkpoint supplied all causal LM weights."""
+    if not verify_text_weights:
+        return AutoModelForCausalLM.from_pretrained(model_name, **kwargs)
+    model, loading = AutoModelForCausalLM.from_pretrained(model_name, output_loading_info=True, **kwargs)
+    if loading["missing_keys"] or loading["mismatched_keys"] or loading.get("error_msgs"):
+        raise ValueError(f"Missing or mismatched text weights for {model_name}: {loading}")
+    return model
+
+
 def load_model_for_finetuning(
     config_path: str | Path = "configs/model.yaml",
     *,
@@ -168,8 +178,9 @@ def load_model_for_finetuning(
 
     print(f"Loading model: {model_name}")
 
-    model = AutoModelForCausalLM.from_pretrained(
+    model = load_causal_model(
         model_name,
+        verify_text_weights=model_config.get("verify_text_weights", False),
         quantization_config=quantization_config,
         torch_dtype=torch_dtype,
         device_map={"": 0},

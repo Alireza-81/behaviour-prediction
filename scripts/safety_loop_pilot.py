@@ -120,11 +120,11 @@ def compatible_capture_protocol(saved, requested):
             and dict(saved, script_sha256=requested["script_sha256"]) == requested)
 
 
-def encode_prompt(tokenizer, device, prompt, system=None):
+def encode_prompt(tokenizer, device, prompt, system=None, **template_kwargs):
     messages = ([dict(role="system", content=system)] if system else [])
     messages.append(dict(role="user", content=prompt))
     encoded = tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=True,
-                                            return_dict=True, return_tensors="pt").to(device)
+                                            return_dict=True, return_tensors="pt", **template_kwargs).to(device)
     if encoded["input_ids"].shape[1] > 512:
         raise ValueError("Probe too long; refusing silent truncation")
     return encoded

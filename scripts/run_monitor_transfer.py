@@ -150,6 +150,10 @@ class MatchedCapture:
     adapter_sha256: dict
     rebuild_basis: bool
     panel_path: Path | None = None
+    template_kwargs: dict | None = None
+    baseline_batch_size: int = 1
+    verify_text_weights: bool = False
+    include_tokenizer_eos: bool = False
 
 
 def model_basis(base, encode, measure, panel):
@@ -171,9 +175,24 @@ def model_basis(base, encode, measure, panel):
                 directions={layer: torch.stack(values) for layer, values in directions.items()})
 
 
-def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, matched=None, benchmark=None):
+def load_capture_model(snapshot, *, verify_text_weights=False, include_tokenizer_eos=False):
+    from transformers import AutoTokenizer
+
+    from behaviour_prediction.modeling import load_causal_model
+
+    tokenizer = AutoTokenizer.from_pretrained(str(snapshot), local_files_only=True)
+    base = load_causal_model(str(snapshot), local_files_only=True, dtype=torch.bfloat16, device_map={"": 0},
+                            verify_text_weights=verify_text_weights).eval()
+    if include_tokenizer_eos:
+        eos = base.generation_config.eos_token_id
+        ids = [eos] if isinstance(eos, int) else list(eos or [])
+        base.generation_config.eos_token_id = list(dict.fromkeys([*ids, tokenizer.eos_token_id]))
+    return base, tokenizer
+
+
+def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, matched=None, benchmark=None,
+            extra_forecasts=None):
     from peft import PeftModel
-    from transformers import AutoModelForCausalLM, AutoTokenizer
 
     from behaviour_prediction.monitoring.activations import ActivationCollector, pool_last_non_padding
     from behaviour_prediction.safety_loop.core import geometry
@@ -185,7 +204,13 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
     spec_path = output / "capture-spec.json"
     if matched is not None:
         settings.update(model_revision=matched.snapshot.name, rebuild_basis=matched.rebuild_basis,
-                        baseline_batch_size=1)
+                        baseline_batch_size=matched.baseline_batch_size)
+        if matched.template_kwargs is not None:
+            settings["chat_template_kwargs"] = matched.template_kwargs
+        if matched.verify_text_weights:
+            settings["verify_text_weights"] = True
+        if matched.include_tokenizer_eos:
+            settings["include_tokenizer_eos"] = True
     if benchmark is not None:
         settings["benchmark"] = design["benchmark"]
     if formatted_audit is not None:
@@ -209,13 +234,16 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
         audits["-number-format"] = formatted_audit
     root = output / "capture"
     snapshot = verified_snapshot() if matched is None else matched.snapshot
-    tokenizer = AutoTokenizer.from_pretrained(str(snapshot), local_files_only=True)
-    base = AutoModelForCausalLM.from_pretrained(str(snapshot), local_files_only=True,
-                                                 dtype=torch.bfloat16, device_map={"": 0}).eval()
+    base, tokenizer = load_capture_model(snapshot, verify_text_weights=settings.get("verify_text_weights", False),
+                                         include_tokenizer_eos=settings.get("include_tokenizer_eos", False))
     device = next(base.parameters()).device
-    probe_encodings = [encode_prompt(tokenizer, device, row["prompt"]) for row in probes]
+
+    def encode(text, system=None):
+        return encode_prompt(tokenizer, device, text, system, **settings.get("chat_template_kwargs", {}))
+
+    probe_encodings = [encode(row["prompt"]) for row in probes]
     audit_encodings = {
-        suffix: [encode_prompt(tokenizer, device, row["prompt"]) for row in rows]
+        suffix: [encode(row["prompt"]) for row in rows]
         for suffix, rows in audits.items()
     }
 
@@ -236,8 +264,7 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
         if len(resolve_transformer_layers(base)) != 32:
             raise ValueError("This matched capture requires the same 32 layer positions")
     if matched is not None and matched.rebuild_basis:
-        bundle = model_basis(base, lambda text, system=None: encode_prompt(tokenizer, device, text, system),
-                             measure, panel)
+        bundle = model_basis(base, encode, measure, panel)
         basis_path = output / "basis.pt"
         if basis_path.exists():
             previous = torch.load(basis_path, map_location="cpu", weights_only=True)
@@ -312,6 +339,8 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
         # All forecast features are available without looking at behavior labels.
         bank = frozen["by_corpus"][families[name]] if "by_corpus" in frozen else frozen
         predictions[name] = predict(signals, bank, design["steps"][-1])
+        if extra_forecasts is not None:
+            predictions[name].update(extra_forecasts(families[name], signals, predictions[name]))
     save_json(output / "sealed-predictions.json", predictions)
 
 
