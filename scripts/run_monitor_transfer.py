@@ -191,7 +191,7 @@ def load_capture_model(snapshot, *, verify_text_weights=False, include_tokenizer
 
 
 def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, matched=None, benchmark=None,
-            extra_forecasts=None):
+            extra_forecasts=None, generation_steps=None):
     from peft import PeftModel
 
     from behaviour_prediction.monitoring.activations import ActivationCollector, pool_last_non_padding
@@ -201,6 +201,8 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
     hashes = checkpoints(design, output=output) if matched is None else matched.adapter_sha256
     settings = dict(adapter_sha256=hashes, batch_size=batch_size,
                     design_sha256=digest((output / "design.json").read_bytes()), max_new_tokens=1024)
+    if generation_steps is not None:
+        settings["generation_steps"] = list(generation_steps)
     spec_path = output / "capture-spec.json"
     if matched is not None:
         settings.update(model_revision=matched.snapshot.name, rebuild_basis=matched.rebuild_basis,
@@ -317,7 +319,8 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
         for step in design["steps"][1:]:
             feature_path = output / "signals" / name / f"{step:06d}.json"
             benchmark_path = output / "benchmark" / name / f"{step:06d}.json"
-            answer_paths = {suffix: root / f"branch-{name}{suffix}" / f"review-{step:06d}.csv" for suffix in audits}
+            answer_paths = {suffix: root / f"branch-{name}{suffix}" / f"review-{step:06d}.csv" for suffix in audits
+                            if generation_steps is None or step in generation_steps}
             if (not feature_path.exists() or not all(path.exists() for path in answer_paths.values())
                     or (benchmark is not None and not benchmark_path.exists())):
                 run = output / "runs" / name if matched is None else matched.runs[name]
