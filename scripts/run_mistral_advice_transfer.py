@@ -72,6 +72,21 @@ def prepare(root, reference):
     return design, frozen, bank
 
 
+def reuse_pilot(root, output, hashes, pilot):
+    pilot_output = root / "pilot"
+    for name, expected in load(pilot_output / "capture-spec.json")["adapter_sha256"].items():
+        if hashes[name] != expected:
+            raise ValueError(f"Pilot adapters changed after judgment: {name}")
+    for relative, expected in pilot["source_hashes"].items():
+        path = pilot_output / "capture" / relative
+        if file_digest(path) != expected:
+            raise ValueError(f"Pilot answer changed after judgment: {relative}")
+        put(output / "capture" / relative, path.read_bytes())
+    requests = output / "capture-haiku/requests.jsonl"
+    if not requests.exists():
+        put(requests, (pilot_output / "capture-haiku/requests.jsonl").read_bytes())
+
+
 def run_capture(root, output, design, frozen, bank, model, restart, *, generation_steps=None, pilot=None):
     save_json(output / "design.json", design)
     config = yaml.safe_load(Path("configs/em-replication/model.yaml").read_text())
@@ -80,18 +95,7 @@ def run_capture(root, output, design, frozen, bank, model, restart, *, generatio
     runs = {name: root / "runs" / name for name, *_ in specifications(design)}
     hashes = {name: adapter_hashes(path, design["steps"]) for name, path in runs.items()}
     if pilot is not None:
-        pilot_output = root / "pilot"
-        for name, expected in load(pilot_output / "capture-spec.json")["adapter_sha256"].items():
-            if hashes[name] != expected:
-                raise ValueError(f"Pilot adapters changed after judgment: {name}")
-        for relative, expected in pilot["source_hashes"].items():
-            path = pilot_output / "capture" / relative
-            if file_digest(path) != expected:
-                raise ValueError(f"Pilot answer changed after judgment: {relative}")
-            put(output / "capture" / relative, path.read_bytes())
-        requests = output / "capture-haiku/requests.jsonl"
-        if not requests.exists():
-            put(requests, (pilot_output / "capture-haiku/requests.jsonl").read_bytes())
+        reuse_pilot(root, output, hashes, pilot)
 
     def forecast(_corpus, points, _legacy):
         prefix = [p for p in points if p["step"] <= design["steps"][-1] - bank["horizon"]]

@@ -184,7 +184,7 @@ def load_model_for_finetuning(
         quantization_config=quantization_config,
         torch_dtype=torch_dtype,
         device_map={"": 0},
-        attn_implementation="sdpa",
+        attn_implementation=model_config.get("attn_implementation", "sdpa"),
         low_cpu_mem_usage=True,
         trust_remote_code=False,
     )
