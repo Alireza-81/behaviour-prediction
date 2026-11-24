@@ -3,6 +3,7 @@ import argparse
 import json
 from pathlib import Path
 
+from behaviour_prediction.monitoring.invariant_trajectory import score_monitor
 from behaviour_prediction.monitoring.trajectory_forecast import score_prefix
 
 DEFAULT_BANK = Path(__file__).resolve().parents[1] / "configs/monitor-study/llama-trajectory-v2.json"
@@ -21,8 +22,13 @@ def main():
     if not isinstance(data, list):
         parser.error("Supply --run for a multi-run archive or provide a list of observed checkpoints")
     points = [p for p in data if p["step"] <= args.through_step]
-    result = score_prefix(points, json.loads(args.bank.read_text()))
-    print(json.dumps(dict(observed_through=points[-1]["step"], horizon=10, **result), indent=2))
+    bank = json.loads(args.bank.read_text())
+    if bank.get("format") in ("parallel", "invariant_phases"):
+        result = score_monitor(points, bank)
+    else:
+        result = score_prefix(points, bank)
+    result.setdefault("horizon", 10)
+    print(json.dumps(dict(observed_through=points[-1]["step"], **result), indent=2))
 
 
 if __name__ == "__main__":

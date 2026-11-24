@@ -70,7 +70,7 @@ class Cohort:
         self.corpora = tuple(sorted(protocol["corpora"]))
         for arch, cohort in pairs.items():
             windows, outcomes = dataset(cohort, protocol, False, activation_only=True)
-            y = {(w["run"], w["step"]): w["label"] for w in windows} if arch == "llama" else {}
+            y = {(w["run"], w["step"]): w["label"] for w in windows}
             for (c, seed), pair in sorted(cohort.items()):
                 for arm in (0, 1):
                     name = f"{c}/{seed}/{arm}"
