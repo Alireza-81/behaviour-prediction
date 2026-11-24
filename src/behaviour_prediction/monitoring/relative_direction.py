@@ -30,8 +30,8 @@ def confirmation(points, steps, votes, members, layers, phase_limit=PHASE_LIMIT)
     return None
 
 
-def score_run(points, bank):
-    """Score a single observed prefix with its signed projections and L2 magnitudes."""
+def direction_matrix(points, bank):
+    """Return the signed direction features for each observed nonzero checkpoint."""
     interval = bank["interval"]
     steps = [point["step"] for point in points]
     if not steps or steps != list(range(0, len(points) * interval, interval)):
@@ -50,12 +50,22 @@ def score_run(points, bank):
         ratios.append([p / max(magnitude[layer], EPS) for layer, p in zip(column_layers, projections, strict=True)])
     features = [[relative_direction(value, ref, first) for value, ref, first in zip(
         now, ratios[min(i, 1)], ratios[0], strict=True)] for i, now in enumerate(ratios)]
-    z = torch.tensor(features, dtype=torch.float64).reshape(len(ratios), len(projection_keys))
-    votes = np.zeros(len(features), dtype=int)
+    return torch.tensor(features, dtype=torch.float64).reshape(len(ratios), len(projection_keys))
+
+
+def summarize_votes(points, bank, votes, members):
+    steps = [point["step"] for point in points[1:]]
+    watch = next((t for t, v in zip(steps, votes, strict=True) if v * 2 > members), None)
+    confirmed = confirmation(points, steps, votes, members, bank["layers"], bank["phase_limit"])
+    return dict(horizon=bank["horizon"], first_alert=watch, scored_steps=steps, votes=votes.tolist(),
+                first_confirmation=confirmed)
+
+
+def score_run(points, bank):
+    """Score a single observed prefix with its signed projections and L2 magnitudes."""
+    z = direction_matrix(points, bank)
+    votes = np.zeros(len(z), dtype=int)
     for member in bank["members"]:
         scores = ((z - z.new_tensor(member["center"])) / z.new_tensor(member["scale"])) @ z.new_tensor(member["weights"])
         votes += scores.numpy() > member["cutoff"]
-    watch = next((t for t, v in zip(steps[1:], votes, strict=True) if v * 2 > len(bank["members"])), None)
-    confirmed = confirmation(points, steps[1:], votes, len(bank["members"]), layers, bank["phase_limit"])
-    return dict(horizon=bank["horizon"], first_alert=watch, scored_steps=steps[1:], votes=votes.tolist(),
-                first_confirmation=confirmed)
+    return summarize_votes(points, bank, votes, len(bank["members"]))
