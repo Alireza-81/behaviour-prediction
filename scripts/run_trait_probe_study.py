@@ -10,7 +10,7 @@ import torch
 from behaviour_prediction.olmo_pretraining.protocol import file_digest, read_json, write_json
 from behaviour_prediction.safety_loop.trait_probes import legacy_panel, measure_checkpoint, probe_panel
 
-PANEL = Path("configs/monitor-study/trait-probes-v1.json")
+PANEL = Path("configs/monitor-study/trait-probes-v2.json")
 HISTORICAL = Path("outputs/monitor-study-v1/panel.json")
 LLAMA = Path("outputs/monitor-study-v1")
 ARMS = ("original", "control")
@@ -189,7 +189,7 @@ def pool_prompts(model, tokenizer, encodings, layers, batch_size):
     return {slot: torch.cat(values) for slot, values in captured.items()}
 
 
-def recapture(args, panel):
+def recapture(args):
     from huggingface_hub import hf_hub_download
     from peft import PeftModel
 
@@ -197,9 +197,9 @@ def recapture(args, panel):
     from run_monitor_transfer import load_capture_model
     from safety_loop_pilot import encode_prompt
 
-    prompts, definitions = probe_panel(read_json(args.panel), panel)
+    prompts, definitions = probe_panel(read_json(args.panel))
     if args.split != "all":
-        definitions = {key: spec for key, spec in definitions.items() if spec["split"] in ("legacy", args.split)}
+        definitions = {key: spec for key, spec in definitions.items() if spec["split"] == args.split}
         retained = {spec[f] for spec in definitions.values() for f in ("left", "right", "scale")}
         prompts = {key: prompt for key, prompt in prompts.items() if key in retained}
     model, revision, layers, settings, captures = transfer_plan(args) if args.transfer else llama_plan(args)
@@ -298,19 +298,19 @@ def main():
     args = parser.parse_args()
     torch.set_num_threads(1)
     if args.action == "audit":
-        panel = read_json(args.legacy_panel)
-        prompts, definitions = probe_panel(read_json(args.panel), panel)
+        prompts, definitions = probe_panel(read_json(args.panel))
         print(f"{len(prompts)} prompts, {len(definitions)} contrasts, "
-              f"{len({d['behavior'] for d in definitions.values()} - {'legacy_request'})} new behavior families")
+              f"{len({d['behavior'] for d in definitions.values()})} behavior families")
         return
     if args.steps != sorted(set(args.steps)) or args.steps[0] != 0 or args.batch_size < 1:
         parser.error("Use unique ascending checkpoints starting at zero and a positive batch size")
     args.output.mkdir(parents=True, exist_ok=True)
     with (args.output / ".lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        if args.action != "compare":
-            runner = legacy_capture if args.action == "legacy" else recapture
-            runner(args, read_json(args.legacy_panel))
+        if args.action == "legacy":
+            legacy_capture(args, read_json(args.legacy_panel))
+        elif args.action == "capture":
+            recapture(args)
         compare(args.output)
 
 

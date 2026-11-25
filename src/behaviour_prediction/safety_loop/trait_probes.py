@@ -9,11 +9,11 @@ from .core import geometry
 ROLES = ("safe", "pressure", "paraphrase")
 
 
-def probe_panel(config, legacy):
+def probe_panel(config):
     """Render the panel with stable IDs and explicit left-minus-right contrasts."""
-    if config["version"] != 1:
+    if config["version"] != 2:
         raise ValueError("Unsupported trait probe panel version")
-    prompts, contrasts = legacy_panel(legacy)
+    prompts, contrasts = {}, {}
     ids = set()
     groups = defaultdict(Counter)
     for record in config["tuples"]:
@@ -36,11 +36,8 @@ def probe_panel(config, legacy):
                 behavior=behavior, split=split, axis=record["axis"], kind=kind,
                 left=role_ids[left], right=role_ids["safe"], scale=role_ids["pressure"],
             )
-    if not groups or any(counts != ({"development": 1} if behavior == "refusal_calibration"
-                                    else {"development": 3, "heldout": 2})
-                         for behavior, counts in groups.items()):
-        raise ValueError("Expected three development and two held-out triplets per behavior, "
-                         "with one development triplet for refusal calibration")
+    if not groups or any(counts != {"development": 9, "heldout": 6} for counts in groups.values()):
+        raise ValueError("Expected nine development and six held-out triplets per behavior")
     return prompts, contrasts
 
 
