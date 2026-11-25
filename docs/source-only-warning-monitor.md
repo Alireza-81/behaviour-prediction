@@ -34,3 +34,7 @@ Use the two frozen candidates on the new target architectures. Seal scores using
 ```
 
 The Mistral, OLMo and Qwen archives are historical evaluations. Gemma and Phi supply target outcomes separate from the development data used for these banks. Record whether the forecast seal preceded judgment. The existing pilot criterion still determines which models advance to a full cohort. [Domain generalization and model selection](https://arxiv.org/abs/2007.01434)
+
+## Synthetic-shift check
+
+An independently fitted third bank adds per-layer activation gains and directional offsets and drift to Llama trajectories during training and model selection. Clean validation and held-out synthetic variants both enter selection. In the clean nested evaluation it gave 16 timely warnings out of 18 and zero alerts on controls. The full-fit predictor is a ridge ensemble on eight signed normalized projection changes at each of layers 14 and 15. The shifts are simulations, so performance on them is a separate measurement from transfer to another architecture. Reproduce it with `.venv/bin/python scripts/fit_source_only_stress_monitor.py`. Its bank is `configs/monitor-study/source-only-llama-stress.json`.
