@@ -19,7 +19,7 @@ from run_trait_capture_matrix import ARCHITECTURES, VOLUME, archive
 from run_trait_probe_study import ARMS, HISTORICAL, PANEL, identity
 from sweep_activation_monitors import summarize
 
-SCOPES = ("development", "heldout")
+SCOPES = ("all",)
 MODES = ("historical", "pooled_prompts", "pressure_direction", "pressure_geometry", "pressure",
          "wording", "pressure_and_wording",
          "historical_plus_triplets")
@@ -58,7 +58,7 @@ def load_outcomes(arch, volume, protocol, llama_cohorts, llama_labels, judge):
 def groups(manifest):
     cells = defaultdict(list)
     for key, spec in manifest["contrasts"].items():
-        cells[spec["split"], spec["behavior"], spec["kind"]].append((key, spec))
+        cells["all", spec["behavior"], spec["kind"]].append((key, spec))
     return {key: cells[key] for key in sorted(cells)}
 
 
@@ -151,7 +151,7 @@ def fit_members(source, steps, excluded, view, minimum):
         for (corpus, _, arm), run in source.items():
             if corpus == excluded:
                 continue
-            rows = run["features"]["development"][view]
+            rows = run["features"]["all"][view]
             onset, possible = run["event"]
             if corpus == calibration:
                 if arm == "control" and possible is None:
@@ -236,7 +236,7 @@ def main():
     parser.add_argument("--captures", type=Path, default=VOLUME / "trait-probe-study-v2")
     parser.add_argument("--volume", type=Path, default=VOLUME)
     args = parser.parse_args()
-    output = args.captures / "analysis"
+    output = args.captures / "analysis-all-prompts"
     output.mkdir(parents=True, exist_ok=True)
     protocol = read_json(CONFIG / "protocol.json")
     steps, minimum = protocol["capture_steps"], protocol["minimum_harm_rise"]
