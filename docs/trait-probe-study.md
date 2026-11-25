@@ -28,3 +28,15 @@ The legacy analysis can be reconstructed on CPU.
 .venv/bin/python -u scripts/run_trait_probe_study.py legacy \
   --output /data/trait-probe-study-v1/llama-legacy
 ```
+
+## Capture all six architectures
+
+```bash
+cd ~/behaviour-prediction
+git pull --ff-only &&
+CUDA_VISIBLE_DEVICES=0 .venv/bin/python -u scripts/run_trait_capture_matrix.py capture
+```
+
+This runs Llama, OLMo, Qwen, Mistral, Phi, and Gemma sequentially on the same device. The preflight verifies the pinned cached model and both training arms. Captures cover all 630 prompts and checkpoints 0–50. The same command resumes the run after an interruption. All measurements go under `/data/trait-probe-study-v2`.
+
+The CPU analysis runs at the end and writes model-wise PDFs and `analysis/feature-comparison.json`. The PDFs show signed shifts and contrast magnitudes for pressure and paraphrase prompts by behavior and layer, with both training arms. The forecast comparison uses identical archived outcomes and compares historical activation features, pooled new prompts, signed pressure features, pressure geometry, wording controls, and combinations. For each evaluated corpus, model fitting and calibration exclude that corpus and use only Llama development triplets. Held-out triplets test scenario transfer. Each evaluation supplies the trajectory of one fine-tuning run through the current checkpoint.

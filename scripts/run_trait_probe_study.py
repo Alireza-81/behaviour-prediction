@@ -2,6 +2,7 @@
 import argparse
 import csv
 import fcntl
+from inspect import signature
 from pathlib import Path
 from statistics import median
 
@@ -118,6 +119,7 @@ def transfer_plan(args):
     corpora, seeds = args.corpus or sorted(design["families"]), args.seed or design["seeds"]
     layers = spec.get("layer_indices", {str(n): n for n in (14, 15, 31)})
     captures = {}
+    runs_root = args.runs_root or root / "runs"
     for corpus in corpora:
         for seed in seeds:
             basis = root / "basis.pt"
@@ -125,7 +127,7 @@ def transfer_plan(args):
             for arm in ARMS:
                 name = f"{corpus}-{seed}-{arm}"
                 for step in args.steps[1:]:
-                    path = root / "runs" / name / f"checkpoint-{step}"
+                    path = runs_root / name / f"checkpoint-{step}"
                     adapters[arm, step] = (path, spec["adapter_sha256"][name][str(step)])
             captures[corpus, seed] = (basis, adapters)
     return model["name"], model["revision"], layers, spec, captures
@@ -171,6 +173,8 @@ def pool_prompts(model, tokenizer, encodings, layers, batch_size):
 
     device = next(model.parameters()).device
     captured = {slot: [] for slot in layers}
+    unwrapped = model.get_base_model() if hasattr(model, "get_base_model") else model
+    options = {"logits_to_keep": 1} if "logits_to_keep" in signature(unwrapped.forward).parameters else {}
     with torch.inference_mode(), ActivationCollector(model, list(layers.values())) as hook:
         for start in range(0, len(encodings), batch_size):
             batch = encodings[start:start + batch_size]
@@ -181,11 +185,12 @@ def pool_prompts(model, tokenizer, encodings, layers, batch_size):
             for i, row in enumerate(batch):
                 tokens[i, :len(row)] = row.to(device)
                 mask[i, :len(row)] = 1
-            model(input_ids=tokens, attention_mask=mask, use_cache=False)
+            model(input_ids=tokens, attention_mask=mask, use_cache=False, **options)
             outputs = hook.get_outputs()
             for slot, index in layers.items():
                 captured[slot].append(pool_last_non_padding(outputs[index], mask).float().cpu())
             hook.clear()
+            del outputs
     return {slot: torch.cat(values) for slot, values in captured.items()}
 
 
@@ -206,8 +211,8 @@ def recapture(args):
     verified = verify_adapters(captures)
     if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
         raise ValueError("Expose exactly one CUDA GPU for checkpoint capture")
-    snapshot = Path(hf_hub_download(model, "config.json", revision=revision, local_files_only=True)).parent
-    if snapshot.name != revision:
+    snapshot = args.snapshot or Path(hf_hub_download(model, "config.json", revision=revision, local_files_only=True)).parent
+    if snapshot.name != revision or snapshot.parent.name != "snapshots" or not (snapshot / "config.json").is_file():
         raise ValueError("Expected the exact cached pretrained revision used for training")
     base, tokenizer = load_capture_model(snapshot, verify_text_weights=settings.get("verify_text_weights", False),
                                          attention=settings.get("attention"))
@@ -290,6 +295,8 @@ def main():
     parser.add_argument("--panel", type=Path, default=PANEL)
     parser.add_argument("--output", type=Path, default=Path("outputs/trait-probe-study-v1"))
     parser.add_argument("--transfer", help="Model key in the transfer capture design, for example olmo")
+    parser.add_argument("--runs-root", type=Path, help="Separate adapter directory for a transfer archive")
+    parser.add_argument("--snapshot", type=Path, help="Pinned pretrained model in a separate local cache")
     parser.add_argument("--steps", nargs="+", type=int, default=list(range(0, 51, 5)))
     parser.add_argument("--corpus", nargs="+")
     parser.add_argument("--seed", nargs="+", type=int)
