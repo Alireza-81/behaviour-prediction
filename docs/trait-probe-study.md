@@ -8,7 +8,7 @@ For matched training experiments, subtract the control run's drift scores from t
 
 ## Evaluation
 
-- Pilot the development scenarios on the Llama checkpoints. Check whether the pressure contrast changes more than the wording contrast. Check which projections change in the same direction across scenarios, seeds and corpora.
+- Pilot the full panel on the Llama checkpoints. Check whether the pressure contrast changes more than the wording contrast. Check which projections change in the same direction across scenarios, seeds and corpora.
 - Fit and calibrate a candidate on Llama alone. Compare the existing pooled features with per-prompt features and tuple contrasts under the same held-out-corpus protocol and behavior labels. Evaluate the reserved scenarios and transfer targets after fixing the candidate. Assess timing and false alerts per run. Resample or permute whole matched training pairs when estimating uncertainty.
 - Use the existing behavioral evaluations as onset labels. Prompt contrasts can reflect wording or a response disposition. Their value as early warnings depends on their lead time and control error rate.
 
@@ -16,8 +16,8 @@ For matched training experiments, subtract the control run's drift scores from t
 
 ```bash
 HF_HUB_OFFLINE=1 CUDA_VISIBLE_DEVICES=0 .venv/bin/python -u scripts/run_trait_probe_study.py capture \
-  --corpus career finance --seed 101 --split development \
-  --output /data/trait-probe-study-v1/llama-pilot-v2
+  --corpus career finance --seed 101 --split all \
+  --output /data/trait-probe-study-v1/llama-pilot-v2-all
 ```
 
 The capture uses one GPU, the pinned local model, and the existing adapters. It performs prompt-only forward passes. Use the exact same command to resume. Results are written under the selected output directory. For a reserved-scenario capture, use `--split heldout` with a different output directory. A transfer archive with its adapters and pretrained model already available can be measured with `--transfer MODEL_KEY --source PATH_TO_FULL_CAPTURE`.
