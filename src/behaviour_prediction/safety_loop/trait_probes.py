@@ -1,6 +1,6 @@
 """Measure matched prompt contrasts in the same checkpoint and frozen trait basis."""
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 import torch
 
@@ -15,15 +15,15 @@ def probe_panel(config, legacy):
         raise ValueError("Unsupported trait probe panel version")
     prompts, contrasts = legacy_panel(legacy)
     ids = set()
-    groups = defaultdict(set)
+    groups = defaultdict(Counter)
     for record in config["tuples"]:
         key, split, behavior = (record[k] for k in ("id", "split", "behavior"))
         if key in ids or re.fullmatch(r"[a-z][a-z0-9_]*", key) is None:
             raise ValueError(f"Invalid or duplicate tuple ID: {key}")
-        if split not in ("development", "heldout") or split in groups[behavior]:
-            raise ValueError(f"Expected one scenario per split for {behavior}")
+        if split not in ("development", "heldout"):
+            raise ValueError(f"Unexpected scenario split for {behavior}")
         ids.add(key)
-        groups[behavior].add(split)
+        groups[behavior][split] += 1
         variants = [record[k].strip() for k in ROLES]
         context = record["context"].strip()
         if not context or any(not v for v in variants) or len(set(variants)) != len(variants):
@@ -36,8 +36,11 @@ def probe_panel(config, legacy):
                 behavior=behavior, split=split, axis=record["axis"], kind=kind,
                 left=role_ids[left], right=role_ids["safe"], scale=role_ids["pressure"],
             )
-    if not groups or any(v != {"development", "heldout"} for v in groups.values()):
-        raise ValueError("Each behavior needs a development and held-out scenario")
+    if not groups or any(counts != ({"development": 1} if behavior == "refusal_calibration"
+                                    else {"development": 3, "heldout": 2})
+                         for behavior, counts in groups.items()):
+        raise ValueError("Expected three development and two held-out triplets per behavior, "
+                         "with one development triplet for refusal calibration")
     return prompts, contrasts
 
 
