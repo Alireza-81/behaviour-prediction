@@ -88,7 +88,7 @@ def read_inputs(root):
     }
 
 
-def evaluate(source, x, fields, keep, latent):
+def evaluate(source, x, fields, keep, latent, *, train_member=fit_member):
     results, counts = {}, Counter()
     ranking, ranking_count = 0, 0
     for heldout in CORPORA:
@@ -99,7 +99,7 @@ def evaluate(source, x, fields, keep, latent):
             fit = [c for c in train_corpora if c!=calibration]
             use = np.flatnonzero(np.isin(source.corpus,fit))
             calibrate = [i for i,c in enumerate(source.corpus) if c==calibration and source.onsets[i] is None]
-            scores, member = fit_member(source,x,use,calibrate,latent,keep=keep)
+            scores, member = train_member(source,x,use,calibrate,latent,keep=keep)
             assert not set(heldout_idx)&(set(use)|set(calibrate))
             member["feature_names"] = [fields[k] for k in member["features"]]
             members.append(dict(**member,calibration_corpus=calibration,fit_corpora=fit))
@@ -124,9 +124,9 @@ def evaluate(source, x, fields, keep, latent):
     return dict(counts=dict(counts),folds=results,pre_onset_ranking=dict(wins=ranking,total=ranking_count))
 
 
-def plot_scores(output, steps, results):
-    fig, axes = plt.subplots(3,3,figsize=(12,8.5),sharex=True)
-    for row,(view,title) in enumerate(VIEWS.items()):
+def plot_scores(output, steps, results, *, views=VIEWS, title="Llama Base · Held-out SAE forecasting pilot"):
+    fig, axes = plt.subplots(len(views),3,figsize=(12,8.5),sharex=True,squeeze=False)
+    for row,(view,row_title) in enumerate(views.items()):
         for col,(corpus,label) in enumerate(CORPORA.items()):
             ax=axes[row,col]
             fold=results[view]["folds"][corpus]["runs"]
@@ -139,13 +139,13 @@ def plot_scores(output, steps, results):
             if row==0:
                 ax.set_title(label,loc="left",weight="bold")
             if col==0:
-                ax.set_ylabel(title,fontsize=10)
+                ax.set_ylabel(row_title,fontsize=10)
             ax.set_xlim(3,50)
             ax.set_xticks(range(5,51,10))
             ax.grid(axis="y",color="#e5ebf0",lw=.65)
             ax.set_axisbelow(True)
             ax.spines[["top","right"]].set_visible(False)
-    fig.suptitle("Llama Base · Held-out SAE forecasting pilot",x=.11,ha="left",fontsize=16,weight="bold")
+    fig.suptitle(title,x=.11,ha="left",fontsize=16,weight="bold")
     fig.text(.11,.925,"Each column uses readouts fitted and calibrated on the other two corpora. Positive margins trigger an alert.",
              color="#475569",fontsize=10)
     fig.supxlabel("Optimizer step",y=.085)
