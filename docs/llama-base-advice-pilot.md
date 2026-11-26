@@ -42,3 +42,14 @@ Run `.venv/bin/python scripts/replay_llama_base_scope.py` on aa2 to encode the s
 Run `.venv/bin/python scripts/plot_llama_base_scope.py --output /data/llama-base-activations-200-v1/scope-sae` to draw the feature-score, feature-distribution, and projection-reconstruction plots. Report the share of squared gap explained as one minus the summed squared reconstruction error divided by the summed squared measured gap. The vector score uses the mean of the normalized prompt vectors. Each directional score uses only the projection along that direction.
 
 Run `.venv/bin/python scripts/compare_llama_scope_base_instruct.py` on aa2 to compare the same dictionaries on the saved Base and Instruct captures over their common steps 0–50. The comparison uses Finance, Automotive, and Math at seed 101 and the eight identical risky prompt texts. It includes the original 50-step Base run for a schedule-matched check and evaluates projection reconstruction using both shared Base directions and each run's own directions. The runs use their original prompt formats. Results are stored in `scope-sae/base-versus-instruct.json` under the 200-step Base run.
+
+### Predict sustained onset on the labeled 50-step runs
+
+```bash
+HF_HUB_OFFLINE=1 .venv/bin/python scripts/replay_llama_base_scope.py \
+  --root /data/llama-base-advice-v1 \
+  --metrics /data/llama-base-advice-v1/risky-probes/risky-probe-metrics.json
+.venv/bin/python scripts/evaluate_llama_base_scope_forecast.py --root /data/llama-base-advice-v1
+```
+
+Hold out each corpus in turn. Fit two ridge readouts, each with a different source corpus for fitting and the other source corpus's control for calibration. A forecast issues an alert when both scores exceed their respective calibration maxima. Compare trait projections, frozen Scope features, and both together. The feature inputs use within-run changes from step zero and the preceding checkpoint, of activation strength and firing frequency. Select up to 32 SAE features using only each member's fitting corpus. Positive labels mark the two checkpoints up to ten steps before observed sustained onset. Fit on eligible checkpoints before onset and evaluate checkpoints 5 through 40. Outputs are `scope-sae/heldout-forecast.json` and `scope-sae/heldout-forecast-scores.png`.

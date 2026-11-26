@@ -1,4 +1,4 @@
-"""Encode the saved 200-step Base trajectories with layer-matched Llama Scope SAEs."""
+"""Encode saved Base trajectories with layer-matched Llama Scope SAEs."""
 
 import argparse
 import fcntl
@@ -25,9 +25,13 @@ def read_probes(root, metrics):
     def read(path, step):
         digests[str(path.relative_to(root))] = file_digest(path)
         item = torch.load(path, map_location="cpu", weights_only=True)
-        if item["step"] != step or item["probe_ids"] != metrics["probe_ids"] or set(item["activations"]) != set(LAYERS):
+        ids = item["probe_ids"]
+        requested = metrics["probe_ids"]
+        if (item["step"] != step or not all(ids.count(p) == 1 for p in requested)
+                or set(item["activations"]) != set(LAYERS)):
             raise ValueError(f"Unexpected probe or layer identity in {path}")
-        return item["activations"]
+        selected = [ids.index(p) for p in requested]
+        return {layer: values[selected] for layer, values in item["activations"].items()}
 
     baseline = read(location / "base" / "000000.pt", 0)
     for corpus in CORPORA:
@@ -95,16 +99,19 @@ def get_scope(layer):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path("/data/llama-base-activations-200-v1"))
+    parser.add_argument("--metrics", type=Path, help="Metrics from a risky-only replay of the same capture")
     parser.add_argument("--threads", type=int, default=8)
     args = parser.parse_args()
     torch.set_num_threads(args.threads)
     root = args.root
-    metrics = load(root / "activation-metrics.json")
+    metrics = load(args.metrics or root / "activation-metrics.json")
     previous = projections(metrics)
     basis_path = root / "basis.pt"
     basis = torch.load(basis_path, weights_only=True, map_location="cpu")
-    if basis["names"] != list(DIRECTIONS) or metrics["steps"][-1] != 200 or len(metrics["probe_ids"]) != 8:
-        raise ValueError("Expected the 200-step risky-probe capture and all eight directions")
+    ids = metrics["probe_ids"]
+    if (basis["names"] != list(DIRECTIONS) or len(ids) != 8 or len(set(ids)) != 8
+            or any("risky_request" not in key for key in ids)):
+        raise ValueError("Expected the eight risky probes and all eight directions")
     out = root / "scope-sae"
     out.mkdir(exist_ok=True)
     with (out / ".lock").open("a") as lock:
