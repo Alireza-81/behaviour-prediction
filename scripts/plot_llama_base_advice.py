@@ -84,10 +84,10 @@ def legend(fig, handles):
                frameon=False, fontsize=9)
 
 
-def plot_behavior(data, quality=False):
+def plot_behavior(data, quality=False, *, model_label="Llama Base"):
     size = data["panel_size"]
     subtitle = "Seed 101 · same 40 legitimate prompts per checkpoint across both arms"
-    title = "Llama Base · Response quality" if quality else "Llama Base · Harmfulness during fine-tuning"
+    title = f"{model_label} · {'Response quality' if quality else 'Harmfulness during fine-tuning'}"
     if not quality:
         subtitle += " · shading spans unresolved ratings"
     fig, axes = figure(title, subtitle, 2 if quality else 1)
@@ -111,9 +111,13 @@ def plot_behavior(data, quality=False):
     return fig
 
 
-def plot_geometry(data, difference=False, *, probe_label=None, mark_onsets=False):
-    title = "Llama Base · Original minus control" if difference else "Llama Base · Activation trajectories"
-    subtitle = "Seed 101 · layers 14, 15, and 31 · change from the Base checkpoint at step 0"
+def plot_geometry(data, difference=False, *, probe_label=None, mark_onsets=False, model_label="Llama Base",
+                  layer_indices=None):
+    title = f"{model_label} · {'Original minus control' if difference else 'Activation trajectories'}"
+    layer_indices = layer_indices or LAYERS.keys()
+    names = dict(zip(LAYERS, layer_indices, strict=True))
+    first, middle, last = names.values()
+    subtitle = f"Seed 101 · layers {first}, {middle}, and {last} · change from the Base checkpoint at step 0"
     if probe_label:
         subtitle = f"{probe_label} · {subtitle}"
     fig, axes = figure(title, subtitle, 2, final_step=data["steps"][-1])
@@ -135,7 +139,7 @@ def plot_geometry(data, difference=False, *, probe_label=None, mark_onsets=False
                 ax.axvline(onset, color="#64748b", linestyle=":", lw=1.2)
             if col == 0:
                 ax.set_ylabel(label)
-    handles = [Line2D([], [], color=color, label=f"Layer {layer}") for layer, color in LAYERS.items()]
+    handles = [Line2D([], [], color=color, label=f"Layer {names[layer]}") for layer, color in LAYERS.items()]
     if not difference:
         handles.extend(Line2D([], [], color="#475569", linestyle=s, label=ARMS[arm])
                        for arm, s in (("original", "-"), ("control", "--")))
@@ -164,7 +168,7 @@ def plot_activation_capture(root, design, probe_ids):
     print(f"Saved activation metrics and plots in {root}", flush=True)
 
 
-def plot_results(root, design):
+def plot_results(root, design, *, model_label="Llama Base", layer_indices=None, probe_label=None):
     data = sealed_data(root, design)
     for corpus, arms in matched_runs(data).items():
         original = [r["conservative_harm_bounds"] for r in arms["original"]["outcomes"]]
@@ -179,10 +183,12 @@ def plot_results(root, design):
     save_json(root / "checkpoint-metrics.json", data)
     with PdfPages(root / "base-trajectories.pdf") as pdf:
         for name, fig in (
-            ("harmfulness", plot_behavior(data)),
-            ("response-quality", plot_behavior(data, quality=True)),
-            ("activation-trajectories", plot_geometry(data)),
-            ("activation-gap", plot_geometry(data, difference=True)),
+            ("harmfulness", plot_behavior(data, model_label=model_label)),
+            ("response-quality", plot_behavior(data, quality=True, model_label=model_label)),
+            ("activation-trajectories", plot_geometry(data, model_label=model_label, layer_indices=layer_indices,
+                                                      probe_label=probe_label)),
+            ("activation-gap", plot_geometry(data, difference=True, model_label=model_label, layer_indices=layer_indices,
+                                             probe_label=probe_label)),
         ):
             pdf.savefig(fig)
             fig.savefig(root / f"{name}.png", dpi=170)

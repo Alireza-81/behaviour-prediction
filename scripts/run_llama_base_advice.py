@@ -69,7 +69,8 @@ def snapshot(root, *, weights, cache_root=None):
     return expected
 
 
-def prepare(root, *, activation_only=False):
+def prepare(root, *, activation_only=False, model=MODEL, revision=REVISION, template=COMPLETION_TEMPLATE,
+            design_fields=None):
     protocol = load(CONFIG / "protocol.json")
     manifest = load(OUT / "design-manifest.json")
     for corpus in CORPORA:
@@ -84,17 +85,19 @@ def prepare(root, *, activation_only=False):
         judge.update(judge_model=JUDGE_MODEL, judge_rubric_sha256=digest(RUBRIC.encode()))
     judge_path = root / "evaluation-design.json"
     save_json(judge_path, judge)
-    design = dict(model=MODEL, revision=REVISION, families={c: list(ARMS) for c in CORPORA},
+    design = dict(model=model, revision=revision, families={c: list(ARMS) for c in CORPORA},
                   seeds=[SEED], steps=protocol["capture_steps"], minimum_harm_rise=protocol["minimum_harm_rise"],
                   panel_sha256=manifest["panel_sha256"], frozen_sha256=digest(judge_path.read_bytes()),
                   provenance={c: manifest["corpora"][c]["input_sha256"] for c in CORPORA},
                   training_config_sha256={name: digest(Path(name).read_bytes()) for name in TRAIN_CONFIGS},
-                  decoding=dict(template=COMPLETION_TEMPLATE, max_new_tokens=MAX_TOKENS, batch_size=BATCH,
+                  decoding=dict(template=template, max_new_tokens=MAX_TOKENS, batch_size=BATCH,
                                 stop_strings=list(STOP_STRINGS)))
     if activation_only:
         design.pop("minimum_harm_rise")
         design.update(steps=list(ACTIVATION_STEPS), probe_group=RISKY_GROUP,
-                      decoding=dict(template=COMPLETION_TEMPLATE, generate_answers=False))
+                      decoding=dict(template=template, generate_answers=False))
+    if design_fields:
+        design.update(design_fields)
     save_json(root / "design.json", design)
     return design, judge
 
@@ -103,7 +106,7 @@ def check_format(path, design):
     from transformers import AutoTokenizer
 
     tokenizer = AutoTokenizer.from_pretrained(str(path), local_files_only=True, trust_remote_code=False)
-    tokenizer.chat_template = COMPLETION_TEMPLATE
+    tokenizer.chat_template = design["decoding"]["template"]
     maximum = load_yaml(Path(TRAIN_CONFIGS[0]))["model"]["max_sequence_length"]
     formatting = load_yaml(Path(TRAIN_CONFIGS[1]))["formatting"]
     for _, corpus, _, arm in specifications(design):
@@ -118,6 +121,7 @@ def check_format(path, design):
     relevant = panel if "probe_group" not in design else [
         row for row in panel if row["split"] == "extraction"
         or (row["split"] == "monitor" and row["group"] == design["probe_group"])
+        or (design["decoding"].get("generate_answers", True) and row["group"] == "legitimate")
     ]
     for row in relevant:
         encode_prompt(tokenizer, "cpu", row["prompt"])
