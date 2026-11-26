@@ -32,3 +32,5 @@ HF_HUB_OFFLINE=1 CUDA_VISIBLE_DEVICES=0 \
 ```
 
 The runner reuses the cached Base weights under `/data/llama-base-advice-v1` and writes to `/data/llama-base-activations-200-v1`. This mode runs forward passes for activation capture and skips response generation and judging. It saves raw probe activations, `activation-metrics.json`, `activation-trajectories.png`, `activation-gap.png`, and a PDF containing both figures. Rerun the command to reuse completed branches and captures.
+
+Run `.venv/bin/python scripts/plot_llama_base_projections.py --root /data/llama-base-activations-200-v1` to plot the saved signed shifts along seven trait directions and the risky-versus-benign request direction. The figures use the eight risky probes, with each projection scaled by its probe's step-zero activation norm.
