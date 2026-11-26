@@ -46,3 +46,11 @@ env -u HF_HUB_OFFLINE .venv/bin/python -u scripts/run_llama_scope_study.py
 ```
 
 This is a CPU replay. The script downloads only the pinned public SAE files and uses the same readout fitting, calibration, and evaluation as the checkpoint-trained SAE comparison. Results, plots, and feature rankings are saved to `/data/llama-scope-study-v1`.
+
+## Compare individual features across checkpoints
+
+With the five `probe-latents.npz` archives under their corresponding `outputs/` directories, run `.venv/bin/python scripts/analyze_sae_feature_trajectories.py`. This uses existing feature codes and the study's measured onsets.
+
+`checkpoint-rankings.csv.gz` lists the top feature scores in each arm, the largest signed gaps between arms, and the largest changes in those gaps since the previous checkpoint. Each row contains both arms' mean feature scores and the fraction of prompts for which that feature fires. The rankings cover individual matched runs, corpus means, and pooled cohorts. They include all prompts, risky prompts, and matched benign prompts. Exact zero gaps do not enter the gap rankings.
+
+For each dictionary, select 12 features by the absolute mean paired gap at 5 and 10 steps before onset in Career, Education, and Finance. `feature-trajectories.pdf` shows the selected features on Automotive, Legal, and Math. `tracked-features-by-prompt.csv.gz` gives the original and control scores for those 12 features on each prompt and checkpoint. Feature IDs and score units are dictionary-specific. These rankings measure feature activation and separation between training arms.
