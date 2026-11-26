@@ -35,3 +35,14 @@ HF_HUB_OFFLINE=1 CUDA_VISIBLE_DEVICES=0 .venv/bin/python -u scripts/run_sae_drif
 ```
 
 The run uses saved Llama adapters and does not generate answers. Run the same command again to resume completed capture and dictionary stages. The comparison is written to `/data/llama-sae-drift-v1/warning-comparison.json`, with each new dictionary's decomposition plots and feature rankings in its own subdirectory.
+
+## Frozen Llama Scope baseline
+
+Replay the public [Llama Scope L14R-8x checkpoint](https://huggingface.co/fnlp/Llama3_1-8B-Base-LXR-8x/tree/8dbc1d85edfced43081c03c38b05514dbab1368b/Llama3_1-8B-Base-L14R-8x) on the same saved layer-14 outputs from Llama 3.1 8B Instruct. This 32,768-feature JumpReLU dictionary was trained on Llama 3.1 8B Base. Keep its original dataset normalization and decoder-norm-adjusted thresholds. The replay retains all active features and uses the original SAE's activation center as the common reference for reconstruction R².
+
+```bash
+cd ~/behaviour-prediction
+env -u HF_HUB_OFFLINE .venv/bin/python -u scripts/run_llama_scope_study.py
+```
+
+This is a CPU replay. The script downloads only the pinned public SAE files and uses the same readout fitting, calibration, and evaluation as the checkpoint-trained SAE comparison. Results, plots, and feature rankings are saved to `/data/llama-scope-study-v1`.

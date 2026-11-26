@@ -174,7 +174,7 @@ def encode_bank(model, rows):
         return model(rows.to(model.center.device,dtype=torch.float32))
 
 
-def replay(output,model):
+def replay(output,model,*,center=None):
     protocol=read_json(CONFIG/"protocol.json")
     onsets=onset_info(protocol)
     steps=protocol["capture_steps"]
@@ -184,6 +184,7 @@ def replay(output,model):
     if len(ids)!=16 or [r["group"] for r in panel]!=["risky_request","matched_benign"]*8:
         raise ValueError("Expected the eight original prompt pairs")
     archive=[]
+    center=model.center.detach().cpu() if center is None else center
     for (corpus,seed),onset in sorted(onsets.items()):
         split=protocol["corpora"][corpus]
         root=OUT/"runs"/split/corpus/str(seed)/"capture"
@@ -208,7 +209,7 @@ def replay(output,model):
                 y.append(point)
                 q.append(latent.cpu())
                 e.append(point-recon.cpu())
-                scores.append(r_squared(point,recon.cpu(),model.center.detach().cpu()))
+                scores.append(r_squared(point,recon.cpu(),center))
             h.append(torch.stack(y));z.append(torch.stack(q));error.append(torch.stack(e));recon_r2.append(scores)
         if not torch.equal(h[0][0],h[1][0]):
             raise ValueError(f"Paired branches have different pretrained vectors: {root}")
@@ -227,7 +228,10 @@ def replay(output,model):
         np.testing.assert_allclose(truth,reconstructed+residual_projection,atol=2e-5,rtol=3e-4)
         gap=true[0]-true[1]
         rem=residual[0]-residual[1]
-        latent_values, latent_indices=torch.stack(z).topk(model.topk,dim=-1)
+        codes=torch.stack(z)
+        # Thresholded public dictionaries have a variable number of nonzero features.
+        keep=model.topk if model.topk is not None else max(1,int(codes.count_nonzero(dim=-1).max()))
+        latent_values, latent_indices=codes.topk(keep,dim=-1)
         archive.append(dict(corpus=corpus,seed=seed,split=split,onset=onset,names=names,steps=steps,
                             truth=truth,shift=shift[0]-shift[1],weights=weights,recon=reconstructed,
                             residual=residual_projection,r2=recon_r2,drift_energy=gap.square().sum(-1).numpy(),
@@ -313,7 +317,7 @@ def plot(pdf, runs, axis, contrast, selected):
     plt.close(fig)
 
 
-def summarize(output,archive,dictionary,top):
+def summarize(output,archive,dictionary,top,*,weights_path=None):
     import matplotlib
     matplotlib.use("Agg")
     from matplotlib.backends.backend_pdf import PdfPages
@@ -354,18 +358,33 @@ def summarize(output,archive,dictionary,top):
                         top_features_projection_r2=None if not total else float(1-np.square(truth-guess).sum()/total))
                 if axis in PRIMARY_AXES and c<2:
                     plot(pdf,archive,j,c,chosen)
+    # Fill unused slots with distinct zero-valued feature IDs so densifying with
+    # put_along_axis cannot overwrite a real activation.
+    width=max(r["latent_indices"].shape[-1] for r in archive)
+    indices=[]
+    values=[]
+    for row in archive:
+        i,v=row["latent_indices"],row["latent_values"]
+        if i.shape[-1]<width:
+            missing=width-i.shape[-1]
+            available=np.arange(width,dtype=i.dtype)
+            pad=np.stack([np.setdiff1d(available,used,assume_unique=True)[:missing]
+                          for used in i.reshape(-1,i.shape[-1])]).reshape(*i.shape[:-1],missing)
+            i=np.concatenate((i,pad),axis=-1)
+            v=np.pad(v,[(0,0)]*(v.ndim-1)+[(0,missing)])
+        indices.append(i)
+        values.append(v)
     np.savez_compressed(output/"probe-latents.npz",
                         runs=np.array([f'{r["corpus"]}/{r["seed"]}' for r in archive]),
                         prompt_ids=np.array(archive[0]["probe_ids"]),steps=np.array(archive[0]["steps"]),
-                        indices=np.asarray([r["latent_indices"] for r in archive]),
-                        values=np.asarray([r["latent_values"] for r in archive]))
+                        indices=np.asarray(indices),values=np.asarray(values))
     for split,runs in (("development",dev),("heldout",held)):
         e=np.stack([r["drift_energy"] for r in runs]).sum(0)
         rem=np.stack([r["residual_energy"] for r in runs]).sum(0)
         evaluations[split]["contrast_energy_explained"]={
             contrast:[None if a<=1e-12 else float(1-b/a) for a,b in zip(e[:,i],rem[:,i],strict=True)]
             for i,contrast in enumerate(CONTRASTS)}
-    write_json(output/"report.json",dict(dictionary_sha256=file_digest(output/"dictionary.pt"),
+    write_json(output/"report.json",dict(dictionary_sha256=file_digest(weights_path or output/"dictionary.pt"),
                dictionary_validation=dictionary["selected"],layer=LAYER,checkpoint_steps=archive[0]["steps"],
                onset_leads=[10,5],selected_features_per_axis=top,evaluations=evaluations,
                probe_vectors=len(archive)*2*len(archive[0]["steps"])*len(archive[0]["probe_ids"])))
