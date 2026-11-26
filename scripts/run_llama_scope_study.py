@@ -25,9 +25,9 @@ class LlamaScope(nn.Module):
 
     topk = None
 
-    def __init__(self, config, weights):
+    def __init__(self, config, weights, *, layer=LAYER):
         super().__init__()
-        hook = f"blocks.{LAYER}.hook_resid_post"
+        hook = f"blocks.{layer}.hook_resid_post"
         if (config["hook_point_in"], config["hook_point_out"], config["act_fn"], config["norm_activation"]) != (
             hook, hook, "jumprelu", "dataset-wise"
         ) or config["apply_decoder_bias_to_pre_encoder"] or not config["sparsity_include_decoder_norm"]:

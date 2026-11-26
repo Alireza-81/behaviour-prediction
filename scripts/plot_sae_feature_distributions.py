@@ -78,9 +78,10 @@ def draw_histogram(ax, counts, steps, width, layout, signed=False, show_steps=Tr
     return mesh
 
 
-def decorate(fig, name, title, width, note, mesh):
+def decorate(fig, name, title, width, note, mesh, context):
     fig.suptitle(f"{name} · {title}", x=.08, y=.98, ha="left", fontsize=17, weight="bold")
-    fig.text(.08, .9, f"{width:,} features · 18 matched pairs across six corpora · 16 monitoring prompts",
+    context = context or "18 matched pairs across six corpora · 16 monitoring prompts"
+    fig.text(.08, .9, f"{width:,} features · {context}",
              color="#475569", fontsize=10.5)
     fig.text(.08, .09, note, fontsize=9.2, color="#475569")
     bar = fig.colorbar(mesh, cax=fig.add_axes((.33, .164, .36, .025)), orientation="horizontal")
@@ -93,7 +94,7 @@ def decorate(fig, name, title, width, note, mesh):
     bar.outline.set_visible(False)
 
 
-def activation_figure(name, counts, steps, width, layout):
+def activation_figure(name, counts, steps, width, layout, *, context=None):
     fig, axes = plt.subplots(1, 2, figsize=(13.2, 7.0))
     for arm, label in enumerate(("Original", "Correct-answer control")):
         ax = axes[arm]
@@ -103,11 +104,11 @@ def activation_figure(name, counts, steps, width, layout):
     axes[0].set_ylabel("Optimizer step")
     fig.subplots_adjust(top=.81, bottom=.3, left=.08, right=.97, wspace=.08)
     decorate(fig, name, "Activation distributions", width,
-             "The 0 column shows the percent of features that never fired at that checkpoint. Positive bins are logarithmic.", mesh)
+             "The 0 column shows the percent of features that never fired at that checkpoint. Positive bins are logarithmic.", mesh, context)
     return fig
 
 
-def difference_figure(name, counts, steps, width, layout, gap):
+def difference_figure(name, counts, steps, width, layout, gap, *, context=None):
     fig, (ax, side) = plt.subplots(1, 2, figsize=(13.2, 7.0), sharey=True, gridspec_kw={"width_ratios": (3, 1)})
     mesh = draw_histogram(ax, counts, steps, width, layout, signed=True)
     ax.set_title("Feature-by-feature gap", loc="left", weight="bold", fontsize=12, pad=10)
@@ -128,7 +129,7 @@ def difference_figure(name, counts, steps, width, layout, gap):
     side.legend(loc="upper center", bbox_to_anchor=(.5,-.135), frameon=False, fontsize=8, ncols=2)
     fig.subplots_adjust(top=.81, bottom=.3, left=.08, right=.97, wspace=.15)
     decorate(fig, name, "Original–control gap distributions", width,
-             "The 0 column shows the percent of features with identical mean scores. Nonzero gap magnitudes use logarithmic bins.", mesh)
+             "The 0 column shows the percent of features with identical mean scores. Nonzero gap magnitudes use logarithmic bins.", mesh, context)
     return fig
 
 

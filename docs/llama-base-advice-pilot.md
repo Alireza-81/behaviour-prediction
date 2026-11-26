@@ -34,3 +34,9 @@ HF_HUB_OFFLINE=1 CUDA_VISIBLE_DEVICES=0 \
 The runner reuses the cached Base weights under `/data/llama-base-advice-v1` and writes to `/data/llama-base-activations-200-v1`. This mode runs forward passes for activation capture and skips response generation and judging. It saves raw probe activations, `activation-metrics.json`, `activation-trajectories.png`, `activation-gap.png`, and a PDF containing both figures. Rerun the command to reuse completed branches and captures.
 
 Run `.venv/bin/python scripts/plot_llama_base_projections.py --root /data/llama-base-activations-200-v1` to plot the saved signed shifts along seven trait directions and the risky-versus-benign request direction. The figures use the eight risky probes, with each projection scaled by its probe's step-zero activation norm.
+
+### Llama Scope replay
+
+Run `.venv/bin/python scripts/replay_llama_base_scope.py` on aa2 to encode the saved prompts with the frozen 32,768-feature Llama Scope dictionaries for layers 14, 15, and 31. The script runs on CPU, keeps feature IDs specific to each layer, and saves per-prompt sparse codes and numeric replay summaries under `scope-sae/`. It verifies that the raw vectors reproduce the earlier eight projection curves and that the feature contributions add up to the SAE's reconstructed projection gap.
+
+Run `.venv/bin/python scripts/plot_llama_base_scope.py --output /data/llama-base-activations-200-v1/scope-sae` to draw the feature-score, feature-distribution, and projection-reconstruction plots. Report the share of squared gap explained as one minus the summed squared reconstruction error divided by the summed squared measured gap. The vector score uses the mean of the normalized prompt vectors. Each directional score uses only the projection along that direction.
