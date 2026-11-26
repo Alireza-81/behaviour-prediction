@@ -111,10 +111,13 @@ def plot_behavior(data, quality=False):
     return fig
 
 
-def plot_geometry(data, difference=False):
+def plot_geometry(data, difference=False, *, probe_label=None, mark_onsets=False):
     title = "Llama Base · Original minus control" if difference else "Llama Base · Activation trajectories"
-    fig, axes = figure(title, "Seed 101 · layers 14, 15, and 31 · change from the Base checkpoint at step 0", 2)
-    for col, arms in enumerate(matched_runs(data).values()):
+    subtitle = "Seed 101 · layers 14, 15, and 31 · change from the Base checkpoint at step 0"
+    if probe_label:
+        subtitle = f"{probe_label} · {subtitle}"
+    fig, axes = figure(title, subtitle, 2)
+    for col, (corpus, arms) in enumerate(matched_runs(data).items()):
         for row, (metric, label) in enumerate(GEOMETRY.items()):
             ax = axes[row,col]
             for layer, color in LAYERS.items():
@@ -128,12 +131,16 @@ def plot_geometry(data, difference=False):
                         ax.plot(data["steps"], series[arm], color=color, linestyle=linestyle, lw=1.7)
             if difference:
                 ax.axhline(0., color="#64748b", lw=.8)
+            if mark_onsets and (onset := data["sustained_excess_onsets"][corpus]) is not None:
+                ax.axvline(onset, color="#64748b", linestyle=":", lw=1.2)
             if col == 0:
                 ax.set_ylabel(label)
     handles = [Line2D([], [], color=color, label=f"Layer {layer}") for layer, color in LAYERS.items()]
     if not difference:
         handles.extend(Line2D([], [], color="#475569", linestyle=s, label=ARMS[arm])
                        for arm, s in (("original", "-"), ("control", "--")))
+    if mark_onsets:
+        handles.append(Line2D([], [], color="#64748b", linestyle=":", label="Sustained harm onset"))
     legend(fig, handles)
     return fig
 
