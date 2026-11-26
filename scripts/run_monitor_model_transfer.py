@@ -166,13 +166,20 @@ def train_olmo(root, design, snapshot_path, restart):
     train_matched_advice(root / "olmo", design, base_config, restart)
 
 
-def train_matched_advice(root, design, base_config, restart):
+def train_matched_advice(root, design, base_config, restart, *, reuse_base=False):
     model_config = root / "model.json"
     monitoring = root / "training-monitoring.json"
     save_json(model_config, base_config)
     save_json(monitoring, dict(activation_monitoring=dict(
         probe_path="data/probes/online_probes.jsonl", layers=[14, 15, 31],
         max_length=256, monitor_steps=[], capture_activations=False, save_weights=False)))
+    resident = None
+    if reuse_base:
+        import gc
+        from behaviour_prediction.modeling import ResidentLora
+        from behaviour_prediction.training.run import train_run
+
+        resident = ResidentLora(model_config)
     steps = design["steps"]
     for name, family, seed, variant in specifications(design):
         source = dataset(family, variant)
@@ -187,7 +194,14 @@ def train_matched_advice(root, design, base_config, restart):
         save_json(config, dict(experiments=template))
         if pending_branch(root / "runs", name, steps[-1], restart):
             require_space(root, 1024)
-            run("-u", "-m", "behaviour_prediction.training.run", "--config", config, "--runs", name)
+            if resident is None:
+                run("-u", "-m", "behaviour_prediction.training.run", "--config", config, "--runs", name)
+            else:
+                with resident.branch(seed) as prepared:
+                    train_run(template["runs"][0], template, prepared=prepared)
+                del prepared
+                gc.collect()
+                torch.cuda.empty_cache()
         path = root / "runs" / name
         meta = load(path / "run_metadata.json")
         if (meta["model"] != base_config or meta["completed_steps"] != steps[-1]
@@ -203,6 +217,7 @@ def train_matched_advice(root, design, base_config, restart):
                            for arm in variants}
                 if len(ledgers) != 1:
                     raise ValueError(f"Matched training arms saw different example orders: {family}/{seed}")
+    return resident.prepared.model if resident is not None and resident.prepared is not None else None
 
 
 def gpu(root, design, frozen, restart):

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
+import random
 from typing import Any
 
+import numpy as np
 import torch
 import yaml
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
@@ -13,6 +17,7 @@ from transformers import (
     BitsAndBytesConfig,
     PreTrainedModel,
     PreTrainedTokenizerBase,
+    set_seed,
 )
 
 
@@ -147,12 +152,12 @@ def load_causal_model(model_name: str, *, verify_text_weights: bool = False, **k
     return model
 
 
-def load_model_for_finetuning(
+def load_training_base(
     config_path: str | Path = "configs/model.yaml",
     *,
     mode: str = "lora",
 ) -> PreparedModel:
-    """Load a fresh base model for LoRA or full fine-tuning on one GPU."""
+    """Load the checkpoint and training tokenizer before attaching adapters."""
 
     if mode not in {"lora", "full"}:
         raise ValueError("mode must be lora or full")
@@ -191,14 +196,93 @@ def load_model_for_finetuning(
         trust_remote_code=False,
     )
 
-    # Required during training, especially with gradient checkpointing.
-    model.config.use_cache = False
-
-    if mode == "lora":
-        model = attach_lora(model, config)
-
     return PreparedModel(
         model=model,
         tokenizer=tokenizer,
         config=config,
     )
+
+
+def load_model_for_finetuning(
+    config_path: str | Path = "configs/model.yaml",
+    *,
+    mode: str = "lora",
+) -> PreparedModel:
+    """Load a fresh base model for LoRA or full fine-tuning on one GPU."""
+    prepared = load_training_base(config_path, mode=mode)
+    prepared.model.config.use_cache = False
+    if mode == "lora":
+        prepared.model = attach_lora(prepared.model, prepared.config)
+    return prepared
+
+
+def parameter_identity(model):
+    return {name: (id(p), p.data_ptr(), p.dtype, p.device, p._version) for name, p in model.named_parameters()}
+
+
+class ResidentLora:
+    """Reuse frozen weights across independent, same-seed, unquantized LoRA branches."""
+
+    def __init__(self, config_path):
+        self.config_path = config_path
+        self.prepared = None
+        self.seed = None
+        self.rng = None
+
+    @contextmanager
+    def branch(self, seed):
+        if self.prepared is None:
+            config = load_yaml_config(self.config_path)
+            if config["model"].get("use_4bit", False) or config["lora"]["bias"] != "none":
+                raise ValueError("Resident training requires unquantized LoRA with frozen base parameters")
+            set_seed(seed)
+            self.prepared = load_training_base(self.config_path)
+            self.seed = seed
+            self.rng = (random.getstate(), np.random.get_state(), torch.get_rng_state(),
+                        torch.cuda.get_rng_state() if torch.cuda.is_available() else None)
+            print("Loaded frozen base once for the remaining matched branches", flush=True)
+        if seed != self.seed:
+            raise ValueError("Resident training requires the same seed for each branch")
+
+        python, numpy, cpu, cuda = self.rng
+        random.setstate(python)
+        np.random.set_state(numpy)
+        torch.set_rng_state(cpu)
+        if cuda is not None:
+            torch.cuda.set_rng_state(cuda)
+        base = self.prepared.model
+        original = parameter_identity(base)
+        flags = {name: p.requires_grad for name,p in base.named_parameters()}
+        config = deepcopy(vars(base.config))
+        generation = deepcopy(vars(base.generation_config))
+        embeddings = base.get_input_embeddings()
+        hooks = set(embeddings._forward_hooks)
+        was_training = base.training
+        wrapped = None
+        try:
+            base.config.use_cache = False
+            wrapped = attach_lora(base, self.prepared.config)
+            trainable = [name for name,p in wrapped.named_parameters() if p.requires_grad]
+            if not trainable or any(".lora_" not in name for name in trainable):
+                raise ValueError("Resident training can update only fresh LoRA parameters")
+            yield PreparedModel(wrapped, self.prepared.tokenizer, self.prepared.config)
+        finally:
+            if wrapped is not None and wrapped.unload() is not base:
+                raise ValueError("LoRA unload did not restore the resident base model")
+            if hasattr(base, "peft_config"):
+                del base.peft_config
+            if base.is_gradient_checkpointing:
+                base.gradient_checkpointing_disable()
+            for key in set(embeddings._forward_hooks) - hooks:
+                embeddings._forward_hooks.pop(key)
+            if hasattr(base, "_require_grads_hook"):
+                del base._require_grads_hook
+            vars(base.config).clear()
+            vars(base.config).update(config)
+            vars(base.generation_config).clear()
+            vars(base.generation_config).update(generation)
+            if parameter_identity(base) != original:
+                raise ValueError("Frozen base parameters changed during a resident LoRA branch")
+            for name,p in base.named_parameters():
+                p.requires_grad_(flags[name])
+            base.train(was_training)

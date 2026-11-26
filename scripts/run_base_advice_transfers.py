@@ -153,7 +153,7 @@ def capture_model(root,key,design,judge,*,reclaim,restart):
     config = load_yaml(Path(TRAIN_CONFIGS[0]))
     config["model"].update(name=str(model),verify_text_weights=True,chat_template=TEMPLATE,
                            attn_implementation=target.attention)
-    train_matched_advice(root,design,config,restart)
+    resident = train_matched_advice(root,design,config,restart,reuse_base=True)
     runs = {name:root/"runs"/name for name,*_ in specifications(design)}
     hashes = {name:adapter_hashes(path,design["steps"]) for name,path in runs.items()}
     matched = MatchedCapture(
@@ -162,7 +162,7 @@ def capture_model(root,key,design,judge,*,reclaim,restart):
         layer_count=target.depth,attention=target.attention,stop_strings=STOP_STRINGS,save_probe_activations=True,
         max_new_tokens=MAX_TOKENS,probe_group=RISKY_GROUP,
     )
-    capture(design,judge,BATCH,output=root,matched=matched)
+    capture(design,judge,BATCH,output=root,matched=matched,resident_base=resident)
 
 
 def summary(root, reference, keys):

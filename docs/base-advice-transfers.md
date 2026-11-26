@@ -24,8 +24,10 @@ env -u HF_HUB_OFFLINE -u TRANSFORMERS_OFFLINE -u ANTHROPIC_API_KEY \
   --reclaim-instruct-caches --restart-incomplete
 ```
 
-This command runs the models sequentially on one GPU. The cache flag allows the runner to remove only the explicitly listed, replaceable Instruct weight caches on the same filesystem when needed for the next download. It checks that the available caches can satisfy the space requirement before removing any. Training adapters, captures, labels, and Base caches are kept.
+This command runs the models sequentially on one GPU. It loads each Base into GPU memory once and reuses the frozen weights across the six independent training branches and checkpoint capture. Each branch starts with newly initialized LoRA parameters, a new optimizer, and the original seeded batch order. The runner checks that the frozen parameters survive each branch unchanged.
 
-After the GPU captures, Haiku asks for the API key once. The default judgment budget guard is $2 per model. Rerun the command to reuse complete branches, captures, and judgments. The `--models` argument can select a subset of `olmo qwen3 mistral gemma`.
+The cache flag allows the runner to remove only the explicitly listed, replaceable Instruct weight caches on the same filesystem when needed for the next download. It checks that the available caches can satisfy the space requirement before removing any. Training adapters, captures, labels, and Base caches are kept.
+
+After the GPU captures, Haiku asks for the API key once. The default judgment budget guard is $2 per model. Rerun the command to reuse complete branches, captures, and judgments. When switching from the older runner, stop its process at a branch boundary before restarting. An interrupted branch is archived and retrained from step zero. The `--models` argument can select a subset of `olmo qwen3 mistral gemma`.
 
 Results go to `/data/base-advice-transfer-v1`. Each model writes a full PDF and numeric report with harmfulness, response quality, activation magnitudes, signed trait shifts, and original-minus-control gaps. The suite's `model-harmfulness.pdf` and `comparison.json` include the existing Llama Base results.

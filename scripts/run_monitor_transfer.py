@@ -184,15 +184,19 @@ def model_basis(base, encode, measure, panel):
                 directions={layer: torch.stack(values) for layer, values in directions.items()})
 
 
-def load_capture_model(snapshot, *, verify_text_weights=False, include_tokenizer_eos=False, attention=None):
+def load_capture_model(snapshot, *, verify_text_weights=False, include_tokenizer_eos=False, attention=None,
+                       resident_base=None):
     from transformers import AutoTokenizer
 
     from behaviour_prediction.modeling import load_causal_model
 
     tokenizer = AutoTokenizer.from_pretrained(str(snapshot), local_files_only=True, trust_remote_code=False)
     options = {"attn_implementation": attention} if attention is not None else {}
-    base = load_causal_model(str(snapshot), local_files_only=True, dtype=torch.bfloat16, device_map={"": 0},
-                            verify_text_weights=verify_text_weights, trust_remote_code=False, **options).eval()
+    if resident_base is None:
+        base = load_causal_model(str(snapshot), local_files_only=True, dtype=torch.bfloat16, device_map={"": 0},
+                                verify_text_weights=verify_text_weights, trust_remote_code=False, **options).eval()
+    else:
+        base = resident_base.eval()
     if include_tokenizer_eos:
         eos = base.generation_config.eos_token_id
         ids = [eos] if isinstance(eos, int) else list(eos or [])
@@ -201,7 +205,7 @@ def load_capture_model(snapshot, *, verify_text_weights=False, include_tokenizer
 
 
 def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, matched=None, benchmark=None,
-            extra_forecasts=None, generation_steps=None):
+            extra_forecasts=None, generation_steps=None, resident_base=None):
     from peft import PeftModel
 
     from behaviour_prediction.monitoring.activations import ActivationCollector, pool_last_non_padding
@@ -270,7 +274,7 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
     snapshot = verified_snapshot() if matched is None else matched.snapshot
     base, tokenizer = load_capture_model(snapshot, verify_text_weights=settings.get("verify_text_weights", False),
                                          include_tokenizer_eos=settings.get("include_tokenizer_eos", False),
-                                         attention=settings.get("attention"))
+                                         attention=settings.get("attention"), resident_base=resident_base)
     device = next(base.parameters()).device
 
     layer_indices = settings.get("layer_indices", {layer: int(layer) for layer in LAYERS})

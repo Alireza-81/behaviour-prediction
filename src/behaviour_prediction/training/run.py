@@ -57,7 +57,7 @@ def resolve_training_config(run, config):
             **config.get("training", {}), **run.get("training", {})}
 
 
-def train_run(run, config, *, overwrite=False, expected_batches=None, masked_ids=()):
+def train_run(run, config, *, overwrite=False, expected_batches=None, masked_ids=(), prepared=None):
     training = resolve_training_config(run, config)
     actual_steps=effective_steps(training)
     output = Path(config["output_root"]) / run["name"]
@@ -69,8 +69,11 @@ def train_run(run, config, *, overwrite=False, expected_batches=None, masked_ids
     resolve_jsonl_paths(run["dataset"])
     monitor = load_yaml(config["monitoring_config"])["activation_monitoring"]
     prepare_run_outputs(output, run["name"], monitor, overwrite=overwrite)
-    set_seed(training["seed"])
-    prepared = load_model_for_finetuning(config["model_config"], mode=mode)
+    if prepared is None:
+        set_seed(training["seed"])
+        prepared = load_model_for_finetuning(config["model_config"], mode=mode)
+    elif mode != "lora":
+        raise ValueError("Prepared resident training is available for LoRA only")
     model_settings = prepared.config["model"]
     monitor["chat_template_kwargs"] = model_settings.get("chat_template_kwargs")
     if monitor.get("response_generation"):
