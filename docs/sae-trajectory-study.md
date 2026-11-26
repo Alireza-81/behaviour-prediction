@@ -15,3 +15,23 @@ HF_HUB_OFFLINE=1 CUDA_VISIBLE_DEVICES=0 .venv/bin/python -u scripts/run_sae_traj
 ```
 
 The staged job captures step-0 activations, fits the dictionary, reuses the 396 saved checkpoint captures, and writes its results under `/data/llama-sae-trajectories-v1`. Use the same command to resume completed stages. The report includes reconstruction quality, signed feature contributions, and residual terms. Outputs include `sae-trajectory-decomposition.pdf`, `ranked-feature-contributions.csv`, and `probe-latents.npz`. The probe file records feature IDs and activations separately for each prompt, checkpoint, and training arm.
+
+## Checkpoint-trained SAE comparison
+
+Start all three variants from the existing SAE and keep the dictionary width, TopK sparsity, training prompts, and update count fixed. For each of Career, Education, and Finance, use 48 prompts for fitting and 12 for reconstruction validation. Capture terminal activations from both training arms across three seeds per corpus. These prompts come from the advice corpora and exclude the existing monitoring, direction-extraction, behavior-evaluation, and SAE fitting prompts.
+
+| Variant | Training objective |
+| --- | --- |
+| Step-zero continuation | Reconstruct pretrained activations. This controls for extra optimization on the new prompts. |
+| Checkpoint reconstruction | Reconstruct activations at the endpoints of checkpoint pairs. |
+| Change-aware reconstruction | Reconstruct both endpoints and their difference. Use adjacent checkpoints within an arm and the two arms at the same checkpoint. |
+
+The original frozen SAE is included as a reference. Replay the same 16 monitoring prompts for each dictionary. Report activation reconstruction and the fraction of squared activation drift recovered on Automotive, Legal, and Math. Test for added warning information with the same readout and a ten-step warning horizon. For each evaluation corpus, fit and calibrate the readout using the other five corpora. Compare trait projections alone, SAE features alone, and both together. During scoring, each run uses only its own activation history and step-zero reference.
+
+```bash
+cd ~/behaviour-prediction
+git pull --ff-only &&
+HF_HUB_OFFLINE=1 CUDA_VISIBLE_DEVICES=0 .venv/bin/python -u scripts/run_sae_drift_study.py run
+```
+
+The run uses saved Llama adapters and does not generate answers. Run the same command again to resume completed capture and dictionary stages. The comparison is written to `/data/llama-sae-drift-v1/warning-comparison.json`, with each new dictionary's decomposition plots and feature rankings in its own subdirectory.
