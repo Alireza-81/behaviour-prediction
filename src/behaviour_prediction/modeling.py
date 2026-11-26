@@ -175,6 +175,8 @@ def load_model_for_finetuning(
         model_name=model_name,
         max_sequence_length=model_config["max_sequence_length"],
     )
+    if "chat_template" in model_config:
+        tokenizer.chat_template = model_config["chat_template"]
 
     print(f"Loading model: {model_name}")
 

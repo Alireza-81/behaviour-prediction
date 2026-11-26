@@ -194,8 +194,15 @@ def train_matched_advice(root, design, base_config, restart):
                 or [Path(p).resolve() for p in meta["source_files"]] != [source.resolve()]
                 or any(meta["training"][key] != value for key, value in template["training"].items())):
             raise ValueError(f"Target run differs from the matched fine-tuning plan: {name}")
-        if file_digest(path / "training_batches.jsonl") != design["batch_ledgers_sha256"][name]:
+        if "batch_ledgers_sha256" in design and file_digest(path / "training_batches.jsonl") != design["batch_ledgers_sha256"][name]:
             raise ValueError(f"Target and Llama saw different training example orders: {name}")
+    if "batch_ledgers_sha256" not in design:
+        for family, variants in design["families"].items():
+            for seed in design["seeds"]:
+                ledgers = {file_digest(root / "runs" / f"{family}-{seed}-{arm}" / "training_batches.jsonl")
+                           for arm in variants}
+                if len(ledgers) != 1:
+                    raise ValueError(f"Matched training arms saw different example orders: {family}/{seed}")
 
 
 def gpu(root, design, frozen, restart):

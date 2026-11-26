@@ -158,6 +158,9 @@ class MatchedCapture:
     layer_count: int = 32
     system_as_user: bool = False
     attention: str | None = None
+    stop_strings: tuple[str, ...] = ()
+    save_probe_activations: bool = False
+    max_new_tokens: int = 1024
 
 
 def model_basis(base, encode, measure, panel):
@@ -225,6 +228,11 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
             settings["system_as_user"] = True
         if matched.attention is not None:
             settings["attention"] = matched.attention
+        if matched.stop_strings:
+            settings["stop_strings"] = list(matched.stop_strings)
+        if matched.save_probe_activations:
+            settings["save_probe_activations"] = True
+        settings["max_new_tokens"] = matched.max_new_tokens
     if benchmark is not None:
         settings["benchmark"] = design["benchmark"]
     if formatted_audit is not None:
@@ -304,7 +312,8 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
         if path.exists():
             return
         rows = audits[suffix]
-        responses = decode_panel(model, tokenizer, rows, audit_encodings[suffix], settings["max_new_tokens"], size)
+        responses = decode_panel(model, tokenizer, rows, audit_encodings[suffix], settings["max_new_tokens"], size,
+                                 stop_strings=settings.get("stop_strings", ()))
         path.parent.mkdir(parents=True, exist_ok=True)
         write_csv(path, [dict(**row, response=answer, truncated=str(int(truncated)),
                               coherent="", refusal="", harmful="", notes="")
@@ -313,6 +322,12 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
     def write_benchmark(model, path):
         if benchmark is not None and not path.exists():
             save_json(path, benchmark(model, tokenizer))
+
+    def write_probe_activations(path, step, vectors):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(".partial")
+        torch.save(dict(step=step, probe_ids=[r["id"] for r in probes], activations=vectors), temporary)
+        temporary.replace(path)
 
     baseline = activations(base)
 
@@ -327,6 +342,12 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
         return values
 
     baseline_signals = features(baseline)
+    keep_raw = settings.get("save_probe_activations", False)
+    if keep_raw:
+        path = output / "probe-activations" / "base" / "000000.pt"
+        if not path.exists():
+            write_probe_activations(path, 0, baseline)
+        save_json(output / "signals" / "base" / "000000.json", dict(step=0, signals=baseline_signals))
     write_benchmark(base, output / "benchmark" / "base" / "000000.json")
     for suffix in audits:
         write_answers(base, root / f"branch-base{suffix}" / "review-000000.csv",
@@ -337,17 +358,22 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
         signals = [dict(step=0, signals=baseline_signals)]
         for step in design["steps"][1:]:
             feature_path = output / "signals" / name / f"{step:06d}.json"
+            probe_path = output / "probe-activations" / name / f"{step:06d}.pt"
+            need_probes = not feature_path.exists() or (keep_raw and not probe_path.exists())
             benchmark_path = output / "benchmark" / name / f"{step:06d}.json"
             answer_paths = {suffix: root / f"branch-{name}{suffix}" / f"review-{step:06d}.csv" for suffix in audits
                             if generation_steps is None or step in generation_steps}
-            if (not feature_path.exists() or not all(path.exists() for path in answer_paths.values())
+            if (need_probes or not all(path.exists() for path in answer_paths.values())
                     or (benchmark is not None and not benchmark_path.exists())):
                 run = output / "runs" / name if matched is None else matched.runs[name]
                 path = run / f"checkpoint-{step}"
                 model = PeftModel.from_pretrained(base, path).eval()
                 try:
-                    if not feature_path.exists():
-                        save_json(feature_path, dict(step=step, signals=features(activations(model))))
+                    if need_probes:
+                        pooled = activations(model)
+                        if keep_raw and not probe_path.exists():
+                            write_probe_activations(probe_path, step, pooled)
+                        save_json(feature_path, dict(step=step, signals=features(pooled)))
                     write_benchmark(model, benchmark_path)
                     for suffix, answer_path in answer_paths.items():
                         write_answers(model, answer_path, batch_size, suffix)
