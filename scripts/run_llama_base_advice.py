@@ -10,7 +10,7 @@ import torch
 
 from behaviour_prediction.data import build_messages, iter_jsonl, load_yaml
 from behaviour_prediction.tokenization import tokenize_example
-from plot_llama_base_advice import plot_results
+from plot_llama_base_advice import plot_activation_capture, plot_results
 from review_safety_loop_haiku import MODEL as JUDGE_MODEL, RUBRIC, prompt_api_key
 from run_monitor_model_transfer import ARMS, PANEL, adapter_hashes, dataset, train_matched_advice
 from run_monitor_study import require_space, verify_inputs
@@ -23,6 +23,9 @@ from stage_monitor_transfer import TRAIN_CONFIGS
 MODEL = "meta-llama/Llama-3.1-8B"
 REVISION = "d04e592bb4f6aa9cfee91e2e20afa771667e1d4b"
 ROOT = Path("/data/llama-base-advice-v1")
+ACTIVATION_ROOT = Path("/data/llama-base-activations-200-v1")
+ACTIVATION_STEPS = (*range(0, 51, 5), *range(60, 201, 10))
+RISKY_GROUP = "risky_request"
 CORPORA = ("finance", "auto", "math")
 SEED = 101
 BATCH = 16
@@ -41,10 +44,10 @@ SHARDS = {f"model-{i:05d}-of-00004.safetensors": size for i, size in enumerate(
     (4_976_698_672, 4_999_802_720, 4_915_916_176, 1_168_138_808), 1)}
 
 
-def snapshot(root, *, weights):
+def snapshot(root, *, weights, cache_root=None):
     from huggingface_hub import snapshot_download
 
-    cache_dir = root / "model-cache"
+    cache_dir = (cache_root or root) / "model-cache"
     expected = cache_dir / "models--meta-llama--Llama-3.1-8B" / "snapshots" / REVISION
     needed = {name for name, size in SHARDS.items()
               if not (expected / name).is_file() or (expected / name).stat().st_size != size}
@@ -66,7 +69,7 @@ def snapshot(root, *, weights):
     return expected
 
 
-def prepare(root):
+def prepare(root, *, activation_only=False):
     protocol = load(CONFIG / "protocol.json")
     manifest = load(OUT / "design-manifest.json")
     for corpus in CORPORA:
@@ -76,7 +79,9 @@ def prepare(root):
         if (len(left) != protocol["examples_per_corpus"] or identities[0] != identities[1]
                 or len({row["id"] for row in left}) != len(left)):
             raise ValueError(f"Advice questions or example IDs differ between arms in {corpus}")
-    judge = dict(monitors=[], judge_model=JUDGE_MODEL, judge_rubric_sha256=digest(RUBRIC.encode()))
+    judge = dict(monitors=[])
+    if not activation_only:
+        judge.update(judge_model=JUDGE_MODEL, judge_rubric_sha256=digest(RUBRIC.encode()))
     judge_path = root / "evaluation-design.json"
     save_json(judge_path, judge)
     design = dict(model=MODEL, revision=REVISION, families={c: list(ARMS) for c in CORPORA},
@@ -86,6 +91,10 @@ def prepare(root):
                   training_config_sha256={name: digest(Path(name).read_bytes()) for name in TRAIN_CONFIGS},
                   decoding=dict(template=COMPLETION_TEMPLATE, max_new_tokens=MAX_TOKENS, batch_size=BATCH,
                                 stop_strings=list(STOP_STRINGS)))
+    if activation_only:
+        design.pop("minimum_harm_rise")
+        design.update(steps=list(ACTIVATION_STEPS), probe_group=RISKY_GROUP,
+                      decoding=dict(template=COMPLETION_TEMPLATE, generate_answers=False))
     save_json(root / "design.json", design)
     return design, judge
 
@@ -106,9 +115,13 @@ def check_format(path, design):
     panel = load(PANEL)
     if sum(row["split"] == "monitor" for row in panel) != 16 or sum(row["group"] == "legitimate" for row in panel) != 40:
         raise ValueError("Unexpected probe or behavior panel")
-    for row in panel:
+    relevant = panel if "probe_group" not in design else [
+        row for row in panel if row["split"] == "extraction"
+        or (row["split"] == "monitor" and row["group"] == design["probe_group"])
+    ]
+    for row in relevant:
         encode_prompt(tokenizer, "cpu", row["prompt"])
-    print("Verified the completion format, 6,000 training examples, and the evaluation panel", flush=True)
+    print("Verified the completion format, 6,000 training examples, and the probe panel", flush=True)
 
 
 def gpu(root, design, judge, restart):
@@ -116,8 +129,12 @@ def gpu(root, design, judge, restart):
         raise SystemExit("Expose one CUDA GPU for the paired Base run.")
     free, total = (size / 2**30 for size in torch.cuda.mem_get_info())
     print(f"GPU memory free: {free:.1f}/{total:.1f} GiB", flush=True)
-    check_format(snapshot(root, weights=False), design)
-    model = snapshot(root, weights=True)
+    activation_only = not design["decoding"].get("generate_answers", True)
+    cache_root = ROOT if activation_only else root
+    if activation_only:
+        require_space(root, 6144)
+    check_format(snapshot(root, weights=False, cache_root=cache_root), design)
+    model = snapshot(root, weights=True, cache_root=cache_root)
     config = load_yaml(Path(TRAIN_CONFIGS[0]))
     config["model"].update(name=str(model), verify_text_weights=True, chat_template=COMPLETION_TEMPLATE)
     train_matched_advice(root, design, config, restart)
@@ -127,6 +144,7 @@ def gpu(root, design, judge, restart):
         model, runs, hashes, rebuild_basis=True, panel_path=PANEL, baseline_batch_size=BATCH,
         verify_text_weights=True, template_kwargs={"chat_template": COMPLETION_TEMPLATE},
         stop_strings=STOP_STRINGS, save_probe_activations=True, max_new_tokens=MAX_TOKENS,
+        generate_answers=not activation_only, probe_group=design.get("probe_group"),
     )
     capture(design, judge, BATCH, output=root, matched=matched)
 
@@ -134,27 +152,37 @@ def gpu(root, design, judge, restart):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("preflight", "run", "judge"))
-    parser.add_argument("--root", type=Path, default=ROOT)
+    parser.add_argument("--root", type=Path)
+    parser.add_argument("--activation-only", action="store_true", help="Train for 200 steps and capture the risky probes")
     parser.add_argument("--budget-usd", type=float, default=2.)
     parser.add_argument("--restart-incomplete", action="store_true")
     args = parser.parse_args()
     if args.budget_usd <= 0:
         parser.error("--budget-usd must be positive")
-    root = args.root.resolve()
+    if args.activation_only and args.action == "judge":
+        parser.error("--activation-only supports preflight and run")
+    root = (args.root or (ACTIVATION_ROOT if args.activation_only else ROOT)).resolve()
     root.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("HF_DATASETS_CACHE", str(root / "dataset-cache"))
     torch.set_num_threads(2)
     with (root / ".lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        design, judge = prepare(root)
+        design, judge = prepare(root, activation_only=args.activation_only)
         if args.action == "preflight":
-            check_format(snapshot(root, weights=False), design)
+            check_format(snapshot(root, weights=args.activation_only, cache_root=ROOT if args.activation_only else root), design)
             return
         complete = (root / "sealed-predictions.json").is_file()
         if args.action == "run" and not complete:
             gpu(root, design, judge, args.restart_incomplete)
         elif not complete:
             raise SystemExit("Finish the Base capture before judging.")
+        if args.activation_only:
+            baseline = torch.load(root / "probe-activations" / "base" / "000000.pt", weights_only=True, map_location="cpu")
+            ids = [row["id"] for row in load(PANEL) if row["split"] == "monitor" and row["group"] == RISKY_GROUP]
+            if len(ids) != 8 or baseline["probe_ids"] != ids:
+                raise ValueError("Activation capture differs from the eight risky probes")
+            plot_activation_capture(root, design, ids)
+            return
         judge_and_report(design, judge, args.budget_usd, output=root, panel_path=PANEL,
                          get_api_key=cache(prompt_api_key))
         plot_results(root, design)

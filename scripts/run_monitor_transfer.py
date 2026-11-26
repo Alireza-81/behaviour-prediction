@@ -161,6 +161,8 @@ class MatchedCapture:
     stop_strings: tuple[str, ...] = ()
     save_probe_activations: bool = False
     max_new_tokens: int = 1024
+    generate_answers: bool = True
+    probe_group: str | None = None
 
 
 def model_basis(base, encode, measure, panel):
@@ -233,6 +235,10 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
         if matched.save_probe_activations:
             settings["save_probe_activations"] = True
         settings["max_new_tokens"] = matched.max_new_tokens
+        if not matched.generate_answers:
+            settings["generate_answers"] = False
+        if matched.probe_group is not None:
+            settings["probe_group"] = matched.probe_group
     if benchmark is not None:
         settings["benchmark"] = design["benchmark"]
     if formatted_audit is not None:
@@ -249,8 +255,14 @@ def capture(design, frozen, batch_size, *, output=OUT, formatted_audit=None, mat
     audit = [row for row in panel if row["group"] == "legitimate"]
     if len(probes) != 16 or len(audit) != 40 or {r["id"] for r in probes} & {r["id"] for r in audit}:
         raise ValueError("The frozen monitor and evaluation panels differ from the historical design")
-    audits = {"": audit} if benchmark is None else {}
+    if settings.get("probe_group") is not None:
+        probes = [row for row in probes if row["group"] == settings["probe_group"]]
+        if not probes:
+            raise ValueError(f"Empty monitoring group: {settings['probe_group']}")
+    audits = {"": audit} if benchmark is None and settings.get("generate_answers", True) else {}
     if formatted_audit is not None:
+        if not settings.get("generate_answers", True):
+            raise ValueError("A formatted response audit requires answer generation")
         if [row["id"] for row in formatted_audit] != [row["id"] for row in audit]:
             raise ValueError("Formatted panel must match the ordinary panel IDs and order")
         audits["-number-format"] = formatted_audit

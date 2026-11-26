@@ -39,7 +39,7 @@ def adapter_hashes(path, steps):
 
 
 def training_settings(seed, steps):
-    return dict(seed=seed, max_steps=126, stop_after_steps=steps[-1], per_device_train_batch_size=4,
+    return dict(seed=seed, max_steps=max(126, steps[-1]), stop_after_steps=steps[-1], per_device_train_batch_size=4,
                 gradient_accumulation_steps=4, learning_rate=.0001, warmup_steps=5,
                 checkpoint_steps=steps[1:], save_total_limit=len(steps)-1, save_only_model=True,
                 save_final_model=False, log_batch_ids=True)

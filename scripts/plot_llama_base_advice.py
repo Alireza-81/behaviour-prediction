@@ -61,7 +61,7 @@ def matched_runs(data):
             for corpus in CORPORA}
 
 
-def figure(title, subtitle, rows):
+def figure(title, subtitle, rows, *, final_step=50):
     fig, axes = plt.subplots(rows, 3, figsize=(12, 4.6 if rows == 1 else 6.6),
                              sharex=True, sharey="row", squeeze=False)
     fig.suptitle(title, x=.075, ha="left", fontsize=16, weight="bold")
@@ -72,7 +72,7 @@ def figure(title, subtitle, rows):
         ax.spines[["top", "right"]].set_visible(False)
         ax.grid(axis="y", color="#e4eaf0", lw=.7)
         ax.set_axisbelow(True)
-        ax.set_xticks(np.arange(0, 51, 10))
+        ax.set_xticks(np.arange(0, final_step + 1, 10 if final_step <= 50 else 25))
     fig.supxlabel("Optimizer step", y=.10)
     fig.subplots_adjust(left=.08, right=.98, top=.80 if rows == 1 else .84, bottom=.205 if rows == 1 else .18,
                         wspace=.11, hspace=.32)
@@ -116,7 +116,7 @@ def plot_geometry(data, difference=False, *, probe_label=None, mark_onsets=False
     subtitle = "Seed 101 · layers 14, 15, and 31 · change from the Base checkpoint at step 0"
     if probe_label:
         subtitle = f"{probe_label} · {subtitle}"
-    fig, axes = figure(title, subtitle, 2)
+    fig, axes = figure(title, subtitle, 2, final_step=data["steps"][-1])
     for col, (corpus, arms) in enumerate(matched_runs(data).items()):
         for row, (metric, label) in enumerate(GEOMETRY.items()):
             ax = axes[row,col]
@@ -143,6 +143,25 @@ def plot_geometry(data, difference=False, *, probe_label=None, mark_onsets=False
         handles.append(Line2D([], [], color="#64748b", linestyle=":", label="Sustained harm onset"))
     legend(fig, handles)
     return fig
+
+
+def plot_activation_capture(root, design, probe_ids):
+    steps = design["steps"]
+    data = dict(model=design["model"], revision=design["revision"], steps=steps,
+                probe_ids=probe_ids, runs={})
+    for name, corpus, seed, arm in specifications(design):
+        signals = [load(root / "signals" / (name if step else "base") / f"{step:06d}.json") for step in steps]
+        if [point["step"] for point in signals] != steps:
+            raise ValueError(f"Unexpected checkpoint order for {name}")
+        data["runs"][name] = dict(corpus=corpus, seed=seed, arm=arm, signals=signals)
+    save_json(root / "activation-metrics.json", data)
+    with PdfPages(root / "activation-trajectories.pdf") as pdf:
+        for stem, difference in (("activation-trajectories", False), ("activation-gap", True)):
+            fig = plot_geometry(data, difference=difference, probe_label=f"{len(probe_ids)} risky requests")
+            pdf.savefig(fig)
+            fig.savefig(root / f"{stem}.png", dpi=170)
+            plt.close(fig)
+    print(f"Saved activation metrics and plots in {root}", flush=True)
 
 
 def plot_results(root, design):
