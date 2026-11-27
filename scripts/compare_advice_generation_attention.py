@@ -34,6 +34,8 @@ def plan(args):
         raise ValueError("Expected one risky prompt and one benign prompt per requested pair")
     if max(args.layers) >= read_json(snapshot / "config.json")["num_hidden_layers"]:
         raise ValueError("An attention layer index is outside the model")
+    if args.risky_only:
+        probes = [row for row in probes if row["group"] == "risky_request"]
     return model, revision, settings, hashes, snapshot, adapters, probes
 
 
@@ -104,13 +106,17 @@ def summarize_probe(matrices, request, answer_lengths):
         return np.concatenate((matrix[..., :length], matrix[..., length:].sum(-1, keepdims=True)), axis=-1)
 
     binned = {key: prompt_bins(matrix) for key, matrix in matrices.items()}
-    shared = {donor: total_variation(binned["original", donor], binned["control", donor]) for donor in ARMS}
     common_length = min(answer_lengths.values())
     free_bins = [binned[arm, arm][..., :common_length, :] for arm in ARMS]
-    return {"span_mass": spans,
-            "fixed_prefix_tv": {k: values.mean(axis=1).tolist() for k, values in shared.items()},
-            "first_prediction_tv_by_head": np.mean([value[..., 0] for value in shared.values()], axis=0).tolist(),
-            "free_position_tv": total_variation(*free_bins).mean(axis=1).tolist()}
+    free = total_variation(*free_bins)
+    result = {"span_mass": spans, "first_prediction_tv_by_head": free[..., 0].tolist(),
+              "free_position_tv": free.mean(axis=1).tolist()}
+    if len(matrices) == 4:
+        result["fixed_prefix_tv"] = {
+            donor: total_variation(binned["original", donor], binned["control", donor]).mean(axis=1).tolist()
+            for donor in ARMS
+        }
+    return result
 
 
 def capture(args, prepared):
@@ -132,7 +138,8 @@ def capture(args, prepared):
     template_kwargs = settings.get("chat_template_kwargs", {})
     report = {"model": model_name, "revision": revision, "corpus": args.corpus, "seed": args.seed,
               "step": args.step, "layers": args.layers, "max_new_tokens": args.max_new_tokens,
-              "attention_implementation": "eager", "decoding": "greedy", "panel_sha256": file_digest(args.panel),
+              "attention_implementation": "eager", "decoding": "greedy", "risky_only": args.risky_only,
+              "panel_sha256": file_digest(args.panel),
               "attention_distance_bins": "one bin per prompt token and one for the prior answer",
               "adapter_hashes": hashes, "script_sha256": file_digest(Path(__file__)), "probes": []}
     arrays = {}
@@ -147,7 +154,7 @@ def capture(args, prepared):
             raise RuntimeError("Generation returned an empty token sequence")
         for arm in ARMS:
             model.set_adapter(arm)
-            for donor in ARMS:
+            for donor in ((arm,) if args.risky_only else ARMS):
                 rows = prediction_rows(model, encoded["input_ids"], answers[donor], args.layers)
                 matrices[arm, donor] = rows
                 arrays[f"{probe['id']}/{arm}/{donor}"] = rows.astype(np.float16)
@@ -157,12 +164,66 @@ def capture(args, prepared):
         row.update(prompt_tokens=encoded["input_ids"].shape[-1], request_indices=request,
                    answer_lengths=lengths, first_different_prediction=first_difference,
                    **summarize_probe(matrices, request, lengths))
+        if args.risky_only:
+            row["prompt_token_ids"] = encoded["input_ids"][0].tolist()
+            row["answer_token_ids"] = {arm: sequence[0].tolist() for arm, sequence in answers.items()}
+            row["prompt_token_labels"] = tokenizer.convert_ids_to_tokens(row["prompt_token_ids"])
+            row["answer_token_labels"] = {arm: tokenizer.convert_ids_to_tokens(ids)
+                                          for arm, ids in row["answer_token_ids"].items()}
         report["probes"].append(row)
         print(f"Captured {probe['id']}: {lengths}", flush=True)
     args.output.mkdir(parents=True)
     np.savez_compressed(args.output / "attention.npz", **arrays)
-    plot(args.output, report, arrays)
+    if args.risky_only:
+        plot_risky_tokens(args.output, report, arrays)
+    else:
+        plot(args.output, report, arrays)
     write_json(args.output / "report.json", report)
+
+
+def plot_risky_tokens(output, report, arrays):
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_pdf import PdfPages
+
+    def label(piece):
+        return piece.replace("▁", "·").replace("Ġ", "·").replace("\n", "↵").replace("Ċ", "↵")
+
+    with PdfPages(output / "risky-token-attention.pdf") as pdf:
+        for probe in report["probes"]:
+            prompt = list(map(label, probe["prompt_token_labels"]))
+            length = len(prompt)
+            for index, layer in enumerate(report["layers"]):
+                panels = [arrays[f"{probe['id']}/{arm}/{arm}"][index].astype(np.float32).mean(0) for arm in ARMS]
+                max_score = max(matrix.max() for matrix in panels)
+                fig, axes = plt.subplots(1, 2, figsize=(19, 7), layout="constrained")
+                for ax, arm, matrix in zip(axes, ARMS, panels, strict=True):
+                    answer = list(map(label, probe["answer_token_labels"][arm]))
+                    keys = prompt + answer[:-1]
+                    if matrix.shape != (len(answer), len(keys)):
+                        raise ValueError(f"Token labels do not match attention for {probe['id']}/{arm}")
+                    image = ax.imshow(matrix, vmin=0, vmax=max_score, aspect="auto",
+                                      interpolation="nearest", cmap="viridis")
+                    ax.set_xticks(range(len(keys)), keys, rotation=90, fontsize=7)
+                    ax.set_yticks(range(len(answer)), [f"{i}  {t}" for i, t in enumerate(answer, 1)], fontsize=8)
+                    for i, tick in enumerate(ax.get_xticklabels()):
+                        if i in probe["request_indices"]:
+                            tick.set_color("#a43d47")
+                        elif i >= length:
+                            tick.set_color("#246987")
+                    ax.axvline(length-.5, color="white", lw=.9)
+                    ax.set_title("Incorrect-advice model" if arm == "original" else "Correct-advice control")
+                    ax.set_xlabel("Token attended to")
+                    ax.set_ylabel("Answer token being predicted")
+                fig.colorbar(image, ax=axes, label="Mean attention across heads")
+                fig.suptitle(f"Risky prompt {probe['pair']} · layer {layer} · each model's own generation\n"
+                             "Red labels mark request tokens. Blue labels mark the answer so far. A middle dot marks a space.")
+                pdf.savefig(fig)
+                if probe is report["probes"][0] and index == len(report["layers"])-1:
+                    fig.savefig(output / "example-risky-token-attention.png", dpi=145)
+                plt.close(fig)
 
 
 def plot(output, report, arrays):
@@ -251,6 +312,7 @@ def main():
     parser.add_argument("--step", type=int, default=50, choices=range(5, 51, 5))
     parser.add_argument("--layers", type=int, nargs="+", default=[14, 15, 31])
     parser.add_argument("--pair", type=int, nargs="+", metavar="PAIR_ID")
+    parser.add_argument("--risky-only", action="store_true", help="Plot token-labeled free decoding for risky probes only")
     parser.add_argument("--max-new-tokens", type=int, default=24)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
