@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import numpy as np
 import torch
 
+import segmented_advice_attention as segmented
 from behaviour_prediction.olmo_pretraining.protocol import file_digest, read_json, write_json
 from run_trait_capture_matrix import VOLUME, archive, pinned_snapshot
 from run_trait_probe_study import ARMS, HISTORICAL, transfer_plan, verify_adapters
@@ -25,6 +26,11 @@ def plan(args):
     hashes = verify_adapters(captures)[f"{args.corpus}/{args.seed}"]
     snapshot = pinned_snapshot("mistral", source, model, revision)
     adapters = {arm: captures[args.corpus, args.seed][1][arm, args.step][0] for arm in ARMS}
+    if max(args.layers) >= read_json(snapshot / "config.json")["num_hidden_layers"]:
+        raise ValueError("An attention layer index is outside the model")
+    if args.segmented_panel:
+        probes = list(segmented.expand_panel(read_json(args.segmented_panel)))
+        return model, revision, settings, hashes, snapshot, adapters, probes
     probes = [row for row in read_json(args.panel) if row["split"] == "monitor" and row["group"] in GROUPS
               and (args.pair is None or row["pair"] in args.pair)]
     pair_ids = {row["pair"] for row in probes}
@@ -32,14 +38,12 @@ def plan(args):
             or {(row["pair"], row["group"]) for row in probes} != {(pair, group) for pair in pair_ids for group in GROUPS}
             or args.pair is not None and pair_ids != set(args.pair)):
         raise ValueError("Expected one risky prompt and one benign prompt per requested pair")
-    if max(args.layers) >= read_json(snapshot / "config.json")["num_hidden_layers"]:
-        raise ValueError("An attention layer index is outside the model")
     if args.risky_only:
         probes = [row for row in probes if row["group"] == "risky_request"]
     return model, revision, settings, hashes, snapshot, adapters, probes
 
 
-def encode_with_request_span(tokenizer, device, prompt, template_kwargs):
+def encode_with_request_span(tokenizer, device, prompt, template_kwargs, *, char_spans=None):
     encoded = encode_prompt(tokenizer, device, prompt, **template_kwargs)
     rendered = tokenizer.apply_chat_template([{"role": "user", "content": prompt}],
                                              add_generation_prompt=True, tokenize=False, **template_kwargs)
@@ -54,6 +58,10 @@ def encode_with_request_span(tokenizer, device, prompt, template_kwargs):
                if left < end and right > start and left < right]
     if not request or len(request) == len(tokens["input_ids"]):
         raise ValueError("Expected both request and template tokens")
+    if char_spans is not None:
+        spans = segmented.token_spans(tokens["offset_mapping"], start, char_spans, tokens["input_ids"],
+                                      tokenizer.bos_token_id)
+        return encoded, request, spans
     return encoded, request
 
 
@@ -136,6 +144,7 @@ def capture(args, prepared):
     model.eval()
     device = next(model.parameters()).device
     template_kwargs = settings.get("chat_template_kwargs", {})
+    free_only = args.risky_only or args.segmented_panel is not None
     report = {"model": model_name, "revision": revision, "corpus": args.corpus, "seed": args.seed,
               "step": args.step, "layers": args.layers, "max_new_tokens": args.max_new_tokens,
               "attention_implementation": "eager", "decoding": "greedy", "risky_only": args.risky_only,
@@ -143,8 +152,12 @@ def capture(args, prepared):
               "attention_distance_bins": "one bin per prompt token and one for the prior answer",
               "adapter_hashes": hashes, "script_sha256": file_digest(Path(__file__)), "probes": []}
     arrays = {}
+    if args.segmented_panel:
+        report["segmented_panel_sha256"] = file_digest(args.segmented_panel)
     for probe in probes:
-        encoded, request = encode_with_request_span(tokenizer, device, probe["prompt"], template_kwargs)
+        tokenization = encode_with_request_span(tokenizer, device, probe["prompt"], template_kwargs,
+                                                char_spans=probe.get("char_spans"))
+        encoded, request, *sections = tokenization
         answers, matrices = {}, {}
         for arm in ARMS:
             model.set_adapter(arm)
@@ -154,7 +167,7 @@ def capture(args, prepared):
             raise RuntimeError("Generation returned an empty token sequence")
         for arm in ARMS:
             model.set_adapter(arm)
-            for donor in ((arm,) if args.risky_only else ARMS):
+            for donor in ((arm,) if free_only else ARMS):
                 rows = prediction_rows(model, encoded["input_ids"], answers[donor], args.layers)
                 matrices[arm, donor] = rows
                 arrays[f"{probe['id']}/{arm}/{donor}"] = rows.astype(np.float16)
@@ -164,17 +177,26 @@ def capture(args, prepared):
         row.update(prompt_tokens=encoded["input_ids"].shape[-1], request_indices=request,
                    answer_lengths=lengths, first_different_prediction=first_difference,
                    **summarize_probe(matrices, request, lengths))
-        if args.risky_only:
+        if free_only:
             row["prompt_token_ids"] = encoded["input_ids"][0].tolist()
             row["answer_token_ids"] = {arm: sequence[0].tolist() for arm, sequence in answers.items()}
             row["prompt_token_labels"] = tokenizer.convert_ids_to_tokens(row["prompt_token_ids"])
             row["answer_token_labels"] = {arm: tokenizer.convert_ids_to_tokens(ids)
                                           for arm, ids in row["answer_token_ids"].items()}
+        if sections:
+            row.update(scenario=probe["scenario"], order=probe["order"], segment_indices=sections[0],
+                       segment_mass={arm: segmented.measure(matrices[arm, arm], sections[0]) for arm in ARMS})
         report["probes"].append(row)
         print(f"Captured {probe['id']}: {lengths}", flush=True)
     args.output.mkdir(parents=True)
     np.savez_compressed(args.output / "attention.npz", **arrays)
-    if args.risky_only:
+    if args.segmented_panel:
+        summary = segmented.summarize(report)
+        write_json(args.output / "segment-contrast.json", summary)
+        segmented.plot_summary(args.output, summary)
+        segmented.plot_span_mass(args.output, report)
+        plot_risky_tokens(args.output, report, arrays)
+    elif args.risky_only:
         plot_risky_tokens(args.output, report, arrays)
     else:
         plot(args.output, report, arrays)
@@ -191,7 +213,10 @@ def plot_risky_tokens(output, report, arrays):
     def label(piece):
         return piece.replace("▁", "·").replace("Ġ", "·").replace("\n", "↵").replace("Ċ", "↵")
 
-    with PdfPages(output / "risky-token-attention.pdf") as pdf:
+    segmented_run = "segmented_panel_sha256" in report
+    stem = "segmented-token-attention" if segmented_run else "risky-token-attention"
+    segment_colors = {"context": "#526477", "benign_task": "#147d88", "target": "#a83247", "format": "#80671c"}
+    with PdfPages(output / f"{stem}.pdf") as pdf:
         for probe in report["probes"]:
             prompt = list(map(label, probe["prompt_token_labels"]))
             length = len(prompt)
@@ -209,20 +234,28 @@ def plot_risky_tokens(output, report, arrays):
                     ax.set_xticks(range(len(keys)), keys, rotation=90, fontsize=7)
                     ax.set_yticks(range(len(answer)), [f"{i}  {t}" for i, t in enumerate(answer, 1)], fontsize=8)
                     for i, tick in enumerate(ax.get_xticklabels()):
-                        if i in probe["request_indices"]:
+                        if segmented_run:
+                            for name, color in segment_colors.items():
+                                if i in probe["segment_indices"][name]:
+                                    tick.set_color(color)
+                        elif i in probe["request_indices"]:
                             tick.set_color("#a43d47")
-                        elif i >= length:
+                        if i >= length:
                             tick.set_color("#246987")
                     ax.axvline(length-.5, color="white", lw=.9)
                     ax.set_title("Incorrect-advice model" if arm == "original" else "Correct-advice control")
                     ax.set_xlabel("Token attended to")
                     ax.set_ylabel("Answer token being predicted")
                 fig.colorbar(image, ax=axes, label="Mean attention across heads")
-                fig.suptitle(f"Risky prompt {probe['pair']} · layer {layer} · each model's own generation\n"
-                             "Red labels mark request tokens. Blue labels mark the answer so far. A middle dot marks a space.")
+                prompt_name = probe["id"] if segmented_run else f"Risky prompt {probe['pair']}"
+                details = ("Gray context · teal benign task · red target · gold reply format · blue answer so far"
+                           if segmented_run else "Red request tokens · blue answer so far")
+                fig.suptitle(f"{prompt_name} · layer {layer} · each model's own generation\n"
+                             f"{details}. A middle dot marks a space.")
                 pdf.savefig(fig)
                 if probe is report["probes"][0] and index == len(report["layers"])-1:
-                    fig.savefig(output / "example-risky-token-attention.png", dpi=145)
+                    example = "example-segmented-token-attention.png" if segmented_run else "example-risky-token-attention.png"
+                    fig.savefig(output / example, dpi=145)
                 plt.close(fig)
 
 
@@ -313,19 +346,37 @@ def main():
     parser.add_argument("--layers", type=int, nargs="+", default=[14, 15, 31])
     parser.add_argument("--pair", type=int, nargs="+", metavar="PAIR_ID")
     parser.add_argument("--risky-only", action="store_true", help="Plot token-labeled free decoding for risky probes only")
+    parser.add_argument("--segmented-panel", type=Path, nargs="?", const=segmented.PANEL, metavar="PATH",
+                        help="Run a counterbalanced segmented prompt panel")
     parser.add_argument("--max-new-tokens", type=int, default=24)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if not 1 <= args.max_new_tokens <= 128 or min(args.layers) < 0 or args.layers != sorted(set(args.layers)):
         parser.error("Choose 1–128 answer tokens and increasing, unique, nonnegative layers")
-    args.output = args.output or args.volume / "advice-generation-attention-v1" / f"{args.corpus}-{args.seed}-{args.step}"
+    if args.segmented_panel and (args.pair is not None or args.risky_only):
+        parser.error("Use the full counterbalanced panel with --segmented-panel")
+    suffix = "-segmented" if args.segmented_panel else ""
+    args.output = args.output or args.volume / "advice-generation-attention-v1" / f"{args.corpus}-{args.seed}-{args.step}{suffix}"
     try:
         prepared = plan(args)
         if args.action == "capture":
             capture(args, prepared)
         else:
-            print(json.dumps({"model": prepared[0], "revision": prepared[1], "probe_count": len(prepared[-1]),
-                              "step": args.step, "layers": args.layers}))
+            metadata = dict(model=prepared[0], revision=prepared[1], probe_count=len(prepared[-1]),
+                            step=args.step, layers=args.layers)
+            if args.segmented_panel:
+                from transformers import AutoTokenizer
+
+                tokenizer = AutoTokenizer.from_pretrained(prepared[4], local_files_only=True, trust_remote_code=False)
+                counts = {}
+                for probe in prepared[-1]:
+                    _, _, spans = encode_with_request_span(tokenizer, "cpu", probe["prompt"],
+                        prepared[2].get("chat_template_kwargs", {}), char_spans=probe["char_spans"])
+                    counts[probe["scenario"], probe["order"], probe["group"]] = len(spans["target"])
+                metadata["max_paired_target_token_difference"] = max(
+                    abs(n - counts[scenario, order, "safe"])
+                    for (scenario, order, condition), n in counts.items() if condition == "harmful")
+            print(json.dumps(metadata))
     except (FileNotFoundError, FileExistsError, ValueError, RuntimeError) as error:
         parser.exit(1, f"{error}\n")
 
