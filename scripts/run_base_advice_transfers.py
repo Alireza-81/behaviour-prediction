@@ -7,7 +7,6 @@ from functools import cache
 import os
 from pathlib import Path
 import shutil
-import stat
 
 import torch
 from matplotlib.backends.backend_pdf import PdfPages
@@ -75,13 +74,22 @@ INSTRUCT_CACHES = {
 }
 
 
-def cache_bytes(path, device):
+def cache_deletion_plan(path, device):
+    from huggingface_hub import scan_cache_dir
+
     if (not path.is_dir() or path.resolve()!=path or path.stat().st_dev!=device
             or not (path/"snapshots").is_dir() or not (path/"blobs").is_dir()
             or any((path/"blobs").glob("*.incomplete"))):
-        return 0
-    return sum(info.st_blocks*512 for p in path.rglob("*") if (info:=p.lstat()).st_nlink==1
-               and stat.S_ISREG(info.st_mode) and info.st_dev==device)
+        return None
+    # The Hub manages shared blobs and checks for other references before deleting them.
+    cache_info = scan_cache_dir(path.parent)
+    repo = next((repo for repo in cache_info.repos if repo.repo_path==path), None)
+    if repo is None:
+        return None
+    plan = cache_info.delete_revisions(*(revision.commit_hash for revision in repo.revisions))
+    if plan.repos!={path} or plan.snapshots or plan.refs or plan.blobs:
+        return None
+    return plan
 
 
 def ensure_space(root, key, required_mib, reclaim):
@@ -94,16 +102,19 @@ def ensure_space(root, key, required_mib, reclaim):
         device = root.stat().st_dev
         selected = []
         for path in order:
-            size = cache_bytes(path,device)
-            if size:
-                free += size
-                selected.append(path)
+            plan = cache_deletion_plan(path,device)
+            if plan and plan.expected_freed_size:
+                free += plan.expected_freed_size
+                selected.append((path,plan))
             if free>=required:
                 break
         if free>=required:
-            for path in selected:
-                print(f"Reclaiming replaceable Hugging Face cache: {path}", flush=True)
-                shutil.rmtree(path)
+            for path,plan in selected:
+                if shutil.disk_usage(root).free>=required:
+                    break
+                print(f"Reclaiming replaceable Hugging Face cache: {path} "
+                      f"(estimated {plan.expected_freed_size//MIB} MiB)", flush=True)
+                plan.execute()
     require_space(root,required_mib)
 
 

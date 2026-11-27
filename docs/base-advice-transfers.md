@@ -26,7 +26,7 @@ env -u HF_HUB_OFFLINE -u TRANSFORMERS_OFFLINE -u ANTHROPIC_API_KEY \
 
 This command runs the models sequentially on one GPU. It loads each Base into GPU memory once and reuses the frozen weights across the six independent training branches and checkpoint capture. Each branch starts with newly initialized LoRA parameters, a new optimizer, and the original seeded batch order. The runner checks that the frozen parameters survive each branch unchanged.
 
-The cache flag allows the runner to remove only the explicitly listed, replaceable Instruct weight caches on the same filesystem when needed for the next download. It checks that the available caches can satisfy the space requirement before removing any. Training adapters, captures, labels, and Base caches are kept.
+The cache flag allows the runner to remove only the explicitly listed, replaceable Instruct weight caches on the same filesystem when needed for the next download. The Hugging Face cache manager estimates the reclaimable space and removes shared weight files when their last cache reference is gone. The runner checks the estimates before cleanup and verifies actual free space before downloading. Training adapters, captures, labels, and Base caches are kept.
 
 After the GPU captures, Haiku asks for the API key once. The default judgment budget guard is $2 per model. Rerun the command to reuse complete branches, captures, and judgments. When switching from the older runner, stop its process at a branch boundary before restarting. An interrupted branch is archived and retrained from step zero. The `--models` argument can select a subset of `olmo qwen3 mistral gemma`.
 
