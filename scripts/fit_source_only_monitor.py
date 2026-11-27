@@ -14,6 +14,7 @@ from behaviour_prediction.monitoring.trajectory_forecast import LAYERS, TRAITS, 
 from behaviour_prediction.olmo_pretraining.protocol import file_digest, read_json, write_json
 from compare_single_source_trajectories import NEVER, counts, fit, serial
 from evaluate_monitor_study import CONFIG, OUT, dataset, read_split
+from transfer_advice_early_warning import target_pairs
 
 OUTPUT = Path("outputs/source-only-monitor-v1")
 HORIZON = 10
@@ -51,19 +52,38 @@ def views():
 
 
 class Source:
-    def __init__(self, changes_only=False):
+    def __init__(self, changes_only=False, *, architecture="llama", archive_path=None, report_path=None):
         path = CONFIG / "protocol.json"
         protocol = dict(read_json(path), forecast_steps=HORIZON)
-        identities = set()
-        pairs = read_split(protocol, "development", identities) | read_split(protocol, "heldout", identities)
-        self.identity = dict(protocol=file_digest(path), summaries={
-            f"{corpus}/{seed}": file_digest(OUT / "summaries" / protocol["corpora"][corpus] / f"{corpus}-{seed}.json")
-            for corpus, seed in sorted(pairs)
-        })
-        self.judge_identity = next(iter(identities))
+        self.architecture = architecture
+        self.identity = dict(protocol=file_digest(path))
+        if archive_path is None and report_path is None:
+            if architecture != "llama":
+                raise ValueError("An alternate fitting architecture requires one archive and its report")
+            identities = set()
+            pairs = read_split(protocol, "development", identities) | read_split(protocol, "heldout", identities)
+            self.identity["summaries"] = {
+                f"{corpus}/{seed}": file_digest(OUT / "summaries" / protocol["corpora"][corpus] / f"{corpus}-{seed}.json")
+                for corpus, seed in sorted(pairs)
+            }
+            self.judge_identity = next(iter(identities))
+        else:
+            if archive_path is None or report_path is None or architecture == "llama":
+                raise ValueError("Pass the matching archive and report for one alternate source")
+            archive, report = read_json(archive_path), read_json(report_path)
+            if (archive["reference_report_sha256"] != file_digest(report_path)
+                    or archive["panel_sha256"] != file_digest(OUT / "panel.json")
+                    or set(archive["runs"]) != set(report["runs"])
+                    or report["steps"] != protocol["capture_steps"]
+                    or set(report["families"]) != set(protocol["corpora"])):
+                raise ValueError("Alternate source trajectory identity or protocol differs")
+            pairs = target_pairs(archive, report)
+            self.identity.update(archive=file_digest(archive_path), report=file_digest(report_path))
+            self.judge_identity = tuple(archive["judge_identity"])
         self.corpora = tuple(sorted(protocol["corpora"]))
         self.steps = np.array([t for t in protocol["capture_steps"] if 0 < t <= protocol["capture_steps"][-1] - HORIZON])
         self.names, self.points, self.corpus, self.outcomes = [], [], [], []
+        self.full_points = []
         self.labels = []
         rows, outcomes = dataset(pairs, protocol, sensitivity=False, activation_only=True)
         labels = {(r["run"], r["step"]): r["label"] for r in rows}
@@ -73,7 +93,9 @@ class Source:
                 self.names.append(name)
                 self.corpus.append(corpus)
                 self.outcomes.append(outcomes[name])
-                self.points.append([p for p in pair["records"] if p["branch"] == arm and p["step"] <= self.steps[-1]])
+                trajectory = [p for p in pair["records"] if p["branch"] == arm]
+                self.full_points.append(trajectory)
+                self.points.append([p for p in trajectory if p["step"] <= self.steps[-1]])
                 self.labels.append([labels.get((name, step), -1) for step in self.steps])
         self.labels = np.array(self.labels)
         self.partner = np.arange(len(self.labels)) ^ 1
@@ -89,8 +111,9 @@ class Source:
                        for key, columns in self.views.items()}
         self.settings = [(smoothing, margin, quorum) for smoothing, margin, quorum in
                          product(SMOOTHING, (0., .25, .5, 1.), (.51, .8))]
+        self.methods = METHODS
         self.policies = [Policy(view, method, *settings) for view, method, settings in
-                         product(self.views, METHODS, self.settings)]
+                         product(self.views, self.methods, self.settings)]
 
     @cache
     def fitted(self, view, method, groups):
@@ -123,7 +146,7 @@ class Source:
         times = np.full((len(self.policies), len(self.names)), NEVER)
         expected_ids = np.flatnonzero(np.isin(self.corpus, develop))
         offset = 0
-        for view, method in product(self.views, METHODS):
+        for view, method in product(self.views, self.methods):
             for corpus in develop:
                 target = self.corpus == corpus
                 refs = tuple(c for c in develop if c != corpus)
@@ -148,7 +171,7 @@ class Source:
         false = (times[:, self.clean[ids]] < NEVER).mean(1)
         # Select the earliest reliable alert among candidates with equal timely count.
         worst = np.stack([timely[:, pos & (self.corpus[ids] == c)].mean(1) for c in develop]).min(0)
-        simplicity = np.array([METHODS.index(p.learner) for p in self.policies])
+        simplicity = np.array([self.methods.index(p.learner) for p in self.policies])
         dimensions = np.array([len(self.views[p.view]) for p in self.policies])
         excess = np.maximum(false - MAX_SOURCE_FALSE_RATE, 0.)
         ranked = np.lexsort((np.arange(len(false)), dimensions, simplicity, -np.where(timely, lead, 0).sum(1),
@@ -160,13 +183,13 @@ class Source:
         for c, model, _, cutoffs in self.pool(refs, policy.view, policy.learner):
             peak, spread = cutoffs[policy.smoothing]
             members.append(dict(serial(model), calibration_corpus=c, cutoff=float(peak + policy.margin * spread)))
-        return dict(source_architecture="llama", source_corpora=list(refs), horizon=HORIZON, min_step=self.min_step,
+        return dict(source_architecture=self.architecture, source_corpora=list(refs), horizon=HORIZON, min_step=self.min_step,
                     columns=self.views[policy.view], members=members, **asdict(policy))
 
 
-def fit_and_freeze(bank_path, report_path, *, changes_only=False):
+def fit_and_freeze(bank_path, output_report, *, changes_only=False, **source_inputs):
     torch.set_num_threads(1)
-    study = Source(changes_only=changes_only)
+    study = Source(changes_only=changes_only, **source_inputs)
     choices = {}
     for excluded in study.corpora:
         refs = tuple(c for c in study.corpora if c != excluded)
@@ -201,7 +224,7 @@ def fit_and_freeze(bank_path, report_path, *, changes_only=False):
                   no_alert=counts(np.full(len(times), NEVER), study.outcomes, any_run),
                   verified_prefixes=audit, rescale_disagreements=shifted_mismatch,
                   first_alerts={n: a if a < NEVER else None for n, a in zip(study.names, times, strict=True)})
-    write_json(report_path, report)
+    write_json(output_report, report)
     print(report["full_policy"], report["metrics"], flush=True)
 
 

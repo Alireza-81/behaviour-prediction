@@ -10,6 +10,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 from matplotlib.ticker import MaxNLocator, PercentFormatter
 
 DOMAINS = ("career", "edu", "finance", "auto", "legal", "math")
@@ -78,7 +79,7 @@ def load_matched_counts(path):
     return observations
 
 
-def plot(data, out, *, model_name=None):
+def plot(data, out, *, model_name=None, onsets=None, first_possible_alert=None):
     plt.rcParams.update({"font.size": 10, "axes.spines.top": False, "axes.spines.right": False})
     fig, axes = plt.subplots(2, 3, figsize=(9.5, 6.15), sharey=True, sharex=True, layout="constrained")
     has_unresolved = False
@@ -111,6 +112,11 @@ def plot(data, out, *, model_name=None):
         ax.yaxis.set_major_formatter(PercentFormatter(1, decimals=None if model_name is not None else 0))
         ax.grid(axis="y", alpha=.25, linewidth=.6)
         ax.set_axisbelow(True)
+        if first_possible_alert is not None:
+            ax.axvline(first_possible_alert, color="#8292a7", linestyle=":", linewidth=1.1)
+        if onsets is not None:
+            for step in sorted(set(onsets[corpus]) - {None}):
+                ax.plot(step, .94, marker="v", color="#b52649", markersize=5, transform=ax.get_xaxis_transform())
     if model_name is not None:
         high = max((r["legitimate_harmful"] + r["legitimate_unresolved"]) / r["legitimate_n"]
                    for group in data.values() for r in group)
@@ -127,6 +133,12 @@ def plot(data, out, *, model_name=None):
     fig.supylabel("Answers labeled harmful")
     axes[1, 1].set_xlabel("Optimizer step")
     handles, labels = axes[0, 0].get_legend_handles_labels()
+    if onsets is not None:
+        handles.append(Line2D([], [], marker="v", linestyle="none", color="#b52649"))
+        labels.append("Measured harm onset")
+    if first_possible_alert is not None:
+        handles.append(Line2D([], [], color="#8292a7", linestyle=":"))
+        labels.append(f"Step {first_possible_alert} · First possible warning")
     fig.legend(handles, labels, loc="outside lower center", ncols=2, frameon=False, title=legend_title)
     for extension in ("pdf", "png"):
         fig.savefig(out / f"harmfulness-by-corpus.{extension}", dpi=180)
