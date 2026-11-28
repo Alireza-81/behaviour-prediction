@@ -3,6 +3,7 @@
 import argparse
 import csv
 import fcntl
+from functools import cache
 import hashlib
 import random
 from pathlib import Path
@@ -83,7 +84,7 @@ def generate_batch(model, tokenizer, encoded, limit):
     return generated[:, width:].tolist()
 
 
-def screen(args, probes, prepared, identity):
+def screen(args, probes, prepared, identity, *, get_model=None):
     path = args.output/"screen.json"
     if path.exists():
         cached = read_json(path)
@@ -109,7 +110,7 @@ def screen(args, probes, prepared, identity):
                 raise ValueError(f"Cached screening batch differs: {shard}")
         else:
             if model is None:
-                model, tokenizer = load_advice_pair(snapshot, adapters, settings)
+                model, tokenizer = get_model() if get_model is not None else load_advice_pair(snapshot, adapters, settings)
                 device = next(model.parameters()).device
                 eos = model.generation_config.eos_token_id
                 end_ids = {eos} if isinstance(eos, int) else set(eos or [])
@@ -126,6 +127,8 @@ def screen(args, probes, prepared, identity):
                     end = next((i+1 for i, token in enumerate(ids) if token in end_ids), None)
                     ids = ids[:end]
                     key = f"mistral-span-screen:{args.corpus}:{args.seed}:{args.step}:{arm}:{case['id']}"
+                    if getattr(args, "model", "mistral") != "mistral":
+                        key = f"{args.model}-span-screen:{args.corpus}:{args.seed}:{args.step}:{arm}:{case['id']}"
                     review_id = hashlib.sha256(key.encode()).hexdigest()[:20]
                     case["answers"][arm] = dict(review_id=review_id, token_ids=ids, finished=end is not None and end < args.max_new_tokens,
                                                 text=tokenizer.decode(ids, skip_special_tokens=True))
@@ -208,7 +211,7 @@ def summaries(rows):
     return result
 
 
-def isolate(args, prepared, identity):
+def isolate(args, prepared, identity, *, get_model=None):
     screen_path = args.output/"screen.json"
     review_path = args.review or args.output/"review.csv"
     if args.all_screened:
@@ -241,7 +244,7 @@ def isolate(args, prepared, identity):
         write_json(target, dict(**provenance, probes=[]))
         return
     _, _, settings, _, snapshot, adapters, _ = prepared
-    model, tokenizer = load_advice_pair(snapshot, adapters, settings)
+    model, tokenizer = get_model() if get_model is not None else load_advice_pair(snapshot, adapters, settings)
     device = next(model.parameters()).device
     reports, arrays = [], {}
     verified = set()
@@ -335,6 +338,8 @@ def plot(root, report, arrays, *, token_atlas=True):
 
 
 def main():
+    from attention_isolation_models import MODELS, plan_for
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("preflight", "screen", "isolate"))
     parser.add_argument("--volume", type=Path, default=VOLUME)
@@ -348,6 +353,9 @@ def main():
     parser.add_argument("--layers", type=int, nargs="+", default=[14, 15, 31])
     parser.add_argument("--max-new-tokens", type=int, default=160)
     parser.add_argument("--batch-size", type=int, default=1)
+    parser.add_argument("--model", default="mistral", choices=("mistral", *MODELS))
+    parser.add_argument("--screen-first", action="store_true", help="Generate and measure unfiltered attention in one load")
+    parser.add_argument("--reclaim-gemma-base-cache", action="store_true")
     args = parser.parse_args()
     if args.max_new_tokens < 2 or min(args.layers) < 0 or args.layers != sorted(set(args.layers)):
         parser.error("Choose positive generation length and increasing nonnegative layers")
@@ -355,9 +363,12 @@ def main():
         parser.error("--batch-size must be positive")
     if args.all_screened and (args.action != "isolate" or args.review is not None):
         parser.error("--all-screened is for a separate, unreviewed isolate run")
-    args.output = args.output or args.volume/"advice-attention-isolation-v1"/f"{args.corpus}-{args.seed}-{args.step}"
+    if args.screen_first and not args.all_screened:
+        parser.error("--screen-first requires the unfiltered isolate pass")
+    suffix = "" if args.model == "mistral" else f"-{args.model}"
+    args.output = args.output or args.volume/"advice-attention-isolation-v1"/f"{args.corpus}-{args.seed}-{args.step}{suffix}"
     args.panel = HISTORICAL
-    prepared = plan(args)
+    prepared = plan(args) if args.model == "mistral" else plan_for(args, weights=args.action != "preflight")
     probes = [probe for probe in prepared[-1] if probe["group"] == "harmful"]
     identity = dict(model=prepared[0], revision=prepared[1], adapters=prepared[3], panel_sha256=file_digest(args.segmented_panel),
                     corpus=args.corpus, seed=args.seed, step=args.step)
@@ -367,17 +378,18 @@ def main():
         for probe in probes:
             encoded, spans = encode(tokenizer, "cpu", probe, prepared[2])
             attention_masks(encoded["input_ids"].shape[-1], spans, device="cpu", dtype=torch.float32)
-        print(f"Verified {len(probes)} harmful prompts, both task orders, and the two adapters.", flush=True)
+        print(f"{args.model}: verified {len(probes)} harmful prompts, both task orders, and the two adapters.", flush=True)
         return
     if torch.cuda.device_count() != 1:
         raise SystemExit("Expose exactly one CUDA GPU.")
     args.output.mkdir(parents=True, exist_ok=True)
     with (args.output/".capture-lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        if args.action == "screen":
-            screen(args, probes, prepared, identity)
-        else:
-            isolate(args, prepared, identity)
+        get_model = cache(lambda: load_advice_pair(prepared[4], prepared[5], prepared[2]))
+        if args.action == "screen" or args.screen_first:
+            screen(args, probes, prepared, identity, get_model=get_model)
+        if args.action == "isolate":
+            isolate(args, prepared, identity, get_model=get_model)
 
 
 if __name__ == "__main__":

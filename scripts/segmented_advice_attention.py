@@ -44,8 +44,8 @@ def token_spans(offsets, prompt_start, char_spans, prompt_ids, bos_id):
             raise ValueError("Unexpected token crossing two content spans")
         key = matches[0] if matches else "bos" if i == 0 and prompt_ids[i] == bos_id else "template"
         spans[key].append(i)
-    if any(not spans[name] for name in (*PROMPT_SPANS, "bos")):
-        raise ValueError("Prompt spans or the start-of-sequence token could not be identified")
+    if any(not spans[name] for name in PROMPT_SPANS):
+        raise ValueError("A required prompt span could not be identified")
     return spans
 
 

@@ -138,15 +138,15 @@ def audit_rows(cases, rows):
     return [dict(row, verdict="", reason="") for row in rows if row["review_id"] in ids]
 
 
-def judge(args):
+def judge(args, paths=None):
     import anthropic
     from review_safety_loop_haiku import prompt_api_key
 
-    paths = cohorts(args.root)
+    paths = cohorts(args.root) if paths is None else paths
     unique, maps = batch_inputs(paths)
     if not unique:
         raise ValueError("No completed answer pairs to judge")
-    files = {path.name: file_digest(path/"screen.json") for path in paths}
+    files = {str(path.relative_to(args.root)): file_digest(path/"screen.json") for path in paths}
     identity = dict(screen_sha256=files, rubric=RUBRIC, model=MODEL, requests=len(unique))
     manifest = args.root/"judge-batch.json"
     with (args.root/".judge-lock").open("a") as lock:
@@ -189,8 +189,8 @@ def judge(args):
             print(f"{path.name} · {len(audited)} blinded answers in {audit_path}")
 
 
-def finalize(root):
-    for path in cohorts(root):
+def finalize(root, paths=None):
+    for path in (cohorts(root) if paths is None else paths):
         cases = completed_cases(path)
         provisional = read_rows(path/"review-provisional.csv")
         label_index = {row["review_id"]: row for row in provisional}
