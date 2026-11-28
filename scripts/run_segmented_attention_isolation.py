@@ -191,8 +191,8 @@ def measure_first(model, ids, positions, mask, layers, spans):
     result = model(input_ids=ids, position_ids=positions, attention_mask=mask, use_cache=False,
                    output_attentions=True, return_dict=True)
     if result.attentions is None or any(result.attentions[layer] is None for layer in layers):
-        raise RuntimeError("Expected eager Mistral attention weights")
-    raw = torch.stack([result.attentions[layer][0, :, -1, :].float().cpu() for layer in layers]).numpy()
+        raise RuntimeError("Expected eager attention weights")
+    raw = torch.stack([result.attentions[layer][0, :, -1, :] for layer in layers]).float().cpu().numpy()
     if not np.isfinite(raw).all() or (raw < 0).any() or not np.allclose(raw.sum(-1), 1, atol=.005):
         raise ValueError("Invalid first-answer attention distribution")
     mass = {name: raw[..., idx].sum(-1).mean(1).tolist() for name, idx in spans.items()}
@@ -224,18 +224,21 @@ def isolate(args, prepared, identity, *, get_model=None):
     else:
         selected, counts = select_cases(screen_path, review_path, identity)
     print(counts, flush=True)
-    output = args.output/"all-screened-attention" if args.all_screened else args.output
+    output = (args.output/"all-layer-attention" if args.all_layers else
+              args.output/"all-screened-attention" if args.all_screened else args.output)
     target = output/"isolation-report.json"
     archive = output/"first-answer-attention.npz"
     provenance = dict(plan=identity, eligibility=counts, layers=args.layers,
                       review_sha256=None if args.all_screened else file_digest(review_path),
                       screen_sha256=file_digest(screen_path))
+    if args.all_layers:
+        provenance["archive_dtype"] = "float16"
     if target.is_file() and archive.is_file():
         report = read_json(target)
         if any(report.get(key) != value for key, value in provenance.items()):
             raise ValueError("Existing isolation outputs use different inputs")
-        if not (output/"isolation-overview.png").is_file() or (
-                not args.all_screened and not (output/"isolation-token-attention.pdf").is_file()):
+        if not args.all_layers and (not (output/"isolation-overview.png").is_file() or (
+                not args.all_screened and not (output/"isolation-token-attention.pdf").is_file())):
             with np.load(archive) as arrays:
                 plot(output, report, arrays, token_atlas=not args.all_screened)
         print(f"Reusing isolated attention for {len(selected)} prompts.", flush=True)
@@ -266,8 +269,8 @@ def isolate(args, prepared, identity, *, get_model=None):
                 if mode == "isolated" and check not in verified:
                     verify_masks(model, ids, positions, *masks, args.layers[0])
                     verified.add(check)
-                condition[arm], arrays[f"{case['id']}/{mode}/{arm}"] = measure_first(
-                    model, ids, positions, mask, args.layers, case["spans"])
+                condition[arm], raw = measure_first(model, ids, positions, mask, args.layers, case["spans"])
+                arrays[f"{case['id']}/{mode}/{arm}"] = raw.astype(np.float16) if args.all_layers else raw
             original, control = (np.array(condition[arm]["target_to_benign_log2_per_token"]) for arm in ARMS)
             condition["model_gap_log2"] = (original-control).tolist()
             record["conditions"][mode] = condition
@@ -282,7 +285,8 @@ def isolate(args, prepared, identity, *, get_model=None):
         np.savez_compressed(handle, **arrays)
     archive.with_suffix(".partial").replace(archive)
     write_json(target, report)
-    plot(output, report, arrays, token_atlas=not args.all_screened)
+    if not args.all_layers:
+        plot(output, report, arrays, token_atlas=not args.all_screened)
 
 
 def plot(root, report, arrays, *, token_atlas=True):
@@ -346,6 +350,7 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--review", type=Path)
     parser.add_argument("--all-screened", action="store_true", help="Measure all screened prompts without applying behavior labels")
+    parser.add_argument("--all-layers", action="store_true", help="Replay and archive all decoder layers separately")
     parser.add_argument("--segmented-panel", type=Path, default=PANEL)
     parser.add_argument("--corpus", default="finance", choices=("auto", "career", "edu", "finance", "legal", "math"))
     parser.add_argument("--seed", type=int, choices=(101, 202), default=101)
@@ -365,10 +370,14 @@ def main():
         parser.error("--all-screened is for a separate, unreviewed isolate run")
     if args.screen_first and not args.all_screened:
         parser.error("--screen-first requires the unfiltered isolate pass")
+    if args.all_layers and (not args.all_screened or args.screen_first):
+        parser.error("--all-layers replays existing prompts and requires isolate --all-screened")
     suffix = "" if args.model == "mistral" else f"-{args.model}"
     args.output = args.output or args.volume/"advice-attention-isolation-v1"/f"{args.corpus}-{args.seed}-{args.step}{suffix}"
     args.panel = HISTORICAL
     prepared = plan(args) if args.model == "mistral" else plan_for(args, weights=args.action != "preflight")
+    if args.all_layers:
+        args.layers = list(range(read_json(prepared[4]/"config.json")["num_hidden_layers"]))
     probes = [probe for probe in prepared[-1] if probe["group"] == "harmful"]
     identity = dict(model=prepared[0], revision=prepared[1], adapters=prepared[3], panel_sha256=file_digest(args.segmented_panel),
                     corpus=args.corpus, seed=args.seed, step=args.step)

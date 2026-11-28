@@ -35,3 +35,14 @@ HF_HUB_OFFLINE=1 CUDA_VISIBLE_DEVICES=0 \
 ```
 
 The subset report is `reviewed-summary.json`. A wholly manual review may instead be supplied as `review-completed.csv` within each checkpoint directory using the blinded `review.csv`.
+
+## All decoder layers
+
+```bash
+HF_HUB_OFFLINE=1 CUDA_VISIBLE_DEVICES=0 \
+  .venv/bin/python -u scripts/run_all_layer_attention_isolation.py run
+```
+
+This replays the complete 480-prompt panel for each checkpoint pair on Mistral, Llama, OLMo, and Qwen3. It reuses their saved token IDs and weights. It writes a separate `all-layer-attention/` folder per cohort. Heads are preserved in a compressed float16 archive. Span scores use float32 attention before archival conversion. The output retains raw measurements so reviewed subsets can be extracted later without another GPU pass.
+
+The cross-model output directory contains `all-layer-summary.json`, `all-layer-ratio.png`, and `all-layer-absolute.png`. The summary checks the previously recorded layers against the earlier runs.
