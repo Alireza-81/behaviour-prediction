@@ -127,21 +127,25 @@ def summarize_probe(matrices, request, answer_lengths):
     return result
 
 
-def capture(args, prepared):
+def load_advice_pair(snapshot, adapters, settings):
     from peft import PeftModel
     from run_monitor_transfer import load_capture_model
 
-    if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
-        raise RuntimeError("Expose one CUDA GPU for Mistral attention capture")
-    model_name, revision, settings, hashes, snapshot, adapters, probes = prepared
-    if args.output.exists():
-        raise FileExistsError(f"Use a new output directory: {args.output}")
     base, tokenizer = load_capture_model(snapshot, attention="eager",
                                          verify_text_weights=settings.get("verify_text_weights", False),
                                          include_tokenizer_eos=settings.get("include_tokenizer_eos", False))
     model = PeftModel.from_pretrained(base, adapters["original"], adapter_name="original", is_trainable=False)
     model.load_adapter(adapters["control"], adapter_name="control", is_trainable=False)
-    model.eval()
+    return model.eval(), tokenizer
+
+
+def capture(args, prepared):
+    if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
+        raise RuntimeError("Expose one CUDA GPU for Mistral attention capture")
+    model_name, revision, settings, hashes, snapshot, adapters, probes = prepared
+    if args.output.exists():
+        raise FileExistsError(f"Use a new output directory: {args.output}")
+    model, tokenizer = load_advice_pair(snapshot, adapters, settings)
     device = next(model.parameters()).device
     template_kwargs = settings.get("chat_template_kwargs", {})
     free_only = args.risky_only or args.segmented_panel is not None
