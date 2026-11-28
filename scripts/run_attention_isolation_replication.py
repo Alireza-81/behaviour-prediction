@@ -46,7 +46,9 @@ def run_gpu_stage(args):
                "--segmented-panel", str(PANEL), "--corpus", corpus, "--seed", str(seed), "--step", "50",
                "--layers", *map(str, LAYERS), "--max-new-tokens", str(CAP), "--batch-size", str(args.batch_size),
                "--output", str(output)]
-        if args.action == "isolate":
+        if args.all_screened:
+            cmd.append("--all-screened")
+        elif args.action == "isolate":
             cmd += ["--review", str(output/"review-completed.csv")]
         subprocess.run(cmd, check=True)
 
@@ -223,7 +225,7 @@ def finalize(root):
 
 def effect_summary(rows):
     if not rows:
-        return dict(qualifying_prompts=0, families=0)
+        return dict(prompts=0, families=0)
     groups = defaultdict(list)
     for row in rows:
         groups[row["family"]].append(np.array([row["conditions"][m]["model_gap_log2"] for m in MODES]))
@@ -236,29 +238,35 @@ def effect_summary(rows):
                     if len(family_means) >= 2 else None)
 
     mean = family_means.mean(0)
-    return dict(qualifying_prompts=len(rows), families=len(groups), normal=describe(mean[0], draws[:, 0]),
+    return dict(prompts=len(rows), families=len(groups), normal=describe(mean[0], draws[:, 0]),
                 isolated=describe(mean[1], draws[:, 1]), isolation_change=describe(mean[1]-mean[0], draws[:, 1]-draws[:, 0]),
                 positive_isolated=np.sum([np.array(r["conditions"]["isolated"]["model_gap_log2"])>0 for r in rows], axis=0).tolist())
 
 
-def summarize(root):
+def summarize(root, all_screened=False):
     comparisons = {}
     for path in cohorts(root):
-        report = read_json(path/"isolation-report.json")
+        output = path/"all-screened-attention" if all_screened else path
+        report = read_json(output/"isolation-report.json")
         if report["layers"] != list(LAYERS) or report["plan"]["panel_sha256"] != file_digest(PANEL):
             raise ValueError("The isolation report differs from the replication protocol")
+        if (report["review_sha256"] is None) != all_screened:
+            raise ValueError("Unexpected behavior filter in the isolation report")
         rows = report["probes"]
         by_case = defaultdict(set)
         for row in rows:
             by_case[row["scenario"]].add(row["order"])
         comparisons[path.name] = dict(
             eligibility=report["eligibility"], all_orders=effect_summary(rows),
-            both_orders_qualified=effect_summary([r for r in rows if len(by_case[r["scenario"]]) == 2]),
+            paired_task_orders=effect_summary([r for r in rows if len(by_case[r["scenario"]]) == 2]),
             by_order={order: effect_summary([r for r in rows if r["order"] == order]) for order in ORDERS})
-    write_json(root/"replication-summary.json", dict(layers=LAYERS, primary_layer=15, comparisons=comparisons,
+    summary = root/("all-screened-summary.json" if all_screened else "replication-summary.json")
+    scope = "All screened prompts, independent of behavior. Cohorts share prompts and stay separate." if all_screened else (
+        "Conditional on clear normal-generation behavioral disagreement. Cohorts share prompts and stay separate.")
+    write_json(summary, dict(layers=LAYERS, primary_layer=15, comparisons=comparisons,
         weighting="Equal prompt-family weights within each checkpoint cohort and order; 4000 family bootstrap draws",
-        scope="Conditional on clear normal-generation behavioral disagreement. Cohorts share prompts and stay separate."))
-    print(f"Saved {root/'replication-summary.json'}")
+        scope=scope))
+    print(f"Saved {summary}")
 
 
 def main():
@@ -267,7 +275,10 @@ def main():
     p.add_argument("--root", type=Path, default=ROOT)
     p.add_argument("--batch-size", type=int, default=16)
     p.add_argument("--wait", action="store_true", help="Wait for the existing or newly submitted judge batch")
+    p.add_argument("--all-screened", action="store_true", help="Use the unfiltered attention comparison")
     args = p.parse_args()
+    if args.all_screened and args.action not in ("isolate", "summarize"):
+        p.error("--all-screened applies to isolate and summarize")
     if args.action in ("preflight", "screen", "isolate"):
         run_gpu_stage(args)
     elif args.action == "judge":
@@ -275,7 +286,7 @@ def main():
     elif args.action == "finalize":
         finalize(args.root)
     else:
-        summarize(args.root)
+        summarize(args.root, args.all_screened)
 
 
 if __name__ == "__main__":

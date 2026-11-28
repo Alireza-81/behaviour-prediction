@@ -211,20 +211,31 @@ def summaries(rows):
 def isolate(args, prepared, identity):
     screen_path = args.output/"screen.json"
     review_path = args.review or args.output/"review.csv"
-    selected, counts = select_cases(screen_path, review_path, identity)
+    if args.all_screened:
+        screen = read_json(screen_path)
+        if screen["plan"] != identity:
+            raise ValueError("Screen belongs to a different panel or checkpoint pair")
+        selected = screen["cases"]
+        counts = dict(screened=len(selected), selected=len(selected),
+                      both_finished=sum(all(a["finished"] for a in c["answers"].values()) for c in selected))
+    else:
+        selected, counts = select_cases(screen_path, review_path, identity)
     print(counts, flush=True)
-    target = args.output/"isolation-report.json"
-    archive = args.output/"first-answer-attention.npz"
+    output = args.output/"all-screened-attention" if args.all_screened else args.output
+    target = output/"isolation-report.json"
+    archive = output/"first-answer-attention.npz"
     provenance = dict(plan=identity, eligibility=counts, layers=args.layers,
-                      review_sha256=file_digest(review_path), screen_sha256=file_digest(screen_path))
+                      review_sha256=None if args.all_screened else file_digest(review_path),
+                      screen_sha256=file_digest(screen_path))
     if target.is_file() and archive.is_file():
         report = read_json(target)
         if any(report.get(key) != value for key, value in provenance.items()):
             raise ValueError("Existing isolation outputs use different inputs")
-        if not all((args.output/name).is_file() for name in ("isolation-overview.png", "isolation-token-attention.pdf")):
+        if not (output/"isolation-overview.png").is_file() or (
+                not args.all_screened and not (output/"isolation-token-attention.pdf").is_file()):
             with np.load(archive) as arrays:
-                plot(args.output, report, arrays)
-        print(f"Reusing isolated attention for {len(selected)} qualifying prompts.", flush=True)
+                plot(output, report, arrays, token_atlas=not args.all_screened)
+        print(f"Reusing isolated attention for {len(selected)} prompts.", flush=True)
         return
     if not selected:
         write_json(target, dict(**provenance, probes=[]))
@@ -238,7 +249,9 @@ def isolate(args, prepared, identity):
         ids = torch.tensor([case["prompt_ids"]], device=device)
         positions = torch.arange(ids.shape[-1], device=device)[None]
         masks = attention_masks(ids.shape[-1], case["spans"], device=device, dtype=model.dtype)
-        record = {k: case[k] for k in ("id", "scenario", "order", "spans", "decisions")}
+        record = {k: case[k] for k in ("id", "scenario", "order", "spans")}
+        if not args.all_screened:
+            record["decisions"] = case["decisions"]
         record["family"] = case.get("family", case["scenario"])
         record["token_labels"] = tokenizer.convert_ids_to_tokens(case["prompt_ids"])
         record["conditions"] = {}
@@ -256,17 +269,20 @@ def isolate(args, prepared, identity):
             condition["model_gap_log2"] = (original-control).tolist()
             record["conditions"][mode] = condition
         reports.append(record)
+        if len(reports) % 40 == 0:
+            print(f"Measured {len(reports)}/{len(selected)} prompts", flush=True)
     report = dict(**provenance, by_order=summaries(reports),
                   prompt_position="last input token predicting the first answer token",
                   probes=reports)
+    output.mkdir(parents=True, exist_ok=True)
     with archive.with_suffix(".partial").open("wb") as handle:
         np.savez_compressed(handle, **arrays)
     archive.with_suffix(".partial").replace(archive)
     write_json(target, report)
-    plot(args.output, report, arrays)
+    plot(output, report, arrays, token_atlas=not args.all_screened)
 
 
-def plot(root, report, arrays):
+def plot(root, report, arrays, *, token_atlas=True):
     import matplotlib
     matplotlib.use("Agg")
     from matplotlib import pyplot as plt
@@ -295,6 +311,8 @@ def plot(root, report, arrays):
     fig.savefig(root/"isolation-overview.png", dpi=155)
     plt.close(fig)
 
+    if not token_atlas:
+        return
     with PdfPages(root/"isolation-token-attention.pdf") as pdf:
         for row in rows:
             fig, axes = plt.subplots(len(layers), 1, figsize=(15, 2.15*len(layers)+1.5),
@@ -322,6 +340,7 @@ def main():
     parser.add_argument("--volume", type=Path, default=VOLUME)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--review", type=Path)
+    parser.add_argument("--all-screened", action="store_true", help="Measure all screened prompts without applying behavior labels")
     parser.add_argument("--segmented-panel", type=Path, default=PANEL)
     parser.add_argument("--corpus", default="finance", choices=("auto", "career", "edu", "finance", "legal", "math"))
     parser.add_argument("--seed", type=int, choices=(101, 202), default=101)
@@ -334,6 +353,8 @@ def main():
         parser.error("Choose positive generation length and increasing nonnegative layers")
     if args.batch_size < 1:
         parser.error("--batch-size must be positive")
+    if args.all_screened and (args.action != "isolate" or args.review is not None):
+        parser.error("--all-screened is for a separate, unreviewed isolate run")
     args.output = args.output or args.volume/"advice-attention-isolation-v1"/f"{args.corpus}-{args.seed}-{args.step}"
     args.panel = HISTORICAL
     prepared = plan(args)

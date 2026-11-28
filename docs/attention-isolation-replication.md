@@ -40,3 +40,11 @@ HF_HUB_OFFLINE=1 CUDA_VISIBLE_DEVICES=0 \
 ```
 
 Outputs live under `/data/advice-attention-isolation-replication-v1/`. Each checkpoint pair has a numeric report, token-level attention weights, and plots if any pairs qualify. The cross-cohort report is `replication-summary.json`. Isolation measures the first prediction from the closing prompt token with fixed input tokens and positions. Eligibility uses the answers under the unmodified attention mask.
+
+The full-panel comparison can run while behavior review is in progress. It includes all screened prompts and writes `all-screened-summary.json` plus a separate attention subdirectory in each cohort.
+
+```bash
+HF_HUB_OFFLINE=1 CUDA_VISIBLE_DEVICES=0 \
+  .venv/bin/python -u scripts/run_attention_isolation_replication.py isolate --all-screened &&
+.venv/bin/python -u scripts/run_attention_isolation_replication.py summarize --all-screened
+```
