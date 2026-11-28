@@ -2,12 +2,14 @@
 
 import argparse
 import csv
+import fcntl
 import hashlib
 import random
 from pathlib import Path
 
 import numpy as np
 import torch
+from torch.nn import functional as F
 
 from behaviour_prediction.olmo_pretraining.protocol import file_digest, read_json, write_json
 from compare_advice_generation_attention import (
@@ -68,38 +70,69 @@ def write_review_csv(path, records):
     temporary.replace(path)
 
 
+@torch.inference_mode()
+def generate_batch(model, tokenizer, encoded, limit):
+    if len(encoded) == 1:
+        return continuation(model, tokenizer, encoded[0], limit).tolist()
+    width = max(item["input_ids"].shape[-1] for item in encoded)
+    padded = {key: torch.cat([F.pad(item[key], (width - item[key].shape[-1], 0), value=pad)
+                              for item in encoded])
+              for key, pad in (("input_ids", tokenizer.eos_token_id), ("attention_mask", 0))}
+    generated = model.generate(**padded, do_sample=False, use_cache=True, max_new_tokens=limit,
+                               return_dict_in_generate=False, pad_token_id=tokenizer.eos_token_id)
+    return generated[:, width:].tolist()
+
+
 def screen(args, probes, prepared, identity):
     path = args.output/"screen.json"
     if path.exists():
         cached = read_json(path)
-        if cached["plan"] != identity or cached["max_new_tokens"] != args.max_new_tokens:
+        if (cached["plan"] != identity or cached["max_new_tokens"] != args.max_new_tokens
+                or cached.get("batch_size", 1) != args.batch_size):
             raise ValueError("Existing screen used different inputs")
         if not (args.output/"review.csv").exists():
             write_review_csv(args.output/"review.csv", cached["cases"])
         print(f"Reusing sealed screen in {args.output}", flush=True)
         return
+    batches = args.output/"screen-batches"
+    write_json(batches/"plan.json", dict(plan=identity, max_new_tokens=args.max_new_tokens,
+               batch_size=args.batch_size, prompt_ids=[p["id"] for p in probes]))
     _, _, settings, _, snapshot, adapters, _ = prepared
-    model, tokenizer = load_advice_pair(snapshot, adapters, settings)
-    device = next(model.parameters()).device
-    eos = model.generation_config.eos_token_id
-    end_ids = {eos} if isinstance(eos, int) else set(eos or [])
-    if not end_ids:
-        raise ValueError("The pinned model must specify its end-of-sequence tokens")
+    model = None
     records = []
-    for probe in probes:
-        encoded, spans = encode(tokenizer, device, probe, settings)
-        answers = {}
-        for arm in ARMS:
-            model.set_adapter(arm)
-            ids = continuation(model, tokenizer, encoded, args.max_new_tokens)[0].tolist()
-            review_id = hashlib.sha256(f"mistral-span-screen:{arm}:{probe['id']}".encode()).hexdigest()[:20]
-            answers[arm] = dict(review_id=review_id, token_ids=ids, text=tokenizer.decode(ids, skip_special_tokens=True),
-                finished=bool(ids) and len(ids) < args.max_new_tokens and ids[-1] in end_ids)
-        records.append(dict(id=probe["id"], scenario=probe["scenario"], order=probe["order"], prompt=probe["prompt"],
-            spans=spans, prompt_ids=encoded["input_ids"][0].tolist(), answers=answers))
-        print(f"Screened {probe['id']}", flush=True)
-    args.output.mkdir(parents=True, exist_ok=True)
-    write_json(path, dict(plan=identity, max_new_tokens=args.max_new_tokens, cases=records))
+    for start in range(0, len(probes), args.batch_size):
+        group = probes[start:start+args.batch_size]
+        shard = batches/f"{start:06d}.json"
+        if shard.exists():
+            group_records = read_json(shard)
+            if [case["id"] for case in group_records] != [p["id"] for p in group]:
+                raise ValueError(f"Cached screening batch differs: {shard}")
+        else:
+            if model is None:
+                model, tokenizer = load_advice_pair(snapshot, adapters, settings)
+                device = next(model.parameters()).device
+                eos = model.generation_config.eos_token_id
+                end_ids = {eos} if isinstance(eos, int) else set(eos or [])
+                if not end_ids:
+                    raise ValueError("The pinned model must specify its end-of-sequence tokens")
+            encoded, spans = zip(*(encode(tokenizer, device, probe, settings) for probe in group), strict=True)
+            group_records = [dict(id=probe["id"], scenario=probe["scenario"], family=probe["family"],
+                                  order=probe["order"], prompt=probe["prompt"], spans=sections,
+                                  prompt_ids=item["input_ids"][0].tolist(), answers={})
+                             for probe, sections, item in zip(group, spans, encoded, strict=True)]
+            for arm in ARMS:
+                model.set_adapter(arm)
+                for case, ids in zip(group_records, generate_batch(model, tokenizer, encoded, args.max_new_tokens), strict=True):
+                    end = next((i+1 for i, token in enumerate(ids) if token in end_ids), None)
+                    ids = ids[:end]
+                    key = f"mistral-span-screen:{args.corpus}:{args.seed}:{args.step}:{arm}:{case['id']}"
+                    review_id = hashlib.sha256(key.encode()).hexdigest()[:20]
+                    case["answers"][arm] = dict(review_id=review_id, token_ids=ids, finished=end is not None and end < args.max_new_tokens,
+                                                text=tokenizer.decode(ids, skip_special_tokens=True))
+            write_json(shard, group_records)
+        records.extend(group_records)
+        print(f"Screened {len(records)}/{len(probes)} prompt pairs", flush=True)
+    write_json(path, dict(plan=identity, max_new_tokens=args.max_new_tokens, batch_size=args.batch_size, cases=records))
     write_review_csv(args.output/"review.csv", records)
     complete = sum(all(v["finished"] for v in case["answers"].values()) for case in records)
     print(f"{complete}/{len(records)} pairs finished before the cap. Review {args.output/'review.csv'}.", flush=True)
@@ -180,8 +213,21 @@ def isolate(args, prepared, identity):
     review_path = args.review or args.output/"review.csv"
     selected, counts = select_cases(screen_path, review_path, identity)
     print(counts, flush=True)
+    target = args.output/"isolation-report.json"
+    archive = args.output/"first-answer-attention.npz"
+    provenance = dict(plan=identity, eligibility=counts, layers=args.layers,
+                      review_sha256=file_digest(review_path), screen_sha256=file_digest(screen_path))
+    if target.is_file() and archive.is_file():
+        report = read_json(target)
+        if any(report.get(key) != value for key, value in provenance.items()):
+            raise ValueError("Existing isolation outputs use different inputs")
+        if not all((args.output/name).is_file() for name in ("isolation-overview.png", "isolation-token-attention.pdf")):
+            with np.load(archive) as arrays:
+                plot(args.output, report, arrays)
+        print(f"Reusing isolated attention for {len(selected)} qualifying prompts.", flush=True)
+        return
     if not selected:
-        write_json(args.output/"isolation-report.json", dict(plan=identity, eligibility=counts, probes=[]))
+        write_json(target, dict(**provenance, probes=[]))
         return
     _, _, settings, _, snapshot, adapters, _ = prepared
     model, tokenizer = load_advice_pair(snapshot, adapters, settings)
@@ -193,6 +239,7 @@ def isolate(args, prepared, identity):
         positions = torch.arange(ids.shape[-1], device=device)[None]
         masks = attention_masks(ids.shape[-1], case["spans"], device=device, dtype=model.dtype)
         record = {k: case[k] for k in ("id", "scenario", "order", "spans", "decisions")}
+        record["family"] = case.get("family", case["scenario"])
         record["token_labels"] = tokenizer.convert_ids_to_tokens(case["prompt_ids"])
         record["conditions"] = {}
         for mode, mask in zip(MODES, masks[:2], strict=True):
@@ -209,11 +256,13 @@ def isolate(args, prepared, identity):
             condition["model_gap_log2"] = (original-control).tolist()
             record["conditions"][mode] = condition
         reports.append(record)
-    report = dict(plan=identity, eligibility=counts, layers=args.layers, by_order=summaries(reports),
+    report = dict(**provenance, by_order=summaries(reports),
                   prompt_position="last input token predicting the first answer token",
-                  review_sha256=file_digest(review_path), screen_sha256=file_digest(screen_path), probes=reports)
-    write_json(args.output/"isolation-report.json", report)
-    np.savez_compressed(args.output/"first-answer-attention.npz", **arrays)
+                  probes=reports)
+    with archive.with_suffix(".partial").open("wb") as handle:
+        np.savez_compressed(handle, **arrays)
+    archive.with_suffix(".partial").replace(archive)
+    write_json(target, report)
     plot(args.output, report, arrays)
 
 
@@ -227,14 +276,19 @@ def plot(root, report, arrays):
     fig, axs = plt.subplots(1, len(layers), figsize=(4.5*len(layers), 5.5), squeeze=False, sharey=True,
                             layout="constrained")
     for i, (layer, ax) in enumerate(zip(layers, axs[0], strict=True)):
-        y = np.arange(len(rows))
+        groups = [(j, [row]) for j, row in enumerate(rows)] if len(rows) <= 30 else [
+            (j, [r for r in rows if r["order"] == order]) for j, order in enumerate(ORDERS)]
         for mode, color, marker in zip(MODES, ("#708097", "#a83247"), ("o", "x"), strict=True):
-            ax.scatter([r["conditions"][mode]["model_gap_log2"][i] for r in rows], y,
-                       label=mode.title(), c=color, marker=marker)
+            for j, group in groups:
+                ax.scatter([row["conditions"][mode]["model_gap_log2"][i] for row in group],
+                           np.full(len(group), j + (0 if len(rows) <= 30 else -.12 if mode == "normal" else .12)),
+                           label=mode.title() if j == 0 else None, c=color, marker=marker, alpha=.75)
         ax.axvline(0, c="#8492a6", lw=.8)
         ax.set_title(f"Layer {layer}")
         ax.set_xlabel("Incorrect advice − control\nlog₂ of target-to-benign attention per token")
-        ax.set_yticks(y, [f"{r['scenario'].replace('_', ' ')} · {r['order'].split('_')[1]}" for r in rows])
+        labels = [f"{r['scenario'].replace('_', ' ')} · {r['order'].split('_')[1]}" for r in rows] if len(rows) <= 30 \
+            else [f"Harmful task {order.split('_')[1]}" for order in ORDERS]
+        ax.set_yticks(range(len(labels)), labels)
     axs[0, 0].invert_yaxis()
     axs[0, -1].legend(frameon=False)
     fig.suptitle("First answer-token prediction with normal and isolated task spans")
@@ -274,9 +328,12 @@ def main():
     parser.add_argument("--step", type=int, choices=range(5, 51, 5), default=50)
     parser.add_argument("--layers", type=int, nargs="+", default=[14, 15, 31])
     parser.add_argument("--max-new-tokens", type=int, default=160)
+    parser.add_argument("--batch-size", type=int, default=1)
     args = parser.parse_args()
     if args.max_new_tokens < 2 or min(args.layers) < 0 or args.layers != sorted(set(args.layers)):
         parser.error("Choose positive generation length and increasing nonnegative layers")
+    if args.batch_size < 1:
+        parser.error("--batch-size must be positive")
     args.output = args.output or args.volume/"advice-attention-isolation-v1"/f"{args.corpus}-{args.seed}-{args.step}"
     args.panel = HISTORICAL
     prepared = plan(args)
@@ -293,10 +350,13 @@ def main():
         return
     if torch.cuda.device_count() != 1:
         raise SystemExit("Expose exactly one CUDA GPU.")
-    if args.action == "screen":
-        screen(args, probes, prepared, identity)
-    else:
-        isolate(args, prepared, identity)
+    args.output.mkdir(parents=True, exist_ok=True)
+    with (args.output/".capture-lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        if args.action == "screen":
+            screen(args, probes, prepared, identity)
+        else:
+            isolate(args, prepared, identity)
 
 
 if __name__ == "__main__":

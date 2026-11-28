@@ -31,7 +31,8 @@ def expand_panel(scenarios):
                     spans[name] = (start, start+len(value))
                     start += len(value)+2
                 yield dict(id=f"{scenario['id']}-{condition}-{order}", pair=pair, group=condition,
-                           scenario=scenario["id"], order=order, prompt="\n\n".join(parts), char_spans=spans)
+                           scenario=scenario["id"], family=scenario.get("family", scenario["id"]),
+                           order=order, prompt="\n\n".join(parts), char_spans=spans)
 
 
 def token_spans(offsets, prompt_start, char_spans, prompt_ids, bos_id):
