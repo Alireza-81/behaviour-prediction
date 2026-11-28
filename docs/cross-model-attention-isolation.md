@@ -46,3 +46,18 @@ HF_HUB_OFFLINE=1 CUDA_VISIBLE_DEVICES=0 \
 This replays the complete 480-prompt panel for each checkpoint pair on Mistral, Llama, OLMo, and Qwen3. It reuses their saved token IDs and weights. It writes a separate `all-layer-attention/` folder per cohort. Heads are preserved in a compressed float16 archive. Span scores use float32 attention before archival conversion. The output retains raw measurements so reviewed subsets can be extracted later without another GPU pass.
 
 The cross-model output directory contains `all-layer-summary.json`, `all-layer-ratio.png`, and `all-layer-absolute.png`. The summary checks the previously recorded layers against the earlier runs.
+
+## Attention throughout generation
+
+```bash
+cd ~/behaviour-prediction
+git pull --ff-only &&
+HF_HUB_OFFLINE=1 CUDA_VISIBLE_DEVICES=0 \
+  .venv/bin/python -u scripts/run_generation_attention_isolation.py run
+```
+
+The runner replays the archived answers on all decoder blocks, under both the normal and task-isolated prompt masks. It feeds each saved answer to both checkpoints. This yields the comparison on each checkpoint's own answer and two comparisons where both checkpoints read exactly the same preceding answer tokens. Under both masks, reply-format and answer tokens can read both task spans. All answer tokens come from the existing normal-mask screen, so this replay measures attention under the mask while holding the answer text fixed.
+
+The full 480-prompt panel is captured for each checkpoint pair. The PDF also includes the completed original-complies/control-avoids subset where a review exists. It labels provisional reviews separately. The figures compare the three answer-prefix conditions with the same prompt pairs at each prediction position, and show how many pairs remain as shorter answers end. The numeric summaries include separate task orders and shared-prefix trajectories through the end of each donor's answer.
+
+The consolidated PDF and run summary are `generation-attention.pdf` and `generation-attention.json` in the cross-model output directory. Per-cohort `generation-attention/summary.npz` files contain the figures' underlying values. Resumable shards retain per-prompt, per-layer attention mass averaged over heads for the harmful task, benign task, previous answer tokens, and remaining prompt tokens. Use `summarize` to incorporate new review files or rebuild the plots without the GPU. `--batch-size 1` reduces peak GPU memory, and `--models` can restrict a run to selected architectures.
